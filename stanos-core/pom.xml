@@ -1,0 +1,33 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>fr.matthieu-vergne</groupId>
+		<artifactId>stanos</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>stanos-core</artifactId>
+	<packaging>jar</packaging>
+	<name>STANOS Core Features</name>
+	<description>All the required algorithms to retrieve the useful data.</description>
+	<inceptionYear>2020</inceptionYear>
+	
+	<properties>
+		<junit-jupiter.version>5.6.0</junit-jupiter.version>
+	</properties>
+	
+	<dependencies>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>${junit-jupiter.version}</version>
+			<scope>test</scpe>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-params</artifactId>
+			<version>${junit-jupiter.version}</version>
+			<scope>test</scpe>
+		</dependency>
+	</dependencies>
+</project>
