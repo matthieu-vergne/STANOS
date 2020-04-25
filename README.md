@@ -13,11 +13,11 @@ However, it has now several drawbacks:
 - it is not open source, and not being able to dig in it to propose fixes and improvements makes it particulary frustrating.
 - it is not maintained anymore, or at least I failed in convincing the author in supporting lambdas, which are here to stay (and the help page show that most of the modules it contains date from 2011-2013, except the STAN stuff which is from 2017)
 
-Wrapping it up, I am limited by the lack of lambda supports (which I use more and more heavily) and it makes me worry regarding the support of Java 9+, with all the new module stuff.
+Wrapping it up, I am limited by the lack of lambda supports (which I use more and more heavily) and it makes me worry about the support of Java 9+, with all the new module stuff.
 
 ## Solution
 
-This project somes as an open source alternative to STAN, thus the name: STANOS.
+This project comes as an open source alternative to STAN, thus the name: STANOS.
 Yeah, I know it lacks in creativity, but STAN stands for STructure ANalysis, so let's be homogeneous.
 
 I don't plan to reverse engineer STAN, although not only because of legal issues.
