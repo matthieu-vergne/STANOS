@@ -8,12 +8,12 @@ public class Dependency {
 
 	private final Node source;
 	private final Node target;
-	private final DependencyType type;
+	private final Action action;
 
-	public Dependency(Node source, DependencyType type, Node target) {
+	public Dependency(Node source, Action action, Node target) {
 		this.source = source;
 		this.target = target;
-		this.type = type;
+		this.action = action;
 	}
 
 	public Node getSource() {
@@ -24,8 +24,8 @@ public class Dependency {
 		return target;
 	}
 
-	public DependencyType getType() {
-		return type;
+	public Action getAction() {
+		return action;
 	}
 
 	@Override
@@ -35,7 +35,7 @@ public class Dependency {
 		} else if (obj instanceof Dependency) {
 			Dependency that = (Dependency) obj;
 			return Objects.equals(this.source, that.source) && Objects.equals(this.target, that.target)
-					&& Objects.equals(this.type, that.type);
+					&& Objects.equals(this.action, that.action);
 		} else {
 			return false;
 		}
@@ -43,11 +43,11 @@ public class Dependency {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(source, target, type);
+		return Objects.hash(source, action, target);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("%s:%s:%s", source, type, target);
+		return String.format("%s:%s:%s", source, action, target);
 	}
 }

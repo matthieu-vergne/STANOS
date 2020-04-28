@@ -1,6 +1,6 @@
 package fr.vergne.stanos.bytecode.asm;
 
-import static fr.vergne.stanos.DependencyType.*;
+import static fr.vergne.stanos.Action.*;
 import static java.util.Spliterators.*;
 import static java.util.stream.StreamSupport.*;
 
@@ -79,8 +79,8 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 					@Override
 					public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
 							boolean isInterface) {
-						Method method2 = createMethod(Type.fromClassPath(owner), name, descriptor);
-						dependencies.add(new Dependency(method, CALLS, method2));
+						Method calledMethod = createMethod(Type.fromClassPath(owner), name, descriptor);
+						dependencies.add(new Dependency(method, CALLS, calledMethod));
 					}
 
 					@Override

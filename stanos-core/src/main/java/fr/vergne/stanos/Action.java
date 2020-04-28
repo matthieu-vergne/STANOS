@@ -1,5 +1,5 @@
 package fr.vergne.stanos;
 
-public enum DependencyType {
+public enum Action {
 	USES, DECLARES, CALLS;
 }
