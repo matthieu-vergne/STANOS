@@ -23,6 +23,7 @@ import org.objectweb.asm.util.ASMifier;
 import fr.vergne.stanos.Dependency;
 import fr.vergne.stanos.DependencyAnalyser;
 import fr.vergne.stanos.node.Constructor;
+import fr.vergne.stanos.node.Executable;
 import fr.vergne.stanos.node.Method;
 import fr.vergne.stanos.node.Node;
 import fr.vergne.stanos.node.StaticBlock;
@@ -74,7 +75,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
 					String[] exceptions) {
-				Node caller = createExecutableNode(classType, name, descriptor);
+				Executable caller = createExecutable(classType, name, descriptor);
 				dependencies.add(new Dependency(classType, DECLARES, caller));
 
 				return new MethodVisitor(ASM_VERSION) {
@@ -82,7 +83,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 					@Override
 					public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
 							boolean isInterface) {
-						Node called = createExecutableNode(Type.fromClassPath(owner), name, descriptor);
+						Executable called = createExecutable(Type.fromClassPath(owner), name, descriptor);
 						dependencies.add(new Dependency(caller, CALLS, called));
 					}
 
@@ -97,7 +98,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 				};
 			}
 
-			private Node createExecutableNode(Type ownerType, String name, String descriptor) {
+			private Executable createExecutable(Type ownerType, String name, String descriptor) {
 				List<Type> argsTypes = extractArgsTypes(descriptor);
 				if (Constructor.NAME.equals(name)) {
 					return Constructor.constructor(ownerType, argsTypes);

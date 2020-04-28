@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class Constructor extends BasicNode {
+public class Constructor extends Executable {
 
 	public static final String NAME = "<init>";
 

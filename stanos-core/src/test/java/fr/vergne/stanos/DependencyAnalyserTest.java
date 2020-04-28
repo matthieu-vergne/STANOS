@@ -22,10 +22,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import fr.vergne.stanos.CasesBuilder.Arguments;
 import fr.vergne.stanos.CasesBuilder.Targeter;
-import fr.vergne.stanos.DependencyAnalyserTest.MethodCall.Interface;
 import fr.vergne.stanos.node.Constructor;
+import fr.vergne.stanos.node.Executable;
 import fr.vergne.stanos.node.Method;
-import fr.vergne.stanos.node.Node;
 import fr.vergne.stanos.node.StaticBlock;
 import fr.vergne.stanos.node.Type;
 
@@ -143,6 +142,8 @@ public interface DependencyAnalyserTest {
 	default void testTypeDeclaresMethod(Arguments<?, ?> args) {
 		testTemplate(args);
 	}
+	
+	// TODO declare lambda
 
 	class ConstructorCall {
 		static class Callee {
@@ -202,14 +203,26 @@ public interface DependencyAnalyserTest {
 				new ConstructorCall.Callee().new Nested();
 			}
 		}
+
+		static class Lambda {
+			@SuppressWarnings("unused")
+			static void call() {
+				Runnable r1 = () -> {
+					new ConstructorCall.Callee().new Nested();
+					Runnable r2 = () -> {
+						new ConstructorCall.Callee().new Nested();
+					};
+				};
+			}
+		}
 	}
 
-	static Stream<Arguments<?, ?>> testConstructorOrMethodCallsConstructor() {
+	static Stream<Arguments<?, ?>> testExecutableCallsConstructor() {
 		Constructor calleeConstructor = constructor(ConstructorCall.Callee.class);
 		Constructor nestedConstructor = constructor(ConstructorCall.Callee.Nested.class, ConstructorCall.Callee.class);
 
 		Class<?> clazz;
-		Reducer<String, Node> caller;
+		Reducer<String, Executable> caller;
 
 		clazz = ConstructorCall.class;
 		caller = noArgCallerFactory(clazz);
@@ -240,12 +253,14 @@ public interface DependencyAnalyserTest {
 		caller = noArgCallerFactory(clazz);
 		cases.analyse(clazz).test(caller.x("call")).calls(1, calleeConstructor).and(1, nestedConstructor);
 
+		// TODO lambda calls constructor
+
 		return cases.buildAndClean();
 	}
 
 	@ParameterizedTest
 	@MethodSource
-	default void testConstructorOrMethodCallsConstructor(Arguments<?, ?> args) {
+	default void testExecutableCallsConstructor(Arguments<?, ?> args) {
 		testTemplate(args);
 	}
 
@@ -326,12 +341,12 @@ public interface DependencyAnalyserTest {
 		}
 	}
 
-	static Stream<Arguments<?, ?>> testConstructorOrMethodCallsMethod() {
+	static Stream<Arguments<?, ?>> testExecutableCallsMethod() {
 		Method aMethod = method(MethodCall.Called.class, Object.class, "a");
 		Method bMethod = method(MethodCall.Called.class, void.class, "b");
 
 		Class<?> clazz;
-		Reducer<String, Node> caller;
+		Reducer<String, Executable> caller;
 
 		clazz = MethodCall.class;
 		caller = noArgCallerFactory(clazz);
@@ -363,15 +378,19 @@ public interface DependencyAnalyserTest {
 		clazz = MethodCall.StaticMethod.class;
 		caller = noArgCallerFactory(clazz);
 		cases.analyse(clazz).test(caller.x("call")).calls(1, aMethod).and(0, bMethod);
+		
+		// TODO lambda calls method
 
 		return cases.buildAndClean();
 	}
 
 	@ParameterizedTest
 	@MethodSource
-	default void testConstructorOrMethodCallsMethod(Arguments<?, ?> args) {
+	default void testExecutableCallsMethod(Arguments<?, ?> args) {
 		testTemplate(args);
 	}
+	
+	// TODO calls lambda
 
 	default void testTemplate(Arguments<?, ?> args) {
 		// GIVEN
@@ -389,7 +408,7 @@ public interface DependencyAnalyserTest {
 		assertEquals(args.count(), found.size(), failureMessage);
 	}
 
-	static Reducer<String, Node> noArgCallerFactory(Class<?> callerClass) {
+	static Reducer<String, Executable> noArgCallerFactory(Class<?> callerClass) {
 		return name -> Constructor.NAME.equals(name) ? constructor(callerClass)
 				: StaticBlock.NAME.equals(name) ? staticBlock(callerClass) : method(callerClass, void.class, name);
 	}

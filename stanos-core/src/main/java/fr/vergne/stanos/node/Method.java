@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class Method extends BasicNode {
+public class Method extends Executable {
 
 	private Method(Type classType, String name, List<Type> argsTypes, Type returnType) {
 		super(classType.getId() + "." + methodName(name) + "("
