@@ -22,7 +22,10 @@ import org.objectweb.asm.util.ASMifier;
 
 import fr.vergne.stanos.Dependency;
 import fr.vergne.stanos.DependencyAnalyser;
+import fr.vergne.stanos.node.Constructor;
 import fr.vergne.stanos.node.Method;
+import fr.vergne.stanos.node.Node;
+import fr.vergne.stanos.node.StaticBlock;
 import fr.vergne.stanos.node.Type;
 
 @SuppressWarnings("unused")
@@ -71,43 +74,54 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
 					String[] exceptions) {
-				Method method = createMethod(classType, name, descriptor);
-				dependencies.add(new Dependency(classType, DECLARES, method));
+				Node caller = createExecutableNode(classType, name, descriptor);
+				dependencies.add(new Dependency(classType, DECLARES, caller));
 
 				return new MethodVisitor(ASM_VERSION) {
 
 					@Override
 					public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
 							boolean isInterface) {
-						Method calledMethod = createMethod(Type.fromClassPath(owner), name, descriptor);
-						dependencies.add(new Dependency(method, CALLS, calledMethod));
+						Node called = createExecutableNode(Type.fromClassPath(owner), name, descriptor);
+						dependencies.add(new Dependency(caller, CALLS, called));
 					}
 
 					@Override
 					public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
 							Object... bootstrapMethodArguments) {
-						System.err.println(String.format("InvokeDynamic: %s %s %s %s", name, descriptor, bootstrapMethodHandle,
-								bootstrapMethodArguments));
+						System.err.println(String.format("InvokeDynamic: %s %s %s %s", name, descriptor,
+								bootstrapMethodHandle, bootstrapMethodArguments));
 						// TODO Auto-generated method stub
 						super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
 					}
 				};
 			}
 
-			private Method createMethod(Type classType, String methodName, String methodDescriptor) {
-				int argsStart = methodDescriptor.indexOf('(') + 1;
-				int argsEnd = methodDescriptor.indexOf(')');
-				Iterator<String> argsIterator = new ClassNameIterator(methodDescriptor.substring(argsStart, argsEnd));
+			private Node createExecutableNode(Type ownerType, String name, String descriptor) {
+				List<Type> argsTypes = extractArgsTypes(descriptor);
+				if (Constructor.NAME.equals(name)) {
+					return Constructor.constructor(ownerType, argsTypes);
+				} else if (StaticBlock.NAME.equals(name)) {
+					return StaticBlock.staticBlock(ownerType, argsTypes);
+				} else {
+					Type returnType = extractReturnType(descriptor);
+					return Method.method(ownerType, returnType, name, argsTypes);
+				}
+			}
+
+			private List<Type> extractArgsTypes(String descriptor) {
+				int argsStart = descriptor.indexOf('(') + 1;
+				int argsEnd = descriptor.indexOf(')');
+				Iterator<String> argsIterator = new ClassNameIterator(descriptor.substring(argsStart, argsEnd));
 				Spliterator<String> argsSpliterator = spliteratorUnknownSize(argsIterator, Spliterator.ORDERED);
-				List<Type> argsTypes = stream(argsSpliterator, false).map(Type::fromClassName)
-						.collect(Collectors.toList());
+				return stream(argsSpliterator, false).map(Type::fromClassName).collect(Collectors.toList());
+			}
 
-				int returnStart = argsEnd + 1;
-				Type returnType = Type
-						.fromClassName(new ClassNameIterator(methodDescriptor.substring(returnStart)).next());
-
-				Method method = Method.method(classType, returnType, methodName, argsTypes);
-				return method;
+			private Type extractReturnType(String descriptor) {
+				int returnStart = descriptor.indexOf(')') + 1;
+				String returnDescriptor = descriptor.substring(returnStart);
+				String returnClassName = new ClassNameIterator(returnDescriptor).next();
+				return Type.fromClassName(returnClassName);
 			}
 		};
 	}

@@ -1,6 +1,8 @@
 package fr.vergne.stanos;
 
+import static fr.vergne.stanos.node.Constructor.*;
 import static fr.vergne.stanos.node.Method.*;
+import static fr.vergne.stanos.node.StaticBlock.*;
 import static fr.vergne.stanos.node.Type.*;
 import static fr.vergne.stanos.util.Formatter.*;
 import static java.util.function.Predicate.*;
@@ -19,13 +21,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import fr.vergne.stanos.CasesBuilder.Arguments;
-import fr.vergne.stanos.DependencyAnalyserTest.IParent.INested;
-import fr.vergne.stanos.DependencyAnalyserTest.IParent.INested.ISubNested;
-import fr.vergne.stanos.DependencyAnalyserTest.Parent.Nested;
-import fr.vergne.stanos.DependencyAnalyserTest.Parent.Nested.SubNested;
-import fr.vergne.stanos.DependencyAnalyserTest.Parent.StaticNested;
-import fr.vergne.stanos.DependencyAnalyserTest.Parent.StaticNested.StaticSubNested;
+import fr.vergne.stanos.CasesBuilder.Targeter;
+import fr.vergne.stanos.DependencyAnalyserTest.MethodCall.Interface;
+import fr.vergne.stanos.node.Constructor;
 import fr.vergne.stanos.node.Method;
+import fr.vergne.stanos.node.Node;
+import fr.vergne.stanos.node.StaticBlock;
+import fr.vergne.stanos.node.Type;
 
 public interface DependencyAnalyserTest {
 
@@ -46,14 +48,14 @@ public interface DependencyAnalyserTest {
 		assertEquals(Collections.emptyList(), dependencies);
 	}
 
-	interface IParent {
-		interface INested {
-			interface ISubNested {
+	static class Parent {
+		interface Interface {
+			interface Nested {
+				interface SubNested {
+				}
 			}
 		}
-	}
 
-	static class Parent {
 		static class StaticNested {
 			static class StaticSubNested {
 			}
@@ -66,17 +68,18 @@ public interface DependencyAnalyserTest {
 	}
 
 	static Stream<Arguments<?, ?>> testTypeDeclaresInnerType() {
-		cases.analyse(IParent.class).test(type(IParent.class)).declares(1, type(INested.class)).and(0,
-				type(ISubNested.class));
-		cases.analyse(INested.class).test(type(INested.class)).declares(1, type(ISubNested.class));
+		Reducer<Class<?>, Targeter<Type>> test = clazz -> cases.analyse(clazz).test(type(clazz));
 
-		cases.analyse(Parent.class).test(type(Parent.class)).declares(1, type(StaticNested.class)).and(0,
-				type(StaticSubNested.class));
-		cases.analyse(StaticNested.class).test(type(StaticNested.class)).declares(1, type(StaticSubNested.class));
+		test.x(Parent.Interface.class).declares(1, type(Parent.Interface.Nested.class)).and(0,
+				type(Parent.Interface.Nested.SubNested.class));
+		test.x(Parent.Interface.Nested.class).declares(1, type(Parent.Interface.Nested.SubNested.class));
 
-		cases.analyse(Parent.class).test(type(Parent.class)).declares(1, type(Nested.class)).and(0,
-				type(SubNested.class));
-		cases.analyse(Nested.class).test(type(Nested.class)).declares(1, type(SubNested.class));
+		test.x(Parent.class).declares(1, type(Parent.StaticNested.class)).and(0,
+				type(Parent.StaticNested.StaticSubNested.class));
+		test.x(Parent.StaticNested.class).declares(1, type(Parent.StaticNested.StaticSubNested.class));
+
+		test.x(Parent.class).declares(1, type(Parent.Nested.class)).and(0, type(Parent.Nested.SubNested.class));
+		test.x(Parent.Nested.class).declares(1, type(Parent.Nested.SubNested.class));
 
 		return cases.buildAndClean();
 	}
@@ -85,16 +88,6 @@ public interface DependencyAnalyserTest {
 	@MethodSource
 	default void testTypeDeclaresInnerType(Arguments<?, ?> args) {
 		testTemplate(args);
-	}
-
-	interface IMethodDeclare {
-		void method();
-
-		int complexMethod(boolean b, String s, List<Integer> l);
-
-		interface Nested {
-			void nestedMethod();
-		}
 	}
 
 	static class MethodDeclare {
@@ -109,19 +102,29 @@ public interface DependencyAnalyserTest {
 			void nestedMethod() {
 			}
 		}
+
+		interface Interface {
+			void method();
+
+			int complexMethod(boolean b, String s, List<Integer> l);
+
+			interface Nested {
+				void nestedMethod();
+			}
+		}
 	}
 
 	static Stream<Arguments<?, ?>> testTypeDeclaresMethod() {
 		List<Class<?>> complexArgs = Arrays.asList(boolean.class, String.class, List.class);
 
-		cases.analyse(IMethodDeclare.class).test(type(IMethodDeclare.class))
-				.declares(1, method(IMethodDeclare.class, void.class, "method"))
-				.and(1, method(IMethodDeclare.class, int.class, "complexMethod", complexArgs))
-				.and(0, method(IMethodDeclare.Nested.class, void.class, "nestedMethod"));
-		cases.analyse(IMethodDeclare.Nested.class).test(type(IMethodDeclare.Nested.class))
-				.declares(0, method(IMethodDeclare.class, void.class, "method"))
-				.and(0, method(IMethodDeclare.class, int.class, "complexMethod", complexArgs))
-				.and(1, method(IMethodDeclare.Nested.class, void.class, "nestedMethod"));
+		cases.analyse(MethodDeclare.Interface.class).test(type(MethodDeclare.Interface.class))
+				.declares(1, method(MethodDeclare.Interface.class, void.class, "method"))
+				.and(1, method(MethodDeclare.Interface.class, int.class, "complexMethod", complexArgs))
+				.and(0, method(MethodDeclare.Interface.Nested.class, void.class, "nestedMethod"));
+		cases.analyse(MethodDeclare.Interface.Nested.class).test(type(MethodDeclare.Interface.Nested.class))
+				.declares(0, method(MethodDeclare.Interface.class, void.class, "method"))
+				.and(0, method(MethodDeclare.Interface.class, int.class, "complexMethod", complexArgs))
+				.and(1, method(MethodDeclare.Interface.Nested.class, void.class, "nestedMethod"));
 
 		cases.analyse(MethodDeclare.class).test(type(MethodDeclare.class))
 				.declares(1, method(MethodDeclare.class, void.class, "method"))
@@ -141,16 +144,127 @@ public interface DependencyAnalyserTest {
 		testTemplate(args);
 	}
 
-	class Called {
-		void a() {
+	class ConstructorCall {
+		static class Callee {
+			class Nested {
+			}
 		}
 
-		void b() {
+		public ConstructorCall() {
+			new ConstructorCall.Callee().new Nested();
+		}
+
+		void monoCall() {
+			new ConstructorCall.Callee();
+		}
+
+		void duoCall() {
+			new ConstructorCall.Callee();
+			new ConstructorCall.Callee();
+		}
+
+		void nestedCall() {
+			new ConstructorCall.Callee().new Nested();
+		}
+
+		interface Interface {
+			default void monoCall() {
+				new ConstructorCall.Callee();
+			}
+
+			default void duoCall() {
+				new ConstructorCall.Callee();
+				new ConstructorCall.Callee();
+			}
+
+			default void nestedCall() {
+				new ConstructorCall.Callee().new Nested();
+			}
+		}
+
+		static class Field {
+			ConstructorCall.Callee.Nested field = new ConstructorCall.Callee().new Nested();
+		}
+
+		static class StaticDeclaration {
+			static ConstructorCall.Callee.Nested FIELD = new ConstructorCall.Callee().new Nested();
+		}
+
+		static class StaticBlock {
+			static ConstructorCall.Callee.Nested FIELD;
+			static {
+				FIELD = new ConstructorCall.Callee().new Nested();
+			}
+		}
+
+		static class StaticMethod {
+			static void call() {
+				new ConstructorCall.Callee().new Nested();
+			}
 		}
 	}
 
+	static Stream<Arguments<?, ?>> testConstructorOrMethodCallsConstructor() {
+		Constructor calleeConstructor = constructor(ConstructorCall.Callee.class);
+		Constructor nestedConstructor = constructor(ConstructorCall.Callee.Nested.class, ConstructorCall.Callee.class);
+
+		Class<?> clazz;
+		Reducer<String, Node> caller;
+
+		clazz = ConstructorCall.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
+		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, calleeConstructor).and(0, nestedConstructor);
+		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, calleeConstructor).and(0, nestedConstructor);
+		cases.analyse(clazz).test(caller.x("nestedCall")).calls(1, calleeConstructor).and(1, nestedConstructor);
+
+		clazz = ConstructorCall.Interface.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, calleeConstructor).and(0, nestedConstructor);
+		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, calleeConstructor).and(0, nestedConstructor);
+		cases.analyse(clazz).test(caller.x("nestedCall")).calls(1, calleeConstructor).and(1, nestedConstructor);
+
+		clazz = ConstructorCall.Field.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
+
+		clazz = ConstructorCall.StaticDeclaration.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
+
+		clazz = ConstructorCall.StaticBlock.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
+
+		clazz = ConstructorCall.StaticMethod.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x("call")).calls(1, calleeConstructor).and(1, nestedConstructor);
+
+		return cases.buildAndClean();
+	}
+
+	@ParameterizedTest
+	@MethodSource
+	default void testConstructorOrMethodCallsConstructor(Arguments<?, ?> args) {
+		testTemplate(args);
+	}
+
 	class MethodCall {
-		Called a = new Called();
+		static class Called {
+			Object a() {
+				return null;
+			}
+
+			void b() {
+			}
+		}
+
+		MethodCall.Called a = new MethodCall.Called();
+
+		public MethodCall() {
+			a.a();
+			a.b();
+		}
 
 		void noCall() {
 		}
@@ -168,90 +282,94 @@ public interface DependencyAnalyserTest {
 			a.a();
 			a.b();
 		}
+
+		interface Interface {
+			static MethodCall.Called a = new MethodCall.Called();
+
+			default void noCall() {
+			}
+
+			default void monoCall() {
+				a.a();
+			}
+
+			default void duoCall() {
+				a.a();
+				a.a();
+			}
+
+			default void biCall() {
+				a.a();
+				a.b();
+			}
+		}
+
+		static class Field {
+			Object field = new MethodCall.Called().a();
+		}
+
+		static class StaticDeclaration {
+			static Object FIELD = new MethodCall.Called().a();
+		}
+
+		static class StaticBlock {
+			static Object FIELD;
+			static {
+				FIELD = new MethodCall.Called().a();
+			}
+		}
+
+		static class StaticMethod {
+			static void call() {
+				new MethodCall.Called().a();
+			}
+		}
 	}
 
-	static Stream<Arguments<?, ?>> testMethodCallsMethod() {
-		Method aMethod = method(Called.class, void.class, "a");
-		Method bMethod = method(Called.class, void.class, "b");
-		Reducer<String, Method> caller = name -> method(MethodCall.class, void.class, name);
+	static Stream<Arguments<?, ?>> testConstructorOrMethodCallsMethod() {
+		Method aMethod = method(MethodCall.Called.class, Object.class, "a");
+		Method bMethod = method(MethodCall.Called.class, void.class, "b");
 
-		cases.analyse(MethodCall.class).test(caller.x("noCall")).calls(0, aMethod).and(0, bMethod);
-		cases.analyse(MethodCall.class).test(caller.x("monoCall")).calls(1, aMethod).and(0, bMethod);
-		cases.analyse(MethodCall.class).test(caller.x("duoCall")).calls(2, aMethod).and(0, bMethod);
-		cases.analyse(MethodCall.class).test(caller.x("biCall")).calls(1, aMethod).and(1, bMethod);
+		Class<?> clazz;
+		Reducer<String, Node> caller;
+
+		clazz = MethodCall.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, aMethod).and(1, bMethod);
+		cases.analyse(clazz).test(caller.x("noCall")).calls(0, aMethod).and(0, bMethod);
+		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, aMethod).and(0, bMethod);
+		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, aMethod).and(0, bMethod);
+		cases.analyse(clazz).test(caller.x("biCall")).calls(1, aMethod).and(1, bMethod);
+
+		clazz = MethodCall.Interface.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x("noCall")).calls(0, aMethod).and(0, bMethod);
+		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, aMethod).and(0, bMethod);
+		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, aMethod).and(0, bMethod);
+		cases.analyse(clazz).test(caller.x("biCall")).calls(1, aMethod).and(1, bMethod);
+
+		clazz = MethodCall.Field.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, aMethod).and(0, bMethod);
+
+		clazz = MethodCall.StaticDeclaration.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, aMethod).and(0, bMethod);
+
+		clazz = MethodCall.StaticBlock.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, aMethod).and(0, bMethod);
+
+		clazz = MethodCall.StaticMethod.class;
+		caller = noArgCallerFactory(clazz);
+		cases.analyse(clazz).test(caller.x("call")).calls(1, aMethod).and(0, bMethod);
+
 		return cases.buildAndClean();
 	}
 
 	@ParameterizedTest
 	@MethodSource
-	default void testMethodCallsMethod(Arguments<?, ?> args) {
-		testTemplate(args);
-	}
-
-	class Callee {
-		class Nested {
-		}
-	}
-
-	class ConstructorCall {
-		void monoCall() {
-			new Callee();
-		}
-
-		void duoCall() {
-			new Callee();
-			new Callee();
-		}
-
-		void nestedCall() {
-			Callee callee = new Callee();
-			callee.new Nested();
-		}
-	}
-
-	interface IConstructorCall {
-		default void monoCall() {
-			new Callee();
-		}
-
-		default void duoCall() {
-			new Callee();
-			new Callee();
-		}
-
-		default void nestedCall() {
-			Callee callee = new Callee();
-			callee.new Nested();
-		}
-	}
-
-	static Stream<Arguments<?, ?>> testMethodCallsConstructor() {
-		// TODO use dedicated Constructor class
-		Method calleeConstructor = method(Callee.class, void.class, "<init>");
-		Method nestedConstructor = method(Callee.Nested.class, void.class, "<init>", Callee.class);
-
-		Reducer<String, Method> caller = name -> method(ConstructorCall.class, void.class, name);
-		cases.analyse(ConstructorCall.class).test(caller.x("monoCall")).calls(1, calleeConstructor).and(0,
-				nestedConstructor);
-		cases.analyse(ConstructorCall.class).test(caller.x("duoCall")).calls(2, calleeConstructor).and(0,
-				nestedConstructor);
-		cases.analyse(ConstructorCall.class).test(caller.x("nestedCall")).calls(1, calleeConstructor).and(1,
-				nestedConstructor);
-
-		Reducer<String, Method> icaller = name -> method(IConstructorCall.class, void.class, name);
-		cases.analyse(IConstructorCall.class).test(icaller.x("monoCall")).calls(1, calleeConstructor).and(0,
-				nestedConstructor);
-		cases.analyse(IConstructorCall.class).test(icaller.x("duoCall")).calls(2, calleeConstructor).and(0,
-				nestedConstructor);
-		cases.analyse(IConstructorCall.class).test(icaller.x("nestedCall")).calls(1, calleeConstructor).and(1,
-				nestedConstructor);
-
-		return cases.buildAndClean();
-	}
-
-	@ParameterizedTest
-	@MethodSource
-	default void testMethodCallsConstructor(Arguments<?, ?> args) {
+	default void testConstructorOrMethodCallsMethod(Arguments<?, ?> args) {
 		testTemplate(args);
 	}
 
@@ -269,5 +387,10 @@ public interface DependencyAnalyserTest {
 			return removeClassPrefixes(extendedMessage, DependencyAnalyserTest.class);
 		};
 		assertEquals(args.count(), found.size(), failureMessage);
+	}
+
+	static Reducer<String, Node> noArgCallerFactory(Class<?> callerClass) {
+		return name -> Constructor.NAME.equals(name) ? constructor(callerClass)
+				: StaticBlock.NAME.equals(name) ? staticBlock(callerClass) : method(callerClass, void.class, name);
 	}
 }
