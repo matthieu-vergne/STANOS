@@ -22,12 +22,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import fr.vergne.stanos.CasesBuilder.Arguments;
 import fr.vergne.stanos.CasesBuilder.Targeter;
-import fr.vergne.stanos.Reducer.BiReducer;
 import fr.vergne.stanos.node.Constructor;
 import fr.vergne.stanos.node.Executable;
 import fr.vergne.stanos.node.Lambda;
 import fr.vergne.stanos.node.Method;
-import fr.vergne.stanos.node.StaticBlock;
 import fr.vergne.stanos.node.Type;
 
 public interface DependencyAnalyserTest {
@@ -50,31 +48,30 @@ public interface DependencyAnalyserTest {
 	}
 
 	static Stream<Arguments<?, ?>> testBasicDeclarations() {
+		testType(Declare.Type.AsInnerClass.class).declares(1, type(Declare.Type.AsInnerClass.Declared.class));
+		testType(Declare.Type.AsInterface.class).declares(1, type(Declare.Type.AsInterface.Declared.class));
+		testType(Declare.Type.AsStaticClass.class).declares(1, type(Declare.Type.AsStaticClass.Declared.class));
+
+		testType(Declare.Method.Simple.class).declares(1, method(sameClass(), void.class, "method"));
+		testType(Declare.Method.Complex.class).declares(1,
+				method(sameClass(), int.class, "method", String.class, List.class));
+		testType(Declare.Method.InInterface.class).declares(1, method(sameClass(), void.class, "method"));
+		testType(Declare.Method.WithDefaultImpl.class).declares(1, method(sameClass(), void.class, "method"));
+
 		Method lambdaMethod = method(Declare.Lambda.MyLambda.class, void.class, "x");
-		Supplier<Lambda> lambda = () -> lambda(type(classCache[0]), "lambda$0", lambdaMethod);
-
-		testType.x(Declare.Type.AsInnerClass.class).declares(1, type(Declare.Type.AsInnerClass.Declared.class));
-		testType.x(Declare.Type.AsInterface.class).declares(1, type(Declare.Type.AsInterface.Declared.class));
-		testType.x(Declare.Type.AsStaticClass.class).declares(1, type(Declare.Type.AsStaticClass.Declared.class));
-
-		testType.x(Declare.Method.Simple.class).declares(1, method(sameClass.get(), void.class, "method"));
-		testType.x(Declare.Method.Complex.class).declares(1,
-				method(sameClass.get(), int.class, "method", String.class, List.class));
-		testType.x(Declare.Method.InInterface.class).declares(1, method(sameClass.get(), void.class, "method"));
-		testType.x(Declare.Method.WithDefaultImpl.class).declares(1, method(sameClass.get(), void.class, "method"));
-
-		testType.x(Declare.Lambda.InConstructor.class).declares(0, lambda.get());// hide byte code duplicates
-		testExecutable.x(Declare.Lambda.InConstructor.class, Constructor.NAME).declares(1, lambda.get());
-		testExecutable.x(Declare.Lambda.InStaticBlock.class, StaticBlock.NAME).declares(1, lambda.get());
-		testExecutable.x(Declare.Lambda.OnField.class, Constructor.NAME).declares(1, lambda.get());
-		testExecutable.x(Declare.Lambda.OnStaticField.class, StaticBlock.NAME).declares(1, lambda.get());
-		testExecutable.x(Declare.Lambda.InMethod.class, "method").declares(1, lambda.get());
-		testExecutable.x(Declare.Lambda.InStaticMethod.class, "method").declares(1, lambda.get());
-		testExecutable.x(Declare.Lambda.InDefaultImpl.class, "method").declares(1, lambda.get());
+		Supplier<Lambda> lambda = () -> lambda(type(sameClass()), "lambda$0", lambdaMethod);
+		testType(Declare.Lambda.InConstructor.class).declares(0, lambda.get());// hide byte code duplicates
+		testConstructor(Declare.Lambda.InConstructor.class).declares(1, lambda.get());
+		testConstructor(Declare.Lambda.OnField.class).declares(1, lambda.get());
+		testStaticBlock(Declare.Lambda.InStaticBlock.class).declares(1, lambda.get());
+		testStaticBlock(Declare.Lambda.OnStaticField.class).declares(1, lambda.get());
+		testMethod(Declare.Lambda.InMethod.class, "method").declares(1, lambda.get());
+		testMethod(Declare.Lambda.InStaticMethod.class, "method").declares(1, lambda.get());
+		testMethod(Declare.Lambda.InDefaultImpl.class, "method").declares(1, lambda.get());
 		Lambda lambdaParent = lambda(type(Declare.Lambda.InLambda.class), "lambda$0", lambdaMethod);
 		Lambda lambdaChild = lambda(type(Declare.Lambda.InLambda.class), "lambda$1", lambdaMethod);
-		testExecutable.x(Declare.Lambda.InLambda.class, "method").declares(1, lambdaParent).and(0, lambdaChild);
-		testLambda.x(Declare.Lambda.InLambda.class, lambdaParent).declares(0, lambdaParent).and(1, lambdaChild);
+		testMethod(Declare.Lambda.InLambda.class, "method").declares(1, lambdaParent).and(0, lambdaChild);
+		testLambda(Declare.Lambda.InLambda.class, lambdaParent).declares(0, lambdaParent).and(1, lambdaChild);
 
 		return cases.buildAndClean();
 	}
@@ -88,33 +85,32 @@ public interface DependencyAnalyserTest {
 	static Stream<Arguments<?, ?>> testBasicCalls() {
 		Constructor cons = constructor(Call.Constructor.Called.class);
 		Constructor consNes = nestedConstructor(Call.Constructor.Called.Nested.class);
-		Method methodA = method(Call.Method.Called.class, Object.class, "a");
-		Method methodB = method(Call.Method.Called.class, void.class, "b");
-
-		testExecutable.x(Call.Constructor.InConstructor.class, Constructor.NAME).calls(1, cons).and(0, consNes);
-		testExecutable.x(Call.Constructor.InStaticBlock.class, StaticBlock.NAME).calls(1, cons).and(0, consNes);
-		testExecutable.x(Call.Constructor.OnField.class, Constructor.NAME).calls(1, cons).and(0, consNes);
-		testExecutable.x(Call.Constructor.OnStaticField.class, StaticBlock.NAME).calls(1, cons).and(0, consNes);
-		testExecutable.x(Call.Constructor.InMethod.class, "method").calls(1, cons).and(0, consNes);
-		testExecutable.x(Call.Constructor.InStaticMethod.class, "method").calls(1, cons).and(0, consNes);
-		testExecutable.x(Call.Constructor.MultipleTimes.class, "method").calls(2, cons).and(0, consNes);
+		testConstructor(Call.Constructor.InConstructor.class).calls(1, cons).and(0, consNes);
+		testConstructor(Call.Constructor.OnField.class).calls(1, cons).and(0, consNes);
+		testStaticBlock(Call.Constructor.InStaticBlock.class).calls(1, cons).and(0, consNes);
+		testStaticBlock(Call.Constructor.OnStaticField.class).calls(1, cons).and(0, consNes);
+		testMethod(Call.Constructor.InMethod.class, "method").calls(1, cons).and(0, consNes);
+		testMethod(Call.Constructor.InStaticMethod.class, "method").calls(1, cons).and(0, consNes);
+		testMethod(Call.Constructor.MultipleTimes.class, "method").calls(2, cons).and(0, consNes);
+		testMethod(Call.Constructor.OfNestedClass.class, "method").calls(1, cons).and(1, consNes);
+		testMethod(Call.Constructor.InDefaultImpl.class, "method").calls(1, cons).and(0, consNes);
 		Lambda lambda = lambda(type(Call.Constructor.InLambda.class), "lambda$0",
 				method(Runnable.class, void.class, "run"));
-		testLambda.x(Call.Constructor.InLambda.class, lambda).calls(1, cons);
-		testExecutable.x(Call.Constructor.OfNestedClass.class, "method").calls(1, cons).and(1, consNes);
-		testExecutable.x(Call.Constructor.InDefaultImpl.class, "method").calls(1, cons).and(0, consNes);
+		testLambda(Call.Constructor.InLambda.class, lambda).calls(1, cons);
 
-		testExecutable.x(Call.Method.InConstructor.class, Constructor.NAME).calls(1, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.InStaticBlock.class, StaticBlock.NAME).calls(1, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.OnField.class, Constructor.NAME).calls(1, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.OnStaticField.class, StaticBlock.NAME).calls(1, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.InMethod.class, "method").calls(1, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.InStaticMethod.class, "method").calls(1, methodA).and(0, methodB);
+		Method methodA = method(Call.Method.Called.class, Object.class, "a");
+		Method methodB = method(Call.Method.Called.class, void.class, "b");
+		testConstructor(Call.Method.InConstructor.class).calls(1, methodA).and(0, methodB);
+		testConstructor(Call.Method.OnField.class).calls(1, methodA).and(0, methodB);
+		testStaticBlock(Call.Method.InStaticBlock.class).calls(1, methodA).and(0, methodB);
+		testStaticBlock(Call.Method.OnStaticField.class).calls(1, methodA).and(0, methodB);
+		testMethod(Call.Method.InMethod.class, "method").calls(1, methodA).and(0, methodB);
+		testMethod(Call.Method.InStaticMethod.class, "method").calls(1, methodA).and(0, methodB);
+		testMethod(Call.Method.MultipleTimes.class, "method").calls(2, methodA).and(0, methodB);
+		testMethod(Call.Method.WithOthers.class, "method").calls(1, methodA).and(1, methodB);
+		testMethod(Call.Method.InDefaultImpl.class, "method").calls(1, methodA).and(0, methodB);
 		lambda = lambda(type(Call.Method.InLambda.class), "lambda$0", method(Runnable.class, void.class, "run"));
-		testLambda.x(Call.Method.InLambda.class, lambda).calls(1, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.MultipleTimes.class, "method").calls(2, methodA).and(0, methodB);
-		testExecutable.x(Call.Method.WithOthers.class, "method").calls(1, methodA).and(1, methodB);
-		testExecutable.x(Call.Method.InDefaultImpl.class, "method").calls(1, methodA).and(0, methodB);
+		testLambda(Call.Method.InLambda.class, lambda).calls(1, methodA).and(0, methodB);
 
 		return cases.buildAndClean();
 	}
@@ -142,18 +138,34 @@ public interface DependencyAnalyserTest {
 	}
 
 	static final Class<?>[] classCache = { null };
-	static final Supplier<Class<?>> sameClass = () -> classCache[0];
-	static final Reducer<Class<?>, Targeter<Type>> testType = clazz -> {
+
+	static Targeter<Type> testType(Class<?> clazz) {
 		classCache[0] = clazz;
 		return cases.analyse(clazz).test(type(clazz));
-	};
-	static final BiReducer<Class<?>, String, Targeter<Executable>> testExecutable = (clazz, name) -> {
+	}
+
+	static Targeter<Executable> testConstructor(Class<?> clazz) {
 		classCache[0] = clazz;
-		return cases.analyse(clazz).test(noArgCallerFactory(clazz).x(name));
-	};
-	static final BiReducer<Class<?>, Lambda, Targeter<Lambda>> testLambda = (clazz, lambda) -> {
+		return cases.analyse(clazz).test(constructor(clazz));
+	}
+
+	static Targeter<Executable> testStaticBlock(Class<?> clazz) {
+		classCache[0] = clazz;
+		return cases.analyse(clazz).test(staticBlock(clazz));
+	}
+
+	static Targeter<Executable> testMethod(Class<?> clazz, String name) {
+		classCache[0] = clazz;
+		return cases.analyse(clazz).test(method(clazz, void.class, name));
+	}
+
+	static Targeter<Lambda> testLambda(Class<?> clazz, Lambda lambda) {
 		classCache[0] = clazz;
 		return cases.analyse(clazz).test(lambda);
+	}
+
+	static Class<?> sameClass() {
+		return classCache[0];
 	};
 
 	static class Declare {
@@ -408,10 +420,5 @@ public interface DependencyAnalyserTest {
 				}
 			}
 		}
-	}
-
-	static Reducer<String, Executable> noArgCallerFactory(Class<?> callerClass) {
-		return name -> Constructor.NAME.equals(name) ? constructor(callerClass)
-				: StaticBlock.NAME.equals(name) ? staticBlock(callerClass) : method(callerClass, void.class, name);
 	}
 }
