@@ -1,17 +1,29 @@
 package fr.vergne.stanos.bytecode.asm;
 
 import static fr.vergne.stanos.Action.*;
+import static fr.vergne.stanos.node.Method.*;
+import static fr.vergne.stanos.node.Lambda.*;
+import static fr.vergne.stanos.node.StaticBlock.*;
+import static fr.vergne.stanos.node.Constructor.*;
 import static java.util.Spliterators.*;
 import static java.util.stream.StreamSupport.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Spliterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -24,6 +36,7 @@ import fr.vergne.stanos.Dependency;
 import fr.vergne.stanos.DependencyAnalyser;
 import fr.vergne.stanos.node.Constructor;
 import fr.vergne.stanos.node.Executable;
+import fr.vergne.stanos.node.Lambda;
 import fr.vergne.stanos.node.Method;
 import fr.vergne.stanos.node.Node;
 import fr.vergne.stanos.node.StaticBlock;
@@ -33,10 +46,6 @@ import fr.vergne.stanos.node.Type;
 public class ASMByteCodeAnalyser implements DependencyAnalyser {
 
 	private static final int ASM_VERSION = Opcodes.ASM8;
-
-	public ASMByteCodeAnalyser() {
-		// TODO Auto-generated constructor stub
-	}
 
 	@Override
 	public Collection<Dependency> analyse(InputStream inputStream) {
@@ -56,7 +65,8 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 	private static ClassVisitor createVisitor(Collection<Dependency> dependencies) {
 		return new ClassVisitor(ASM_VERSION) {
 
-			Type classType;
+			private Type classType;
+			private final Map<String, Lambda> lambdas = new HashMap<>();
 
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName,
@@ -75,8 +85,14 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
 					String[] exceptions) {
-				Executable caller = createExecutable(classType, name, descriptor);
-				dependencies.add(new Dependency(classType, DECLARES, caller));
+				Executable caller;
+				if (name.startsWith(Lambda.NAME_PREFIX)) {
+					caller = lambdas.get(lambdaId(classType, name));
+					// Do not declare here, already done when it was found
+				} else {
+					caller = createExecutable(classType, name, descriptor);
+					dependencies.add(new Dependency(classType, DECLARES, caller));
+				}
 
 				return new MethodVisitor(ASM_VERSION) {
 
@@ -88,12 +104,15 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 					}
 
 					@Override
-					public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
-							Object... bootstrapMethodArguments) {
-						System.err.println(String.format("InvokeDynamic: %s %s %s %s", name, descriptor,
-								bootstrapMethodHandle, bootstrapMethodArguments));
-						// TODO Auto-generated method stub
-						super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+					public void visitInvokeDynamicInsn(String methodName, String descriptor,
+							Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
+						org.objectweb.asm.Handle handle = (Handle) bootstrapMethodArguments[1];
+						String lambdaId = lambdaId(Type.fromClassPath(handle.getOwner()), handle.getName());
+						Method lambdaMethod = (Method) createExecutable(extractReturnType(descriptor), methodName,
+								handle.getDesc());
+						Lambda lambda = lambda(lambdaId, lambdaMethod);
+						lambdas.put(lambdaId, lambda);
+						dependencies.add(new Dependency(caller, DECLARES, lambda));
 					}
 				};
 			}
@@ -101,16 +120,17 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			private Executable createExecutable(Type ownerType, String name, String descriptor) {
 				List<Type> argsTypes = extractArgsTypes(descriptor);
 				if (Constructor.NAME.equals(name)) {
-					return Constructor.constructor(ownerType, argsTypes);
+					return constructor(ownerType, argsTypes);
 				} else if (StaticBlock.NAME.equals(name)) {
-					return StaticBlock.staticBlock(ownerType, argsTypes);
+					return staticBlock(ownerType, argsTypes);
 				} else {
 					Type returnType = extractReturnType(descriptor);
-					return Method.method(ownerType, returnType, name, argsTypes);
+					return method(ownerType, returnType, name, argsTypes);
 				}
 			}
 
 			private List<Type> extractArgsTypes(String descriptor) {
+				// TODO use org.objectweb.asm.Type facilities
 				int argsStart = descriptor.indexOf('(') + 1;
 				int argsEnd = descriptor.indexOf(')');
 				Iterator<String> argsIterator = new ClassNameIterator(descriptor.substring(argsStart, argsEnd));
@@ -119,6 +139,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			}
 
 			private Type extractReturnType(String descriptor) {
+				// TODO use org.objectweb.asm.Type facilities
 				int returnStart = descriptor.indexOf(')') + 1;
 				String returnDescriptor = descriptor.substring(returnStart);
 				String returnClassName = new ClassNameIterator(returnDescriptor).next();

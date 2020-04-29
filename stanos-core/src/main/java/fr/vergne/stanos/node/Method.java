@@ -18,6 +18,9 @@ public class Method extends Executable {
 		if (StaticBlock.NAME.equals(name)) {
 			throw new IllegalArgumentException("Static block name " + name);
 		}
+		if (name.startsWith(Lambda.NAME_PREFIX)) {
+			throw new IllegalArgumentException("Lambda name " + name);
+		}
 		return name;
 	}
 

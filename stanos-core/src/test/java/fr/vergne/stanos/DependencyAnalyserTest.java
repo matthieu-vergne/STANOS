@@ -1,6 +1,7 @@
 package fr.vergne.stanos;
 
 import static fr.vergne.stanos.node.Constructor.*;
+import static fr.vergne.stanos.node.Lambda.*;
 import static fr.vergne.stanos.node.Method.*;
 import static fr.vergne.stanos.node.StaticBlock.*;
 import static fr.vergne.stanos.node.Type.*;
@@ -8,7 +9,6 @@ import static fr.vergne.stanos.util.Formatter.*;
 import static java.util.function.Predicate.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -22,8 +22,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import fr.vergne.stanos.CasesBuilder.Arguments;
 import fr.vergne.stanos.CasesBuilder.Targeter;
+import fr.vergne.stanos.Reducer.BiReducer;
 import fr.vergne.stanos.node.Constructor;
 import fr.vergne.stanos.node.Executable;
+import fr.vergne.stanos.node.Lambda;
 import fr.vergne.stanos.node.Method;
 import fr.vergne.stanos.node.StaticBlock;
 import fr.vergne.stanos.node.Type;
@@ -47,350 +49,81 @@ public interface DependencyAnalyserTest {
 		assertEquals(Collections.emptyList(), dependencies);
 	}
 
-	static class Parent {
-		interface Interface {
-			interface Nested {
-				interface SubNested {
-				}
-			}
-		}
+	static Stream<Arguments<?, ?>> testBasicDeclarations() {
+		Method lambdaMethod = method(Declare.Lambda.MyLambda.class, void.class, "x");
+		Supplier<Lambda> lambda = () -> lambda(type(classCache[0]), "lambda$0", lambdaMethod);
 
-		static class StaticNested {
-			static class StaticSubNested {
-			}
-		}
+		testType.x(Declare.Type.AsInnerClass.class).declares(1, type(Declare.Type.AsInnerClass.Declared.class));
+		testType.x(Declare.Type.AsInterface.class).declares(1, type(Declare.Type.AsInterface.Declared.class));
+		testType.x(Declare.Type.AsStaticClass.class).declares(1, type(Declare.Type.AsStaticClass.Declared.class));
 
-		class Nested {
-			class SubNested {
-			}
-		}
-	}
+		testType.x(Declare.Method.Simple.class).declares(1, method(sameClass.get(), void.class, "method"));
+		testType.x(Declare.Method.Complex.class).declares(1,
+				method(sameClass.get(), int.class, "method", String.class, List.class));
+		testType.x(Declare.Method.InInterface.class).declares(1, method(sameClass.get(), void.class, "method"));
+		testType.x(Declare.Method.WithDefaultImpl.class).declares(1, method(sameClass.get(), void.class, "method"));
 
-	static Stream<Arguments<?, ?>> testTypeDeclaresInnerType() {
-		Reducer<Class<?>, Targeter<Type>> test = clazz -> cases.analyse(clazz).test(type(clazz));
-
-		test.x(Parent.Interface.class).declares(1, type(Parent.Interface.Nested.class)).and(0,
-				type(Parent.Interface.Nested.SubNested.class));
-		test.x(Parent.Interface.Nested.class).declares(1, type(Parent.Interface.Nested.SubNested.class));
-
-		test.x(Parent.class).declares(1, type(Parent.StaticNested.class)).and(0,
-				type(Parent.StaticNested.StaticSubNested.class));
-		test.x(Parent.StaticNested.class).declares(1, type(Parent.StaticNested.StaticSubNested.class));
-
-		test.x(Parent.class).declares(1, type(Parent.Nested.class)).and(0, type(Parent.Nested.SubNested.class));
-		test.x(Parent.Nested.class).declares(1, type(Parent.Nested.SubNested.class));
+		testType.x(Declare.Lambda.InConstructor.class).declares(0, lambda.get());// hide byte code duplicates
+		testExecutable.x(Declare.Lambda.InConstructor.class, Constructor.NAME).declares(1, lambda.get());
+		testExecutable.x(Declare.Lambda.InStaticBlock.class, StaticBlock.NAME).declares(1, lambda.get());
+		testExecutable.x(Declare.Lambda.OnField.class, Constructor.NAME).declares(1, lambda.get());
+		testExecutable.x(Declare.Lambda.OnStaticField.class, StaticBlock.NAME).declares(1, lambda.get());
+		testExecutable.x(Declare.Lambda.InMethod.class, "method").declares(1, lambda.get());
+		testExecutable.x(Declare.Lambda.InStaticMethod.class, "method").declares(1, lambda.get());
+		testExecutable.x(Declare.Lambda.InDefaultImpl.class, "method").declares(1, lambda.get());
+		Lambda lambdaParent = lambda(type(Declare.Lambda.InLambda.class), "lambda$0", lambdaMethod);
+		Lambda lambdaChild = lambda(type(Declare.Lambda.InLambda.class), "lambda$1", lambdaMethod);
+		testExecutable.x(Declare.Lambda.InLambda.class, "method").declares(1, lambdaParent).and(0, lambdaChild);
+		testLambda.x(Declare.Lambda.InLambda.class, lambdaParent).declares(0, lambdaParent).and(1, lambdaChild);
 
 		return cases.buildAndClean();
 	}
 
 	@ParameterizedTest
 	@MethodSource
-	default void testTypeDeclaresInnerType(Arguments<?, ?> args) {
+	default void testBasicDeclarations(Arguments<?, ?> args) {
 		testTemplate(args);
 	}
 
-	static class MethodDeclare {
-		void method() {
-		}
+	static Stream<Arguments<?, ?>> testBasicCalls() {
+		Constructor cons = constructor(Call.Constructor.Called.class);
+		Constructor consNes = nestedConstructor(Call.Constructor.Called.Nested.class);
+		Method methodA = method(Call.Method.Called.class, Object.class, "a");
+		Method methodB = method(Call.Method.Called.class, void.class, "b");
 
-		int complexMethod(boolean b, String s, List<Integer> l) {
-			return 0;
-		}
+		testExecutable.x(Call.Constructor.InConstructor.class, Constructor.NAME).calls(1, cons).and(0, consNes);
+		testExecutable.x(Call.Constructor.InStaticBlock.class, StaticBlock.NAME).calls(1, cons).and(0, consNes);
+		testExecutable.x(Call.Constructor.OnField.class, Constructor.NAME).calls(1, cons).and(0, consNes);
+		testExecutable.x(Call.Constructor.OnStaticField.class, StaticBlock.NAME).calls(1, cons).and(0, consNes);
+		testExecutable.x(Call.Constructor.InMethod.class, "method").calls(1, cons).and(0, consNes);
+		testExecutable.x(Call.Constructor.InStaticMethod.class, "method").calls(1, cons).and(0, consNes);
+		testExecutable.x(Call.Constructor.MultipleTimes.class, "method").calls(2, cons).and(0, consNes);
+		Lambda lambda = lambda(type(Call.Constructor.InLambda.class), "lambda$0",
+				method(Runnable.class, void.class, "run"));
+		testLambda.x(Call.Constructor.InLambda.class, lambda).calls(1, cons);
+		testExecutable.x(Call.Constructor.OfNestedClass.class, "method").calls(1, cons).and(1, consNes);
+		testExecutable.x(Call.Constructor.InDefaultImpl.class, "method").calls(1, cons).and(0, consNes);
 
-		class Nested {
-			void nestedMethod() {
-			}
-		}
-
-		interface Interface {
-			void method();
-
-			int complexMethod(boolean b, String s, List<Integer> l);
-
-			interface Nested {
-				void nestedMethod();
-			}
-		}
-	}
-
-	static Stream<Arguments<?, ?>> testTypeDeclaresMethod() {
-		List<Class<?>> complexArgs = Arrays.asList(boolean.class, String.class, List.class);
-
-		cases.analyse(MethodDeclare.Interface.class).test(type(MethodDeclare.Interface.class))
-				.declares(1, method(MethodDeclare.Interface.class, void.class, "method"))
-				.and(1, method(MethodDeclare.Interface.class, int.class, "complexMethod", complexArgs))
-				.and(0, method(MethodDeclare.Interface.Nested.class, void.class, "nestedMethod"));
-		cases.analyse(MethodDeclare.Interface.Nested.class).test(type(MethodDeclare.Interface.Nested.class))
-				.declares(0, method(MethodDeclare.Interface.class, void.class, "method"))
-				.and(0, method(MethodDeclare.Interface.class, int.class, "complexMethod", complexArgs))
-				.and(1, method(MethodDeclare.Interface.Nested.class, void.class, "nestedMethod"));
-
-		cases.analyse(MethodDeclare.class).test(type(MethodDeclare.class))
-				.declares(1, method(MethodDeclare.class, void.class, "method"))
-				.and(1, method(MethodDeclare.class, int.class, "complexMethod", complexArgs))
-				.and(0, method(MethodDeclare.Nested.class, void.class, "nestedMethod"));
-		cases.analyse(MethodDeclare.Nested.class).test(type(MethodDeclare.Nested.class))
-				.declares(0, method(MethodDeclare.class, void.class, "method"))
-				.and(0, method(MethodDeclare.class, int.class, "complexMethod", complexArgs))
-				.and(1, method(MethodDeclare.Nested.class, void.class, "nestedMethod"));
+		testExecutable.x(Call.Method.InConstructor.class, Constructor.NAME).calls(1, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.InStaticBlock.class, StaticBlock.NAME).calls(1, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.OnField.class, Constructor.NAME).calls(1, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.OnStaticField.class, StaticBlock.NAME).calls(1, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.InMethod.class, "method").calls(1, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.InStaticMethod.class, "method").calls(1, methodA).and(0, methodB);
+		lambda = lambda(type(Call.Method.InLambda.class), "lambda$0", method(Runnable.class, void.class, "run"));
+		testLambda.x(Call.Method.InLambda.class, lambda).calls(1, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.MultipleTimes.class, "method").calls(2, methodA).and(0, methodB);
+		testExecutable.x(Call.Method.WithOthers.class, "method").calls(1, methodA).and(1, methodB);
+		testExecutable.x(Call.Method.InDefaultImpl.class, "method").calls(1, methodA).and(0, methodB);
 
 		return cases.buildAndClean();
 	}
 
 	@ParameterizedTest
 	@MethodSource
-	default void testTypeDeclaresMethod(Arguments<?, ?> args) {
+	default void testBasicCalls(Arguments<?, ?> args) {
 		testTemplate(args);
 	}
-	
-	// TODO declare lambda
-
-	class ConstructorCall {
-		static class Callee {
-			class Nested {
-			}
-		}
-
-		public ConstructorCall() {
-			new ConstructorCall.Callee().new Nested();
-		}
-
-		void monoCall() {
-			new ConstructorCall.Callee();
-		}
-
-		void duoCall() {
-			new ConstructorCall.Callee();
-			new ConstructorCall.Callee();
-		}
-
-		void nestedCall() {
-			new ConstructorCall.Callee().new Nested();
-		}
-
-		interface Interface {
-			default void monoCall() {
-				new ConstructorCall.Callee();
-			}
-
-			default void duoCall() {
-				new ConstructorCall.Callee();
-				new ConstructorCall.Callee();
-			}
-
-			default void nestedCall() {
-				new ConstructorCall.Callee().new Nested();
-			}
-		}
-
-		static class Field {
-			ConstructorCall.Callee.Nested field = new ConstructorCall.Callee().new Nested();
-		}
-
-		static class StaticDeclaration {
-			static ConstructorCall.Callee.Nested FIELD = new ConstructorCall.Callee().new Nested();
-		}
-
-		static class StaticBlock {
-			static ConstructorCall.Callee.Nested FIELD;
-			static {
-				FIELD = new ConstructorCall.Callee().new Nested();
-			}
-		}
-
-		static class StaticMethod {
-			static void call() {
-				new ConstructorCall.Callee().new Nested();
-			}
-		}
-
-		static class Lambda {
-			@SuppressWarnings("unused")
-			static void call() {
-				Runnable r1 = () -> {
-					new ConstructorCall.Callee().new Nested();
-					Runnable r2 = () -> {
-						new ConstructorCall.Callee().new Nested();
-					};
-				};
-			}
-		}
-	}
-
-	static Stream<Arguments<?, ?>> testExecutableCallsConstructor() {
-		Constructor calleeConstructor = constructor(ConstructorCall.Callee.class);
-		Constructor nestedConstructor = constructor(ConstructorCall.Callee.Nested.class, ConstructorCall.Callee.class);
-
-		Class<?> clazz;
-		Reducer<String, Executable> caller;
-
-		clazz = ConstructorCall.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
-		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, calleeConstructor).and(0, nestedConstructor);
-		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, calleeConstructor).and(0, nestedConstructor);
-		cases.analyse(clazz).test(caller.x("nestedCall")).calls(1, calleeConstructor).and(1, nestedConstructor);
-
-		clazz = ConstructorCall.Interface.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, calleeConstructor).and(0, nestedConstructor);
-		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, calleeConstructor).and(0, nestedConstructor);
-		cases.analyse(clazz).test(caller.x("nestedCall")).calls(1, calleeConstructor).and(1, nestedConstructor);
-
-		clazz = ConstructorCall.Field.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
-
-		clazz = ConstructorCall.StaticDeclaration.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
-
-		clazz = ConstructorCall.StaticBlock.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, calleeConstructor).and(1, nestedConstructor);
-
-		clazz = ConstructorCall.StaticMethod.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x("call")).calls(1, calleeConstructor).and(1, nestedConstructor);
-
-		// TODO lambda calls constructor
-
-		return cases.buildAndClean();
-	}
-
-	@ParameterizedTest
-	@MethodSource
-	default void testExecutableCallsConstructor(Arguments<?, ?> args) {
-		testTemplate(args);
-	}
-
-	class MethodCall {
-		static class Called {
-			Object a() {
-				return null;
-			}
-
-			void b() {
-			}
-		}
-
-		MethodCall.Called a = new MethodCall.Called();
-
-		public MethodCall() {
-			a.a();
-			a.b();
-		}
-
-		void noCall() {
-		}
-
-		void monoCall() {
-			a.a();
-		}
-
-		void duoCall() {
-			a.a();
-			a.a();
-		}
-
-		void biCall() {
-			a.a();
-			a.b();
-		}
-
-		interface Interface {
-			static MethodCall.Called a = new MethodCall.Called();
-
-			default void noCall() {
-			}
-
-			default void monoCall() {
-				a.a();
-			}
-
-			default void duoCall() {
-				a.a();
-				a.a();
-			}
-
-			default void biCall() {
-				a.a();
-				a.b();
-			}
-		}
-
-		static class Field {
-			Object field = new MethodCall.Called().a();
-		}
-
-		static class StaticDeclaration {
-			static Object FIELD = new MethodCall.Called().a();
-		}
-
-		static class StaticBlock {
-			static Object FIELD;
-			static {
-				FIELD = new MethodCall.Called().a();
-			}
-		}
-
-		static class StaticMethod {
-			static void call() {
-				new MethodCall.Called().a();
-			}
-		}
-	}
-
-	static Stream<Arguments<?, ?>> testExecutableCallsMethod() {
-		Method aMethod = method(MethodCall.Called.class, Object.class, "a");
-		Method bMethod = method(MethodCall.Called.class, void.class, "b");
-
-		Class<?> clazz;
-		Reducer<String, Executable> caller;
-
-		clazz = MethodCall.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, aMethod).and(1, bMethod);
-		cases.analyse(clazz).test(caller.x("noCall")).calls(0, aMethod).and(0, bMethod);
-		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, aMethod).and(0, bMethod);
-		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, aMethod).and(0, bMethod);
-		cases.analyse(clazz).test(caller.x("biCall")).calls(1, aMethod).and(1, bMethod);
-
-		clazz = MethodCall.Interface.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x("noCall")).calls(0, aMethod).and(0, bMethod);
-		cases.analyse(clazz).test(caller.x("monoCall")).calls(1, aMethod).and(0, bMethod);
-		cases.analyse(clazz).test(caller.x("duoCall")).calls(2, aMethod).and(0, bMethod);
-		cases.analyse(clazz).test(caller.x("biCall")).calls(1, aMethod).and(1, bMethod);
-
-		clazz = MethodCall.Field.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(Constructor.NAME)).calls(1, aMethod).and(0, bMethod);
-
-		clazz = MethodCall.StaticDeclaration.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, aMethod).and(0, bMethod);
-
-		clazz = MethodCall.StaticBlock.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x(StaticBlock.NAME)).calls(1, aMethod).and(0, bMethod);
-
-		clazz = MethodCall.StaticMethod.class;
-		caller = noArgCallerFactory(clazz);
-		cases.analyse(clazz).test(caller.x("call")).calls(1, aMethod).and(0, bMethod);
-		
-		// TODO lambda calls method
-
-		return cases.buildAndClean();
-	}
-
-	@ParameterizedTest
-	@MethodSource
-	default void testExecutableCallsMethod(Arguments<?, ?> args) {
-		testTemplate(args);
-	}
-	
-	// TODO calls lambda
 
 	default void testTemplate(Arguments<?, ?> args) {
 		// GIVEN
@@ -406,6 +139,275 @@ public interface DependencyAnalyserTest {
 			return removeClassPrefixes(extendedMessage, DependencyAnalyserTest.class);
 		};
 		assertEquals(args.count(), found.size(), failureMessage);
+	}
+
+	static final Class<?>[] classCache = { null };
+	static final Supplier<Class<?>> sameClass = () -> classCache[0];
+	static final Reducer<Class<?>, Targeter<Type>> testType = clazz -> {
+		classCache[0] = clazz;
+		return cases.analyse(clazz).test(type(clazz));
+	};
+	static final BiReducer<Class<?>, String, Targeter<Executable>> testExecutable = (clazz, name) -> {
+		classCache[0] = clazz;
+		return cases.analyse(clazz).test(noArgCallerFactory(clazz).x(name));
+	};
+	static final BiReducer<Class<?>, Lambda, Targeter<Lambda>> testLambda = (clazz, lambda) -> {
+		classCache[0] = clazz;
+		return cases.analyse(clazz).test(lambda);
+	};
+
+	static class Declare {
+		static class Type {
+			static class AsInnerClass {
+				class Declared {
+				}
+			}
+
+			static class AsInterface {
+				interface Declared {
+				}
+			}
+
+			static class AsStaticClass {
+				static class Declared {
+				}
+			}
+
+			// TODO with generics
+			// TODO in method
+		}
+
+		static class Method {
+			static class Simple {
+				void method() {
+				}
+			}
+
+			static class Complex {
+				int method(String s, List<Object> l) {
+					return 0;
+				}
+			}
+
+			// TODO with generics
+
+			interface InInterface {
+				void method();
+			}
+
+			interface WithDefaultImpl {
+				default void method() {
+				}
+			}
+		}
+
+		@SuppressWarnings("unused")
+		static class Lambda {
+			static interface MyLambda {
+				void x();
+			}
+
+			static class InConstructor {
+				public InConstructor() {
+					MyLambda r = () -> {
+					};
+				}
+			}
+
+			static class InStaticBlock {
+				static MyLambda FIELD;
+				static {
+					FIELD = () -> {
+					};
+				}
+			}
+
+			static class OnField {
+				MyLambda field = () -> {
+				};
+			}
+
+			static class OnStaticField {
+				static MyLambda FIELD = () -> {
+				};
+			}
+
+			static class InMethod {
+				void method() {
+					MyLambda r = () -> {
+					};
+				}
+			}
+
+			static class InStaticMethod {
+				static void method() {
+					MyLambda r = () -> {
+					};
+				}
+			}
+
+			class InLambda {
+				void method() {
+					MyLambda r1 = () -> {
+						MyLambda r2 = () -> {
+						};
+					};
+				}
+			}
+
+			interface InDefaultImpl {
+				default void method() {
+					MyLambda r = () -> {
+					};
+				}
+			}
+
+		}
+	}
+
+	static class Call {
+		static class Constructor {
+			static class Called {
+				class Nested {
+				}
+			}
+
+			static class InConstructor {
+				public InConstructor() {
+					new Call.Constructor.Called();
+				}
+			}
+
+			static class InStaticBlock {
+				static Call.Constructor.Called FIELD;
+				static {
+					FIELD = new Call.Constructor.Called();
+				}
+			}
+
+			static class OnField {
+				Call.Constructor.Called field = new Call.Constructor.Called();
+			}
+
+			static class OnStaticField {
+				static Call.Constructor.Called FIELD = new Call.Constructor.Called();
+			}
+
+			static class InMethod {
+				void method() {
+					new Call.Constructor.Called();
+				}
+			}
+
+			static class InStaticMethod {
+				static void method() {
+					new Call.Constructor.Called();
+				}
+			}
+
+			static class MultipleTimes {
+				void method() {
+					new Call.Constructor.Called();
+					new Call.Constructor.Called();
+				}
+			}
+
+			@SuppressWarnings("unused")
+			static class InLambda {
+				static void method() {
+					Runnable r1 = () -> {
+						new Call.Constructor.Called();
+					};
+				}
+			}
+
+			static class OfNestedClass {
+				void method() {
+					new Call.Constructor.Called().new Nested();
+				}
+			}
+
+			interface InDefaultImpl {
+				default void method() {
+					new Call.Constructor.Called();
+				}
+			}
+		}
+
+		static class Method {
+			static class Called {
+				Object a() {
+					return null;
+				}
+
+				void b() {
+				}
+			}
+
+			static Call.Method.Called called = new Call.Method.Called();
+
+			static class InConstructor {
+				public InConstructor() {
+					called.a();
+				}
+			}
+
+			static class InStaticBlock {
+				static Object FIELD;
+				static {
+					FIELD = called.a();
+				}
+			}
+
+			static class OnField {
+				Object field = called.a();
+			}
+
+			static class OnStaticField {
+				static Object FIELD = called.a();
+			}
+
+			static class InMethod {
+				void method() {
+					called.a();
+				}
+			}
+
+			static class InStaticMethod {
+				static void method() {
+					called.a();
+				}
+			}
+
+			@SuppressWarnings("unused")
+			interface InLambda {
+				default void method() {
+					Runnable r = () -> {
+						called.a();
+					};
+				}
+			}
+
+			static class MultipleTimes {
+				void method() {
+					called.a();
+					called.a();
+				}
+			}
+
+			static class WithOthers {
+				void method() {
+					called.a();
+					called.b();
+				}
+			}
+
+			interface InDefaultImpl {
+				default void method() {
+					called.a();
+				}
+			}
+		}
 	}
 
 	static Reducer<String, Executable> noArgCallerFactory(Class<?> callerClass) {
