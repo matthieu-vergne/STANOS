@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>fr.matthieu-vergne</groupId>
 	<artifactId>stanos</artifactId>
@@ -8,7 +10,7 @@
 	<description>Structure analysis tools to help design Java code.</description>
 	<inceptionYear>2020</inceptionYear>
 	<url>https://github.com/matthieu-vergne/STANOS</url>
-	
+
 	<modules>
 		<module>stanos-core</module>
 		<module>stanos-gui</module>
@@ -20,12 +22,12 @@
 		<url>scm:git:git://github.com/matthieu-vergne/STANOS.git</url>
 		<tag>HEAD</tag>
 	</scm>
-	
+
 	<issueManagement>
 		<system>GitHub</system>
 		<url>https://github.com/matthieu-vergne/STANOS/issues/</url>
 	</issueManagement>
-	
+
 	<licenses>
 		<license>
 			<name>CC0</name>
@@ -33,7 +35,7 @@
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
-	
+
 	<developers>
 		<developer>
 			<name>Matthieu Vergne</name>
@@ -44,16 +46,14 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
-	
+
 	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
-				<version>2.5</version>
+				<version>2.5.3</version>
 				<configuration>
 					<autoVersionSubmodules>true</autoVersionSubmodules>
 					<useReleaseProfile>false</useReleaseProfile>
@@ -78,7 +78,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
-				<version>2.4</version>
+				<version>3.2.1</version>
 				<executions>
 					<execution>
 						<id>attach-sources</id>
@@ -91,7 +91,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>2.10.3</version>
+				<version>3.2.0</version>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>
@@ -103,7 +103,7 @@
 			</plugin>
 		</plugins>
 	</build>
-	
+
 	<distributionManagement>
 		<snapshotRepository>
 			<id>sonatype-snapshot</id>

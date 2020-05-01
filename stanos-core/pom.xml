@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>fr.matthieu-vergne</groupId>
@@ -11,12 +13,15 @@
 	<name>STANOS Core Features</name>
 	<description>All the required algorithms to retrieve the useful data.</description>
 	<inceptionYear>2020</inceptionYear>
-	
+
 	<properties>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+
 		<junit-jupiter.version>5.6.0</junit-jupiter.version>
 		<asm.version>8.0.1</asm.version>
 	</properties>
-	
+
 	<dependencies>
 		<dependency>
 			<groupId>org.ow2.asm</groupId>
