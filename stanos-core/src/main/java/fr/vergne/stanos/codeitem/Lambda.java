@@ -1,4 +1,4 @@
-package fr.vergne.stanos.node;
+package fr.vergne.stanos.codeitem;
 
 public class Lambda extends Executable {
 	

@@ -1,8 +1,8 @@
-package fr.vergne.stanos.node;
+package fr.vergne.stanos.codeitem;
 
 import java.util.Objects;
 
-class BasicNode implements Node {
+class BasicNode implements CodeItem {
 
 	private final String id;
 

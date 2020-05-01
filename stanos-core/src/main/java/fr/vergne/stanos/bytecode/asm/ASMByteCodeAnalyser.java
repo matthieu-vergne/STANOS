@@ -1,10 +1,10 @@
 package fr.vergne.stanos.bytecode.asm;
 
 import static fr.vergne.stanos.Action.*;
-import static fr.vergne.stanos.node.Method.*;
-import static fr.vergne.stanos.node.Lambda.*;
-import static fr.vergne.stanos.node.StaticBlock.*;
-import static fr.vergne.stanos.node.Constructor.*;
+import static fr.vergne.stanos.codeitem.Constructor.*;
+import static fr.vergne.stanos.codeitem.Lambda.*;
+import static fr.vergne.stanos.codeitem.Method.*;
+import static fr.vergne.stanos.codeitem.StaticBlock.*;
 import static java.util.Spliterators.*;
 import static java.util.stream.StreamSupport.*;
 
@@ -34,13 +34,13 @@ import org.objectweb.asm.util.ASMifier;
 
 import fr.vergne.stanos.Dependency;
 import fr.vergne.stanos.DependencyAnalyser;
-import fr.vergne.stanos.node.Constructor;
-import fr.vergne.stanos.node.Executable;
-import fr.vergne.stanos.node.Lambda;
-import fr.vergne.stanos.node.Method;
-import fr.vergne.stanos.node.Node;
-import fr.vergne.stanos.node.StaticBlock;
-import fr.vergne.stanos.node.Type;
+import fr.vergne.stanos.codeitem.CodeItem;
+import fr.vergne.stanos.codeitem.Constructor;
+import fr.vergne.stanos.codeitem.Executable;
+import fr.vergne.stanos.codeitem.Lambda;
+import fr.vergne.stanos.codeitem.Method;
+import fr.vergne.stanos.codeitem.StaticBlock;
+import fr.vergne.stanos.codeitem.Type;
 
 @SuppressWarnings("unused")
 public class ASMByteCodeAnalyser implements DependencyAnalyser {

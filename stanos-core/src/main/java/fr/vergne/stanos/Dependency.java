@@ -2,25 +2,25 @@ package fr.vergne.stanos;
 
 import java.util.Objects;
 
-import fr.vergne.stanos.node.Node;
+import fr.vergne.stanos.codeitem.CodeItem;
 
 public class Dependency {
 
-	private final Node source;
-	private final Node target;
+	private final CodeItem source;
+	private final CodeItem target;
 	private final Action action;
 
-	public Dependency(Node source, Action action, Node target) {
+	public Dependency(CodeItem source, Action action, CodeItem target) {
 		this.source = source;
 		this.target = target;
 		this.action = action;
 	}
 
-	public Node getSource() {
+	public CodeItem getSource() {
 		return source;
 	}
 
-	public Node getTarget() {
+	public CodeItem getTarget() {
 		return target;
 	}
 
