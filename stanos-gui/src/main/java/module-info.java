@@ -1,7 +1,6 @@
-module fr.vergne.stanos.gui {
-	requires javafx.controls;
-	requires javafx.graphics;
-	requires fr.vergne.stanos;
+// Module info of GUI Maven module
+module a.b.c.gui {
+	requires a.b.c;
 
-	exports fr.vergne.stanos.gui;
+	exports a.b.c.gui;
 }

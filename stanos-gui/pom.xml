@@ -16,10 +16,6 @@
 
 	<properties>
 		<maven.compiler.release>11</maven.compiler.release>
-		<main-class>fr.vergne.stanos.gui.App</main-class>
-
-		<junit-jupiter.version>5.6.2</junit-jupiter.version>
-		<javafx-controls.version>14.0.1</javafx-controls.version>
 	</properties>
 
 	<build>
@@ -29,72 +25,14 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 			</plugin>
-			<plugin>
-				<!-- Create a an executable JAR of this project: mvn clean package -->
-				<!-- Project can be executed from JAR: java -jar ./target/stanos-gui-1.0-SNAPSHOT.jar -->
-				<!-- JAR can be shipped: ./target/stanos-gui-1.0-SNAPSHOT.jar -->
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.2.3</version>
-				<executions>
-					<execution>
-						<phase>package</phase>
-						<goals>
-							<goal>shade</goal>
-						</goals>
-						<configuration>
-							<transformers>
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>fr.vergne.stanos.gui.Main</mainClass>
-								</transformer>
-							</transformers>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<!-- Create a modular JRE of this project: mvn clean compile javafx:jlink -->
-				<!-- Project can be executed from image: ./target/image/bin/<projectName> -->
-				<!-- Image archive can be shipped: ./target/image.zip -->
-				<groupId>org.openjfx</groupId>
-				<artifactId>javafx-maven-plugin</artifactId>
-				<version>0.0.4</version>
-				<configuration>
-					<mainClass>${main-class}</mainClass>
-					<jlinkImageName>image</jlinkImageName>
-					<jlinkZipName>image</jlinkZipName>
-					<launcher>${project.artifactId}</launcher>
-				</configuration>
-			</plugin>
 		</plugins>
 	</build>
 
 	<dependencies>
-		<!-- APP DEPENDENCIES -->
 		<dependency>
 			<groupId>fr.matthieu-vergne</groupId>
 			<artifactId>stanos-core</artifactId>
 			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openjfx</groupId>
-			<artifactId>javafx-controls</artifactId>
-			<version>${javafx-controls.version}</version>
-		</dependency>
-
-		<!-- TEST DEPENDENCIES -->
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter-engine</artifactId>
-			<version>${junit-jupiter.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter-params</artifactId>
-			<version>${junit-jupiter.version}</version>
-			<scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>
