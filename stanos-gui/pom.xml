@@ -16,13 +16,10 @@
 
 	<properties>
 		<maven.compiler.release>11</maven.compiler.release>
-		<maven.compiler.source>11</maven.compiler.source>
-		<maven.compiler.target>11</maven.compiler.target>
+		<main-class>fr.vergne.stanos.gui.App</main-class>
 
 		<junit-jupiter.version>5.6.2</junit-jupiter.version>
-		<maven-compiler.version>3.8.1</maven-compiler.version>
 		<javafx-controls.version>14.0.1</javafx-controls.version>
-		<javafx-plugin.version>0.0.4</javafx-plugin.version>
 	</properties>
 
 	<build>
@@ -30,18 +27,41 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>${maven-compiler.version}</version>
+				<version>3.8.1</version>
 			</plugin>
 			<plugin>
+				<!-- Create a an executable JAR of this project: mvn clean package -->
+				<!-- Project can be executed from JAR: java -jar ./target/stanos-gui-1.0-SNAPSHOT.jar -->
+				<!-- JAR can be shipped: ./target/stanos-gui-1.0-SNAPSHOT.jar -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.2.3</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<transformers>
+								<transformer
+									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<mainClass>fr.vergne.stanos.gui.Main</mainClass>
+								</transformer>
+							</transformers>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- Create a modular JRE of this project: mvn clean compile javafx:jlink -->
+				<!-- Project can be executed from image: ./target/image/bin/<projectName> -->
+				<!-- Image archive can be shipped: ./target/image.zip -->
 				<groupId>org.openjfx</groupId>
 				<artifactId>javafx-maven-plugin</artifactId>
-				<version>${javafx-plugin.version}</version>
+				<version>0.0.4</version>
 				<configuration>
-					<mainClass>fr.vergne.stanos.gui.App</mainClass>
-					
-					<!-- Create a modular JRE of this project: mvn clean compile javafx:jlink -->
-					<!-- Project can be executed from image: ./target/image/bin/<projectName> -->
-					<!-- Image archive can be shipped: ./target/image.zip -->
+					<mainClass>${main-class}</mainClass>
 					<jlinkImageName>image</jlinkImageName>
 					<jlinkZipName>image</jlinkZipName>
 					<launcher>${project.artifactId}</launcher>
@@ -52,6 +72,11 @@
 
 	<dependencies>
 		<!-- APP DEPENDENCIES -->
+		<dependency>
+			<groupId>fr.matthieu-vergne</groupId>
+			<artifactId>stanos-core</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.openjfx</groupId>
 			<artifactId>javafx-controls</artifactId>
