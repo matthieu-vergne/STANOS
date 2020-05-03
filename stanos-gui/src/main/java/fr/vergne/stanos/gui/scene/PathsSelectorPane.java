@@ -2,13 +2,10 @@ package fr.vergne.stanos.gui.scene;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.LinkedList;
 import java.util.List;
 
-import fr.vergne.stanos.code.CodeSelector;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.SortedList;
 import javafx.geometry.Pos;
@@ -16,40 +13,31 @@ import javafx.scene.control.Button;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 
-public class CodeSelectorPane extends VBox {
+public class PathsSelectorPane extends VBox {
 
-	private final CodeSelector codeSelector;
+	public PathsSelectorPane(ObservableList<Path> paths, Runnable refreshAction) {
+		TableView<Path> tableView = createTableView(paths);
 
-	public CodeSelectorPane() {
-		final ObservableList<Path> entries;
-		entries = FXCollections.observableList(new LinkedList<Path>());
-
-		entries.add(Path.of(
-				"/home/matthieu/Programing/Java/Pester/pester-core/target/classes/fr/vergne/pester/util/cache/Cache.class"));
-		TableView<Path> table = createTable(entries);
-
-		Button addFileButton = createAddFilesButton(entries, table);
-		Button addDirectoryButton = createAddDirectoryButton(entries, table);
-		Button removeSelectionButton = createRemoveSelectionButton(entries, table);
+		Button addFileButton = createAddFilesButton(paths, tableView);
+		Button addDirectoryButton = createAddDirectoryButton(paths, tableView);
+		Button removeSelectionButton = createRemoveSelectionButton(paths, tableView);
+		
+		Button refreshButton = new Button("Refresh");
+		refreshButton.setOnAction(event -> refreshAction.run());
 
 		setAlignment(Pos.CENTER);
 		setFillWidth(true);
-		getChildren().add(table);
-		getChildren().add(new HBox(addFileButton, addDirectoryButton, removeSelectionButton));
-		
-		this.codeSelector = CodeSelector.onCollection(entries);
+		getChildren().add(tableView);
+		getChildren().add(new HBox(addFileButton, addDirectoryButton, removeSelectionButton, refreshButton));
 	}
 	
-	public CodeSelector getCodeSelector() {
-		return codeSelector;
-	}
-
 	private Button createAddFilesButton(final ObservableList<Path> entries, TableView<Path> table) {
 		Button button = new Button("Add files");
 		button.setOnAction(event -> {
@@ -119,22 +107,26 @@ public class CodeSelectorPane extends VBox {
 		return button;
 	}
 
-	private <T> TableView<T> createTable(ObservableList<T> entries) {
+	private <T> TableView<T> createTableView(ObservableList<T> entries) {
 		SortedList<T> sortedList = new SortedList<>(entries);
-		TableView<T> table = new TableView<>(sortedList);
-		sortedList.comparatorProperty().bind(table.comparatorProperty());
+		TableView<T> tableView = new TableView<>(sortedList);
+		sortedList.comparatorProperty().bind(tableView.comparatorProperty());
 
 		TableColumn<T, T> pathColumn = new TableColumn<>("Path");
 		pathColumn.setCellValueFactory(param -> new SimpleObjectProperty<T>(param.getValue()));
-		table.getColumns().add(pathColumn);
+		tableView.getColumns().add(pathColumn);
 
-		table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-		table.getSortOrder().add(pathColumn);
-		table.sort();
+		tableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+		tableView.getSortOrder().add(pathColumn);
+		tableView.sort();
 
-		table.setOnKeyPressed(event -> removeSelectedItems(entries, table));
+		tableView.setOnKeyPressed(event -> {
+			if (KeyCode.DELETE.equals(event.getCode())) {
+				removeSelectedItems(entries, tableView);
+			}
+		});
 
-		return table;
+		return tableView;
 	}
 
 	private <T> void removeSelectedItems(final ObservableList<T> entries, TableView<T> table) {

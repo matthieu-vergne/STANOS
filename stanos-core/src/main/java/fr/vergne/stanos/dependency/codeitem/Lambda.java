@@ -16,7 +16,7 @@ public class Lambda extends Executable {
 	
 	private static String handleName(String name) {
 		if (!name.startsWith(NAME_PREFIX)) {
-			throw new IllegalArgumentException("Not a lambda name " + name);
+			throw new IllegalArgumentException("Not a lambda name: " + name);
 		}
 		return name;
 	}

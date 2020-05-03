@@ -1,34 +1,48 @@
 package fr.vergne.stanos.gui.scene;
 
-import java.util.Collection;
+import java.util.function.Function;
 
-import fr.vergne.stanos.code.CodeSelector;
 import fr.vergne.stanos.dependency.Dependency;
-import fr.vergne.stanos.dependency.DependencyAnalyser;
-import fr.vergne.stanos.dependency.bytecode.asm.ASMByteCodeAnalyser;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.layout.Border;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 
-public class DependencyListPane extends Parent {
+public class DependencyListPane extends BorderPane {
 
-	public DependencyListPane(CodeSelector codeSelector) {
-		Node table = createTable(codeSelector);
-		VBox vBox = new VBox(table);
-		vBox.setAlignment(Pos.CENTER);
-		getChildren().add(vBox);
+//	class Dependency {}
+	
+	public DependencyListPane(ObservableList<Dependency> dependencies) {
+		setCenter(createTable(dependencies));
 	}
 
-	private Node createTable(CodeSelector codeSelector) {
-		DependencyAnalyser dependencyAnalyser = new ASMByteCodeAnalyser();
-		Collection<Dependency> dependencies = dependencyAnalyser.analyse(codeSelector);
-		// TODO Add table with dependencies
-		// TODO Add F5 refresh
-		// mvn clean package && java -jar ./stanos-gui/target/stanos-gui-1.0-SNAPSHOT.jar
+	private Node createTable(ObservableList<Dependency> dependencies) {
+		TableView<Dependency> tableView = new TableView<>(dependencies);
+		tableView.getColumns().add(createColumn("Source", dep -> dep.getSource()));
+		tableView.getColumns().add(createColumn("Action", dep -> dep.getAction()));
+		tableView.getColumns().add(createColumn("Target", dep -> dep.getTarget()));
 		
-		Node table = new Label("Dependencies: "+dependencies.size());
-		return table;
+		tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+		
+		return tableView;
+	}
+
+	private <T, U> TableColumn<T, U> createColumn(String title, Function<T, U> supplier) {
+		TableColumn<T, U> column = new TableColumn<T, U>(title);
+		column.setCellValueFactory(param -> new SimpleObjectProperty<>(supplier.apply(param.getValue())));
+		return column;
 	}
 }

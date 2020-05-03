@@ -106,12 +106,18 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 					public void visitInvokeDynamicInsn(String methodName, String descriptor,
 							Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
 						org.objectweb.asm.Handle handle = (Handle) bootstrapMethodArguments[1];
-						String lambdaId = lambdaId(Type.fromClassPath(handle.getOwner()), handle.getName());
-						Method lambdaMethod = (Method) createExecutable(extractReturnType(descriptor), methodName,
-								handle.getDesc());
-						Lambda lambda = lambda(lambdaId, lambdaMethod);
-						lambdas.put(lambdaId, lambda);
-						dependencies.add(new Dependency(caller, DECLARES, lambda));
+						String handleName = handle.getName();
+						if (handleName.startsWith(Lambda.NAME_PREFIX)) {
+							String lambdaId = lambdaId(Type.fromClassPath(handle.getOwner()), handleName);
+							Method lambdaMethod = (Method) createExecutable(extractReturnType(descriptor), methodName,
+									handle.getDesc());
+							Lambda lambda = lambda(lambdaId, lambdaMethod);
+							lambdas.put(lambdaId, lambda);
+							dependencies.add(new Dependency(caller, DECLARES, lambda));
+						} else {
+							// TODO Manage cast: java/lang/Class.cast(Ljava/lang/Object;)Ljava/lang/Object; (5)
+							System.err.println("[WARN] Unmanaged handle: " + handle);
+						}
 					}
 				};
 			}
