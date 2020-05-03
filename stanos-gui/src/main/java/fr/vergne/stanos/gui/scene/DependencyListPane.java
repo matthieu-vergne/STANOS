@@ -31,6 +31,8 @@ public class DependencyListPane extends BorderPane {
 
 	private Node createTable(ObservableList<Dependency> dependencies) {
 		TableView<Dependency> tableView = new TableView<>(dependencies);
+		// TODO reduce strings
+		// TODO add icons depending on code items
 		tableView.getColumns().add(createColumn("Source", dep -> dep.getSource()));
 		tableView.getColumns().add(createColumn("Action", dep -> dep.getAction()));
 		tableView.getColumns().add(createColumn("Target", dep -> dep.getTarget()));
