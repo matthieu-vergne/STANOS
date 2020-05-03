@@ -24,6 +24,9 @@ public class DependencyListPane extends Parent {
 	private Node createTable(CodeSelector codeSelector) {
 		DependencyAnalyser dependencyAnalyser = new ASMByteCodeAnalyser();
 		Collection<Dependency> dependencies = dependencyAnalyser.analyse(codeSelector);
+		// TODO Add table with dependencies
+		// TODO Add F5 refresh
+		// mvn clean package && java -jar ./stanos-gui/target/stanos-gui-1.0-SNAPSHOT.jar
 		
 		Node table = new Label("Dependencies: "+dependencies.size());
 		return table;
