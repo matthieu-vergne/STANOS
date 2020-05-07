@@ -15,11 +15,16 @@ public class Configuration {
 	private static final File CONF_FILE = new File("configuration.properties");
 
 	private final Properties properties;
+
+	// Use JavaFX observable properties?
 	private final Workspace workspace;
+	private final Gui gui;
 
 	private Configuration(Properties properties) {
 		this.properties = properties;
-		this.workspace = new Workspace();
+		AccessorFactory accessorFactory = new AccessorFactory(properties);
+		this.workspace = new Workspace(accessorFactory.sub("workspace"));
+		this.gui = new Gui(accessorFactory.sub("gui"));
 	}
 
 	public static Configuration load() {
@@ -62,19 +67,22 @@ public class Configuration {
 		return workspace;
 	};
 
+	public Gui gui() {
+		return gui;
+	}
+
 	public class Workspace {
+		// Use JavaFX observable properties?
 		private final Accessor<File> directory;
 		private final Accessor<Boolean> useDefaultDirectory;
 
-		public Workspace() {
-			AccessorFactory accessorFactory = new AccessorFactory(properties);
-
-			directory = accessorFactory.createFileAccessor("workspace.directory", new File("./workspace"));
+		public Workspace(AccessorFactory accessorFactory) {
+			directory = accessorFactory.createFileAccessor("directory", new File("./workspace"));
 			if (!directory.get().exists()) {
 				directory.get().mkdirs();
 			}
 
-			useDefaultDirectory = accessorFactory.createBooleanAccessor("workspace.useDefaultDirectory", true);
+			useDefaultDirectory = accessorFactory.createBooleanAccessor("useDefaultDirectory", true);
 		}
 
 		public File directory() {
@@ -98,6 +106,53 @@ public class Configuration {
 
 		public void useDefaultDirectory(boolean useDefaultDirectory) {
 			this.useDefaultDirectory.set(useDefaultDirectory);
+		}
+	}
+
+	public class Gui {
+		// Use JavaFX observable properties?
+		private final Dependencies dependencies;
+		private final Accessor<Integer> globalSpacing;
+
+		public Gui(AccessorFactory accessorFactory) {
+			dependencies = new Dependencies(accessorFactory.sub("dependencies"));
+
+			globalSpacing = accessorFactory.createIntegerAccessor("globalSpacing", 10);
+		}
+
+		public int globalSpacing() {
+			return globalSpacing.get();
+		}
+
+		public void globalSpacing(int globalSpacing) {
+			if (globalSpacing < 0) {
+				throw new IllegalArgumentException("Negative global spacing: " + globalSpacing);
+			}
+			this.globalSpacing.set(globalSpacing);
+		}
+
+		public Dependencies dependencies() {
+			return dependencies;
+		}
+	}
+
+	public class Dependencies {
+		// Use JavaFX observable properties?
+		private final Accessor<Double> slider;
+
+		public Dependencies(AccessorFactory accessorFactory) {
+			slider = accessorFactory.createDoubleAccessor("slider", 0.3);
+		}
+
+		public double slider() {
+			return slider.get();
+		}
+
+		public void slider(double position) {
+			if (position < 0) {
+				throw new IllegalArgumentException("Negative slider position: " + position);
+			}
+			this.slider.set(position);
 		}
 	}
 }

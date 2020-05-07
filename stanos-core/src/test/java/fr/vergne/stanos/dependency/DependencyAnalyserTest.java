@@ -24,21 +24,18 @@ import fr.vergne.stanos.dependency.DependencyTestCasesBuilder.DependencyTestCase
 import fr.vergne.stanos.dependency.codeitem.Constructor;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Method;
+import fr.vergne.stanos.dependency.codeitem.Package;
 
 // TODO declare type in package (class, abstract class, interface, enum)
 public interface DependencyAnalyserTest {
 
 	DependencyAnalyser createDependencyAnalyzer();
 
-	interface EmptyInterface {
-		// Not even a constructor
-	}
-
 	@Test
-	default void testEmptyInterfaceHasNoDependency() {
+	default void testEmptyInterfaceInDefaultPackageHasNoDependency() throws ClassNotFoundException {
 		DependencyAnalyser analyser = createDependencyAnalyzer();
 
-		Collection<Dependency> dependencies = analyser.analyse(EmptyInterface.class);
+		Collection<Dependency> dependencies = analyser.analyse(Class.forName("EmptyInterfaceInDefaultPackage"));
 
 		assertEquals(Collections.emptyList(), dependencies);
 	}
@@ -46,6 +43,20 @@ public interface DependencyAnalyserTest {
 	static Stream<DependencyTestCase> testDependenciesAreGenerated() {
 		DependencyTestCasesBuilder cases = new DependencyTestCasesBuilder();
 		Supplier<Class<?>> sameClass = () -> cases.getLastAnalysedClass();
+
+		Package p1 = Package.fromPackageName("fr");
+		Package p2 = Package.fromPackageName("fr.vergne");
+		Package p3 = Package.fromPackageName("fr.vergne.stanos");
+		Package p4 = Package.fromPackageName("fr.vergne.stanos.dependency");
+		cases.analyse(DependencyAnalyserTest.class).test(p1).declares(0, p1).and(1, p2).and(0, p3).and(0, p4);
+		cases.analyse(DependencyAnalyserTest.class).test(p2).declares(0, p1).and(0, p2).and(1, p3).and(0, p4);
+		cases.analyse(DependencyAnalyserTest.class).test(p3).declares(0, p1).and(0, p2).and(0, p3).and(1, p4);
+		cases.analyse(DependencyAnalyserTest.class).test(p4).declares(0, p1).and(0, p2).and(0, p3).and(0, p4);
+
+		cases.analyse(DependencyAnalyserTest.class).test(p1).declares(0, type(DependencyAnalyserTest.class));
+		cases.analyse(DependencyAnalyserTest.class).test(p2).declares(0, type(DependencyAnalyserTest.class));
+		cases.analyse(DependencyAnalyserTest.class).test(p3).declares(0, type(DependencyAnalyserTest.class));
+		cases.analyse(DependencyAnalyserTest.class).test(p4).declares(1, type(DependencyAnalyserTest.class));
 
 		cases.testType(Declare.Type.AsInnerClass.class).declares(1, type(Declare.Type.AsInnerClass.Declared.class));
 		cases.testType(Declare.Type.AsInterface.class).declares(1, type(Declare.Type.AsInterface.Declared.class));

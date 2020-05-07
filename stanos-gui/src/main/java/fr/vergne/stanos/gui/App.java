@@ -9,25 +9,24 @@ import fr.vergne.stanos.dependency.DependencyAnalyser;
 import fr.vergne.stanos.dependency.bytecode.asm.ASMByteCodeAnalyser;
 import fr.vergne.stanos.gui.configuration.Configuration;
 import fr.vergne.stanos.gui.configuration.Configuration.Workspace;
-import fr.vergne.stanos.gui.scene.DependencyListPane;
+import fr.vergne.stanos.gui.scene.DependenciesPane;
 import fr.vergne.stanos.gui.scene.PathsSelectorPane;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TabPane.TabClosingPolicy;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
-@SuppressWarnings("exports") // This is not a lib, it is not expected to be imported anywhere
 public class App extends Application {
 
 	@Override
 	public void start(Stage primaryStage) {
-		// mvn clean package && java -jar ./stanos-gui/target/stanos-gui-1.0-SNAPSHOT.jar
 		Configuration configuration = Configuration.load();
 
 		ensureWorkspaceIsSet(configuration);
@@ -44,13 +43,10 @@ public class App extends Application {
 			dependencies.addAll(dependencyAnalyser.analyse(CodeSelector.onCollection(paths)));
 			System.out.println(dependencies.size() + " dependencies retrieved");
 		};
-		
-		PathsSelectorPane codeSelectorPane = new PathsSelectorPane(paths, refreshAction);
-		DependencyListPane dependencyListPane = new DependencyListPane(dependencies);
 
 		TabPane tabPane = new TabPane();
-		tabPane.getTabs().add(new Tab("Classes", codeSelectorPane));
-		tabPane.getTabs().add(new Tab("Dependencies", dependencyListPane));
+		tabPane.getTabs().add(new Tab("Classes", new PathsSelectorPane(configuration, paths, refreshAction)));
+		tabPane.getTabs().add(new Tab("Dependencies", new DependenciesPane(configuration, dependencies)));
 		tabPane.setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
 		tabPane.setOnKeyPressed(event -> {
 			if (KeyCode.F5.equals(event.getCode())) {
@@ -58,7 +54,8 @@ public class App extends Application {
 			}
 		});
 
-		Scene scene = new Scene(tabPane, 640, 480);
+		Rectangle2D bounds = Screen.getPrimary().getBounds();
+		Scene scene = new Scene(tabPane, bounds.getWidth() * .66, bounds.getHeight() * .66);
 
 		primaryStage.setTitle("STANOS");
 		primaryStage.setScene(scene);

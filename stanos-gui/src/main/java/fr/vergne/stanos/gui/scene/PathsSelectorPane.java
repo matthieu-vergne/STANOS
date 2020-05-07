@@ -4,38 +4,49 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 
+import fr.vergne.stanos.gui.configuration.Configuration;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.SortedList;
-import javafx.geometry.Pos;
+import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 
-public class PathsSelectorPane extends VBox {
+public class PathsSelectorPane extends BorderPane {
 
-	public PathsSelectorPane(ObservableList<Path> paths, Runnable refreshAction) {
+	public PathsSelectorPane(Configuration configuration, ObservableList<Path> paths, Runnable refreshAction) {
+		int spacing = configuration.gui().globalSpacing();
+		
 		TableView<Path> tableView = createTableView(paths);
 
 		Button addFileButton = createAddFilesButton(paths, tableView);
 		Button addDirectoryButton = createAddDirectoryButton(paths, tableView);
 		Button removeSelectionButton = createRemoveSelectionButton(paths, tableView);
+		Button refreshButton = createRefreshButton(refreshAction);
+		HBox buttons = new HBox(spacing, addFileButton, addDirectoryButton, removeSelectionButton, refreshButton);
+
+		VBox vBox = new VBox(spacing, buttons, tableView);
+		VBox.setVgrow(tableView, Priority.ALWAYS);
 		
+		setCenter(vBox);
+		setPadding(new Insets(spacing));
+	}
+
+	private Button createRefreshButton(Runnable refreshAction) {
 		Button refreshButton = new Button("Refresh");
 		refreshButton.setOnAction(event -> refreshAction.run());
-
-		setAlignment(Pos.CENTER);
-		setFillWidth(true);
-		getChildren().add(tableView);
-		getChildren().add(new HBox(addFileButton, addDirectoryButton, removeSelectionButton, refreshButton));
+		return refreshButton;
 	}
 	
 	private Button createAddFilesButton(final ObservableList<Path> entries, TableView<Path> table) {

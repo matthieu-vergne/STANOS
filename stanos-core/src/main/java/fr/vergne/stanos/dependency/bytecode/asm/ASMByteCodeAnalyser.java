@@ -14,6 +14,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -38,6 +39,7 @@ import fr.vergne.stanos.dependency.codeitem.Constructor;
 import fr.vergne.stanos.dependency.codeitem.Executable;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Method;
+import fr.vergne.stanos.dependency.codeitem.Package;
 import fr.vergne.stanos.dependency.codeitem.StaticBlock;
 import fr.vergne.stanos.dependency.codeitem.Type;
 
@@ -66,11 +68,26 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 
 			private Type classType;
 			private final Map<String, Lambda> lambdas = new HashMap<>();
+			private final Collection<Package> declaredPackages = new HashSet<>();
 
 			@Override
-			public void visit(int version, int access, String name, String signature, String superName,
+			public void visit(int version, int access, String classPath, String signature, String superName,
 					String[] interfaces) {
-				this.classType = Type.fromClassPath(name);
+				classType = Type.fromClassPath(classPath);
+				declarePackageHierarchy(classType);
+			}
+
+			private void declarePackageHierarchy(CodeItem item) {
+				String itemPath = item.getId();
+				int lastDotIndex = itemPath.lastIndexOf('.');
+				if (lastDotIndex != -1) {
+					String packageName = itemPath.substring(0, lastDotIndex);
+					Package itemPackage = Package.fromPackageName(packageName);
+					if (!declaredPackages.contains(itemPackage)) {
+						dependencies.add(new Dependency(itemPackage, DECLARES, item));
+						declarePackageHierarchy(itemPackage);
+					}
+				}
 			}
 
 			@Override
@@ -115,7 +132,8 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 							lambdas.put(lambdaId, lambda);
 							dependencies.add(new Dependency(caller, DECLARES, lambda));
 						} else {
-							// TODO Manage cast: java/lang/Class.cast(Ljava/lang/Object;)Ljava/lang/Object; (5)
+							// TODO Manage cast: java/lang/Class.cast(Ljava/lang/Object;)Ljava/lang/Object;
+							// (5)
 							System.err.println("[WARN] Unmanaged handle: " + handle);
 						}
 					}
