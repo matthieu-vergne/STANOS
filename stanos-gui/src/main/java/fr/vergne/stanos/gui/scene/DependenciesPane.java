@@ -1,9 +1,15 @@
 package fr.vergne.stanos.gui.scene;
 
+import static fr.vergne.stanos.gui.util.recursiveflatmapper.RecursiveFlatMapper.recursiveMapper;
+
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import fr.vergne.stanos.dependency.Action;
 import fr.vergne.stanos.dependency.Dependency;
@@ -14,7 +20,8 @@ import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
-import javafx.scene.Node;
+import javafx.collections.transformation.FilteredList;
+import javafx.scene.control.MultipleSelectionModel;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -22,12 +29,22 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.BorderPane;
 
+//TODO checkbox to ignore children (current level only)
+//TODO shorten tree items
 public class DependenciesPane extends BorderPane {
 
 	public DependenciesPane(Configuration configuration, ObservableList<Dependency> dependencies) {
-		Node tree = createTreeView(dependencies);
-		Node table = createTableView(dependencies);
-		
+
+		TreeView<CodeItem> tree = createTreeView(dependencies);
+
+		FilteredList<Dependency> filteredDependencies = dependencies.filtered(dep -> true);
+
+		TableView<Dependency> table = createTableView(filteredDependencies);
+		tree.getSelectionModel().selectedItemProperty().addListener(treeItem -> {
+			boolean displayChildren = true;// TODO
+			filteredDependencies.setPredicate(createTableFilter(tree.getSelectionModel(), displayChildren));
+		});
+
 		SplitPane splitPane = new SplitPane(tree, table);
 		SplitPane.setResizableWithParent(tree, false);
 		DoubleProperty sliderPosition = splitPane.getDividers().get(0).positionProperty();
@@ -37,17 +54,34 @@ public class DependenciesPane extends BorderPane {
 		sliderPosition.addListener((observable, oldValue, newValue) -> {
 			configuration.gui().dependencies().slider(newValue.doubleValue());
 		});
-		
+
 		setCenter(splitPane);
 	}
 
-	private Node createTreeView(ObservableList<Dependency> dependencies) {
+	private Predicate<Dependency> createTableFilter(MultipleSelectionModel<TreeItem<CodeItem>> selectionModel,
+			boolean displayChildren) {
+		if (selectionModel.isEmpty()) {
+			return dep -> true;
+		}
+
+		TreeItem<CodeItem> selectedItem = selectionModel.getSelectedItem();
+		if (displayChildren) {
+			List<CodeItem> codeItems = Stream.of(selectedItem).flatMap(recursiveMapper(TreeItem<CodeItem>::getChildren))
+					.map(TreeItem::getValue).collect(Collectors.toList());
+			return dep -> codeItems.contains(dep.getSource());
+		} else {
+			CodeItem codeItem = selectedItem.getValue();
+			return dep -> codeItem.equals(dep.getSource());
+		}
+	}
+
+	private TreeView<CodeItem> createTreeView(ObservableList<Dependency> dependencies) {
 		TreeView<CodeItem> treeView = new TreeView<>();
 		treeView.setShowRoot(false);
 
 		ListChangeListener<Dependency> listener = change -> treeView.setRoot(createTreeRoot(dependencies));
 		dependencies.addListener(listener);
-		
+
 		// TODO customize display of tree items
 
 		return treeView;
@@ -94,7 +128,7 @@ public class DependenciesPane extends BorderPane {
 		treeItems.stream().filter(item -> item.getParent() == null).forEach(item -> root.getChildren().add(item));
 	}
 
-	private Node createTableView(ObservableList<Dependency> dependencies) {
+	private TableView<Dependency> createTableView(ObservableList<Dependency> dependencies) {
 		TableView<Dependency> tableView = new TableView<>(dependencies);
 
 		tableView.getColumns().add(createColumn("Source", dep -> dep.getSource()));

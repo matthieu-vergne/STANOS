@@ -5,12 +5,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.stream.Collectors;
 
+import fr.vergne.stanos.code.Code;
 import fr.vergne.stanos.code.CodeSelector;
-import fr.vergne.stanos.dependency.codeitem.Package;
 
 public interface DependencyAnalyser {
 	Collection<Dependency> analyse(InputStream inputStream);
@@ -33,16 +31,7 @@ public interface DependencyAnalyser {
 	}
 
 	default Collection<Dependency> analyse(CodeSelector codes) {
-		Set<Dependency> declarations = new HashSet<>();
-		return codes.getCodes().map(code -> analyse(code.open())).flatMap(deps -> deps.stream()).filter(dep -> {
-			if (!(dep.getSource() instanceof Package)) {
-				return true;
-			}
-			if (declarations.contains(dep)) {
-				return false;
-			}
-			declarations.add(dep);
-			return true;
-		}).collect(Collectors.toList());
+		return codes.getCodes().map(Code::open).map(this::analyse).flatMap(Collection<Dependency>::stream)
+				.collect(Collectors.toList());
 	}
 }

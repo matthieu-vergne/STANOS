@@ -19,7 +19,9 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Spliterator;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -32,6 +34,8 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import fr.vergne.stanos.code.Code;
+import fr.vergne.stanos.code.CodeSelector;
 import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.DependencyAnalyser;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
@@ -47,7 +51,33 @@ import fr.vergne.stanos.dependency.codeitem.Type;
 public class ASMByteCodeAnalyser implements DependencyAnalyser {
 
 	private static final int ASM_VERSION = Opcodes.ASM8;
-	
+
+	@Override
+	public Collection<Dependency> analyse(CodeSelector codes) {
+		return codes.getCodes().map(Code::open).map(this::analyse).flatMap(Collection<Dependency>::stream)
+				/*
+				 * Let the analyse of each class generates its own package declarations and
+				 * filter them out here to avoid duplicates.
+				 */
+				.filter(distinctPackages())
+				//
+				.collect(Collectors.toList());
+	}
+
+	private Predicate<Dependency> distinctPackages() {
+		Set<Dependency> packageDeclarations = new HashSet<>();
+		return dep -> {
+			if (!(dep.getSource() instanceof Package)) {
+				return true;
+			}
+			if (packageDeclarations.contains(dep)) {
+				return false;
+			}
+			packageDeclarations.add(dep);
+			return true;
+		};
+	}
+
 	@Override
 	public Collection<Dependency> analyse(InputStream inputStream) {
 		List<Dependency> dependencies = new LinkedList<>();
@@ -63,7 +93,6 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 		return dependencies;
 	}
 
-	
 	private ClassVisitor createClassVisitor(Collection<Dependency> dependencies) {
 		return new ClassVisitor(ASM_VERSION) {
 
@@ -152,8 +181,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 
 			private List<Type> extractArgsTypes(String descriptor) {
 				return Stream.of(org.objectweb.asm.Type.getArgumentTypes(descriptor))
-						.map(org.objectweb.asm.Type::getClassName)
-						.map(Type::fromClassName)
+						.map(org.objectweb.asm.Type::getClassName).map(Type::fromClassName)
 						.collect(Collectors.toList());
 			}
 
