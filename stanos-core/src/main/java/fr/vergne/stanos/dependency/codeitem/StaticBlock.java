@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class StaticBlock extends Executable {
+public class StaticBlock extends Callable {
 
 	public static final String NAME = "<clinit>";
 

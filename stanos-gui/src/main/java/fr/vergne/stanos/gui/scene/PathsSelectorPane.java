@@ -29,6 +29,7 @@ public class PathsSelectorPane extends BorderPane {
 		int spacing = configuration.gui().globalSpacing();
 		
 		TableView<Path> tableView = createTableView(paths);
+		tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
 		Button addFileButton = createAddFilesButton(paths, tableView);
 		Button addDirectoryButton = createAddDirectoryButton(paths, tableView);

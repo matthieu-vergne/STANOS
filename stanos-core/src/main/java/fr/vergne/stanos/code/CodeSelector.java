@@ -10,30 +10,36 @@ public interface CodeSelector {
 	Stream<Code> getCodes();
 
 	public static CodeSelector onFile(Path file) {
-		if (Files.isDirectory(file)) {
-			throw new IllegalArgumentException("Not a file: " + file);
-		}
-		return () -> Stream.of(Code.fromFile(file));
+		return () -> Intern.streamFile(file).map(Code::fromFile);
 	}
 
-	@SuppressWarnings("resource") // Assume the stream will be closed anyway
 	public static CodeSelector onDirectory(Path directory) {
-		if (!Files.isDirectory(directory)) {
-			throw new IllegalArgumentException("Not a directory: " + directory);
-		}
-		Stream<Path> stream;
-		try {
-			stream = Files.walk(directory);
-		} catch (IOException cause) {
-			throw new RuntimeException(cause);
-		}
-		return () -> stream.map(Code::fromFile);
+		return () -> Intern.streamDirectory(directory).map(Code::fromFile);
 	}
 
-	public static CodeSelector onCollection(Collection<Path> paths) {
-		return () -> paths.stream().flatMap(path -> {
-			CodeSelector project = Files.isDirectory(path) ? onDirectory(path) : onFile(path);
-			return project.getCodes();
-		});
+	public static CodeSelector onPath(Path path) {
+		return () -> Intern.streamPath(path).map(Code::fromFile);
+	}
+
+	public static CodeSelector onPaths(Collection<Path> paths) {
+		return () -> paths.stream().flatMap(Intern::streamPath).distinct().map(Code::fromFile);
+	}
+	
+	static class Intern {
+		private static Stream<Path> streamFile(Path file) {
+			return Stream.of(file);
+		}
+		
+		private static Stream<Path> streamDirectory(Path directory) {
+			try {
+				return Files.walk(directory).filter(Files::isRegularFile);
+			} catch (IOException cause) {
+				throw new RuntimeException(cause);
+			}
+		}
+		
+		private static Stream<Path> streamPath(Path path) {
+			return Files.isDirectory(path) ? Intern.streamDirectory(path) : Intern.streamFile(path);
+		}
 	}
 }

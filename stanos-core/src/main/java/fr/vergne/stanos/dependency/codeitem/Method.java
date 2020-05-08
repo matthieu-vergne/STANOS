@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class Method extends Executable {
+public class Method extends Callable {
 
 	private Method(Type classType, String name, List<Type> argsTypes, Type returnType) {
 		super(classType.getId() + "." + methodName(name) + "("

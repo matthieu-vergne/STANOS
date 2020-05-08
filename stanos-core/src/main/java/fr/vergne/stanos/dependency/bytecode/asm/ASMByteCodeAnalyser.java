@@ -36,7 +36,7 @@ import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.DependencyAnalyser;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.dependency.codeitem.Constructor;
-import fr.vergne.stanos.dependency.codeitem.Executable;
+import fr.vergne.stanos.dependency.codeitem.Callable;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Method;
 import fr.vergne.stanos.dependency.codeitem.Package;
@@ -47,28 +47,28 @@ import fr.vergne.stanos.dependency.codeitem.Type;
 public class ASMByteCodeAnalyser implements DependencyAnalyser {
 
 	private static final int ASM_VERSION = Opcodes.ASM8;
-
+	
 	@Override
 	public Collection<Dependency> analyse(InputStream inputStream) {
 		List<Dependency> dependencies = new LinkedList<>();
-		ClassVisitor visitor = createVisitor(dependencies);
+		ClassVisitor visitor = createClassVisitor(dependencies);
 		int options = 0;// ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES;
 		ClassReader classReader;
 		try {
 			classReader = new ClassReader(inputStream);
-		} catch (IOException cause) {
-			throw new RuntimeException(cause);
+		} catch (IOException | ArrayIndexOutOfBoundsException cause) {
+			throw new IllegalArgumentException(cause);
 		}
 		classReader.accept(visitor, options);
 		return dependencies;
 	}
 
-	private static ClassVisitor createVisitor(Collection<Dependency> dependencies) {
+	
+	private ClassVisitor createClassVisitor(Collection<Dependency> dependencies) {
 		return new ClassVisitor(ASM_VERSION) {
 
 			private Type classType;
 			private final Map<String, Lambda> lambdas = new HashMap<>();
-			private final Collection<Package> declaredPackages = new HashSet<>();
 
 			@Override
 			public void visit(int version, int access, String classPath, String signature, String superName,
@@ -83,10 +83,8 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 				if (lastDotIndex != -1) {
 					String packageName = itemPath.substring(0, lastDotIndex);
 					Package itemPackage = Package.fromPackageName(packageName);
-					if (!declaredPackages.contains(itemPackage)) {
-						dependencies.add(new Dependency(itemPackage, DECLARES, item));
-						declarePackageHierarchy(itemPackage);
-					}
+					dependencies.add(new Dependency(itemPackage, DECLARES, item));
+					declarePackageHierarchy(itemPackage);
 				}
 			}
 
@@ -101,7 +99,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
 					String[] exceptions) {
-				Executable caller;
+				Callable caller;
 				if (name.startsWith(Lambda.NAME_PREFIX)) {
 					caller = lambdas.get(lambdaId(classType, name));
 					// Do not declare here, already done when it was found
@@ -115,7 +113,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 					@Override
 					public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
 							boolean isInterface) {
-						Executable called = createExecutable(Type.fromClassPath(owner), name, descriptor);
+						Callable called = createExecutable(Type.fromClassPath(owner), name, descriptor);
 						dependencies.add(new Dependency(caller, CALLS, called));
 					}
 
@@ -140,7 +138,7 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 				};
 			}
 
-			private Executable createExecutable(Type ownerType, String name, String descriptor) {
+			private Callable createExecutable(Type ownerType, String name, String descriptor) {
 				List<Type> argsTypes = extractArgsTypes(descriptor);
 				if (Constructor.NAME.equals(name)) {
 					return constructor(ownerType, argsTypes);
@@ -153,48 +151,16 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			}
 
 			private List<Type> extractArgsTypes(String descriptor) {
-				// TODO use org.objectweb.asm.Type facilities
-				int argsStart = descriptor.indexOf('(') + 1;
-				int argsEnd = descriptor.indexOf(')');
-				Iterator<String> argsIterator = new ClassNameIterator(descriptor.substring(argsStart, argsEnd));
-				Spliterator<String> argsSpliterator = spliteratorUnknownSize(argsIterator, Spliterator.ORDERED);
-				return stream(argsSpliterator, false).map(Type::fromClassName).collect(Collectors.toList());
+				return Stream.of(org.objectweb.asm.Type.getArgumentTypes(descriptor))
+						.map(org.objectweb.asm.Type::getClassName)
+						.map(Type::fromClassName)
+						.collect(Collectors.toList());
 			}
 
 			private Type extractReturnType(String descriptor) {
-				// TODO use org.objectweb.asm.Type facilities
-				int returnStart = descriptor.indexOf(')') + 1;
-				String returnDescriptor = descriptor.substring(returnStart);
-				String returnClassName = new ClassNameIterator(returnDescriptor).next();
-				return Type.fromClassName(returnClassName);
+				org.objectweb.asm.Type asmType = org.objectweb.asm.Type.getReturnType(descriptor);
+				return Type.fromClassName(asmType.getClassName());
 			}
 		};
-	}
-
-	class A {
-		void a() {
-		}
-	}
-
-	class B {
-		A a;
-
-		void b() {
-			a = new A();
-		}
-
-		void c() {
-			a.a();
-		}
-	}
-
-	public static void main(String[] args) throws Exception {
-//		new ASMByteCodeAnalyser().analyse(Paths.get(
-//				"/home/matthieu/Programing/Java/Pester/pester-core/target/classes/fr/vergne/pester/util/cache/Cache.class"))
-//				.stream().forEach(System.out::println);
-//		System.out.println();
-		new ASMByteCodeAnalyser().analyse(A.class).stream().forEach(System.out::println);
-		System.out.println();
-		new ASMByteCodeAnalyser().analyse(B.class).stream().forEach(System.out::println);
 	}
 }

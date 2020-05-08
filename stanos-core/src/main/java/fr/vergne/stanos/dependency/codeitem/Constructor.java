@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class Constructor extends Executable {
+public class Constructor extends Callable {
 
 	public static final String NAME = "<init>";
 

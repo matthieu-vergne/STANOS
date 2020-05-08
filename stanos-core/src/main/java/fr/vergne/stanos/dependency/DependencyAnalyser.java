@@ -5,18 +5,24 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import fr.vergne.stanos.code.CodeSelector;
+import fr.vergne.stanos.dependency.codeitem.Package;
 
 public interface DependencyAnalyser {
 	Collection<Dependency> analyse(InputStream inputStream);
 
 	default Collection<Dependency> analyse(Path classFile) {
+		if (Files.isDirectory(classFile)) {
+			throw new IllegalArgumentException("Not a class file: " + classFile);
+		}
 		try (InputStream fileStream = Files.newInputStream(classFile)) {
 			return analyse(fileStream);
 		} catch (IOException cause) {
-			throw new CannotOpenClassFileException(cause);
+			throw new IllegalArgumentException("Cannot open class file " + classFile, cause);
 		}
 	}
 
@@ -27,16 +33,16 @@ public interface DependencyAnalyser {
 	}
 
 	default Collection<Dependency> analyse(CodeSelector codes) {
-		return codes.getCodes().map(code -> analyse(code.open())).reduce(new LinkedList<>(), (l1, l2) -> {
-			l1.addAll(l2);
-			return l1;
-		});
-	}
-
-	@SuppressWarnings("serial")
-	class CannotOpenClassFileException extends RuntimeException {
-		public CannotOpenClassFileException(IOException cause) {
-			super("Cannot open class file exception", cause);
-		}
+		Set<Dependency> declarations = new HashSet<>();
+		return codes.getCodes().map(code -> analyse(code.open())).flatMap(deps -> deps.stream()).filter(dep -> {
+			if (!(dep.getSource() instanceof Package)) {
+				return true;
+			}
+			if (declarations.contains(dep)) {
+				return false;
+			}
+			declarations.add(dep);
+			return true;
+		}).collect(Collectors.toList());
 	}
 }

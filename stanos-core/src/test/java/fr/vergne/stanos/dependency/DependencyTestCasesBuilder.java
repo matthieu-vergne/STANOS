@@ -13,7 +13,7 @@ import java.util.LinkedList;
 import java.util.stream.Stream;
 
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
-import fr.vergne.stanos.dependency.codeitem.Executable;
+import fr.vergne.stanos.dependency.codeitem.Callable;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Type;
 
@@ -137,15 +137,15 @@ class DependencyTestCasesBuilder {
 		return analyse(clazz).test(type(clazz));
 	}
 
-	public Targeter<Executable> testConstructor(Class<?> clazz) {
+	public Targeter<Callable> testConstructor(Class<?> clazz) {
 		return analyse(clazz).test(constructor(clazz));
 	}
 
-	public Targeter<Executable> testStaticBlock(Class<?> clazz) {
+	public Targeter<Callable> testStaticBlock(Class<?> clazz) {
 		return analyse(clazz).test(staticBlock(clazz));
 	}
 
-	public Targeter<Executable> testMethod(Class<?> clazz, String name) {
+	public Targeter<Callable> testMethod(Class<?> clazz, String name) {
 		return analyse(clazz).test(method(clazz, void.class, name));
 	}
 

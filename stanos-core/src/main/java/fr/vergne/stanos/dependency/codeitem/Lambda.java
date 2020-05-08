@@ -1,6 +1,6 @@
 package fr.vergne.stanos.dependency.codeitem;
 
-public class Lambda extends Executable {
+public class Lambda extends Callable {
 	
 	public static final String NAME_PREFIX = "lambda$";
 	private final Method method;

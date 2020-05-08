@@ -6,20 +6,34 @@ import static fr.vergne.stanos.dependency.codeitem.Lambda.lambda;
 import static fr.vergne.stanos.dependency.codeitem.Method.method;
 import static fr.vergne.stanos.dependency.codeitem.Type.type;
 import static fr.vergne.stanos.dependency.util.Formatter.removeClassPrefixes;
+import static java.nio.file.attribute.PosixFilePermissions.asFileAttribute;
+import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.function.Predicate.isEqual;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import fr.vergne.stanos.code.CodeSelector;
 import fr.vergne.stanos.dependency.DependencyTestCasesBuilder.DependencyTestCase;
 import fr.vergne.stanos.dependency.codeitem.Constructor;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
@@ -31,16 +45,111 @@ public interface DependencyAnalyserTest {
 
 	DependencyAnalyser createDependencyAnalyzer();
 
-	@Test
-	default void testEmptyInterfaceInDefaultPackageHasNoDependency() throws ClassNotFoundException {
+	static Stream<Path> testAnalyseOfNonClassPathFails() throws IOException {
+		return Stream.of(Paths.get("my/inexistent/path"), Files.createTempDirectory("directory"),
+				Files.createTempFile("unreadableFile", "", asFileAttribute(fromString("-wx-wx-wx"))));
+	}
+
+	@ParameterizedTest
+	@MethodSource
+	default void testAnalyseOfNonClassPathFails(Path classFile) {
 		DependencyAnalyser analyser = createDependencyAnalyzer();
 
-		Collection<Dependency> dependencies = analyser.analyse(Class.forName("EmptyInterfaceInDefaultPackage"));
+		Executable analyse = () -> analyser.analyse(classFile);
+
+		assertThrows(IllegalArgumentException.class, analyse);
+	}
+
+	static Stream<Path> testAnalyseOfNonClassInputStreamFails() throws IOException {
+		Path directory = Files.createTempDirectory("directory");
+		Path emptyFile = Files.createTempFile("emptyFile", "");
+		Path nonClassFile = Files.createTempFile("nonClassFile", "");
+		Files.write(nonClassFile, "non class content".getBytes());
+		return Stream.of(directory, emptyFile, nonClassFile);
+	}
+
+	@ParameterizedTest
+	@MethodSource
+	default void testAnalyseOfNonClassInputStreamFails(Path classFile) throws IOException {
+		DependencyAnalyser analyser = createDependencyAnalyzer();
+
+		InputStream inputStream = Files.newInputStream(classFile);
+		Executable analyse = () -> analyser.analyse(inputStream);
+
+		assertThrows(IllegalArgumentException.class, analyse);
+	}
+
+	static Stream<BiFunction<DependencyAnalyser, Class<?>, Collection<Dependency>>> analyses() {
+		return Stream.of(name("analyze(class)", (analyser, clazz) -> {
+			return analyser.analyse(clazz);
+		}), name("analyze(is)", (analyser, clazz) -> {
+			String classPath = toClassPath(clazz);
+			InputStream is = clazz.getResourceAsStream(classPath);
+			return analyser.analyse(is);
+		}), name("analyze(path)", (analyser, clazz) -> {
+			try {
+				String classPath = toClassPath(clazz);
+				Path path = Paths.get(clazz.getResource(classPath).toURI());
+				return analyser.analyse(path);
+			} catch (URISyntaxException cause) {
+				throw new RuntimeException(cause);
+			}
+		}), name("analyze(file(path))", (analyser, clazz) -> {
+			try {
+				String classPath = toClassPath(clazz);
+				Path path = Paths.get(clazz.getResource(classPath).toURI());
+				CodeSelector selector = CodeSelector.onFile(path);
+				return analyser.analyse(selector);
+			} catch (URISyntaxException cause) {
+				throw new RuntimeException(cause);
+			}
+		}), name("analyze(directory(parentDir))", (analyser, clazz) -> {
+			try {
+				String classPath = toClassPath(clazz);
+				Path path = Paths.get(clazz.getResource(classPath).toURI());
+				CodeSelector selector = CodeSelector.onDirectory(path.getParent());
+				return analyser.analyse(selector);
+			} catch (URISyntaxException cause) {
+				throw new RuntimeException(cause);
+			}
+		}), name("analyze(paths(path, path))", (analyser, clazz) -> {
+			try {
+				String classPath = toClassPath(clazz);
+				Path path = Paths.get(clazz.getResource(classPath).toURI());
+				CodeSelector selector = CodeSelector.onPaths(Arrays.asList(path, path));
+				return analyser.analyse(selector);
+			} catch (URISyntaxException cause) {
+				throw new RuntimeException(cause);
+			}
+		}), name("analyze(paths(path, parentDir))", (analyser, clazz) -> {
+			try {
+				String classPath = toClassPath(clazz);
+				Path path = Paths.get(clazz.getResource(classPath).toURI());
+				CodeSelector selector = CodeSelector.onPaths(Arrays.asList(path, path.getParent()));
+				return analyser.analyse(selector);
+			} catch (URISyntaxException cause) {
+				throw new RuntimeException(cause);
+			}
+		}));
+	}
+
+	@ParameterizedTest
+	@MethodSource("analyses")
+	default void testEmptyInterfaceInDefaultPackageHasNoDependency(
+			BiFunction<DependencyAnalyser, Class<?>, Collection<Dependency>> analyse) throws ClassNotFoundException {
+		if (analyse.toString().contains("parentDir")) {
+			// No parent possible here, so makes no sense
+			return;
+		}
+		
+		DependencyAnalyser analyser = createDependencyAnalyzer();
+
+		Collection<Dependency> dependencies = analyse.apply(analyser, Class.forName("EmptyInterfaceInDefaultPackage"));
 
 		assertEquals(Collections.emptyList(), dependencies);
 	}
 
-	static Stream<DependencyTestCase> testDependenciesAreGenerated() {
+	static Stream<DependencyTestCase> testCases() {
 		DependencyTestCasesBuilder cases = new DependencyTestCasesBuilder();
 		Supplier<Class<?>> sameClass = () -> cases.getLastAnalysedClass();
 
@@ -116,14 +225,19 @@ public interface DependencyAnalyserTest {
 		return cases.build();
 	}
 
+	static Stream<Arguments> testDependenciesAreGenerated() {
+		return analyses().flatMap(analyser -> testCases().map(testCase -> arguments(analyser, testCase)));
+	}
+
 	@ParameterizedTest
 	@MethodSource
-	default void testDependenciesAreGenerated(DependencyTestCase args) {
+	default void testDependenciesAreGenerated(BiFunction<DependencyAnalyser, Class<?>, Collection<Dependency>> analyse,
+			DependencyTestCase args) {
 		// GIVEN
 		DependencyAnalyser analyser = createDependencyAnalyzer();
 
 		// WHEN
-		Collection<Dependency> dependencies = analyser.analyse(args.analysedClass());
+		Collection<Dependency> dependencies = analyse.apply(analyser, args.analysedClass());
 
 		// THEN
 		List<Dependency> found = dependencies.stream().filter(isEqual(args.dependency())).collect(Collectors.toList());
@@ -386,5 +500,25 @@ public interface DependencyAnalyserTest {
 				}
 			}
 		}
+	}
+
+	static BiFunction<DependencyAnalyser, Class<?>, Collection<Dependency>> name(String name,
+			BiFunction<DependencyAnalyser, Class<?>, Collection<Dependency>> analyse) {
+		return new BiFunction<DependencyAnalyser, Class<?>, Collection<Dependency>>() {
+
+			@Override
+			public Collection<Dependency> apply(DependencyAnalyser analyser, Class<?> clazz) {
+				return analyse.apply(analyser, clazz);
+			}
+
+			@Override
+			public String toString() {
+				return name;
+			}
+		};
+	}
+
+	static String toClassPath(Class<?> clazz) {
+		return "/" + clazz.getName().replace('.', '/') + ".class";
 	}
 }
