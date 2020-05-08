@@ -16,11 +16,15 @@ import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.dependency.codeitem.Package;
 import fr.vergne.stanos.gui.configuration.Configuration;
+import javafx.beans.InvalidationListener;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.MultipleSelectionModel;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
@@ -28,29 +32,41 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
-//TODO checkbox to ignore children (current level only)
 //TODO shorten tree items
 public class DependenciesPane extends BorderPane {
 
 	public DependenciesPane(Configuration configuration, ObservableList<Dependency> dependencies) {
 
-		TreeView<CodeItem> tree = createTreeView(dependencies);
-
-		FilteredList<Dependency> filteredDependencies = dependencies.filtered(dep -> true);
-
+		ObjectProperty<TableFilterFactory> tableFilterProperty = new SimpleObjectProperty<>(() -> dep -> true);
+		FilteredList<Dependency> filteredDependencies = dependencies.filtered(tableFilterProperty.get().create());
+		InvalidationListener tableFilterUpdate = observable -> {
+			filteredDependencies.predicateProperty().set(tableFilterProperty.get().create());
+		};
+		tableFilterProperty.addListener(tableFilterUpdate);
+		
+		TreeView<CodeItem> treeView = createTreeView(dependencies);
+		treeView.getSelectionModel().selectedItemProperty().addListener(tableFilterUpdate);
+		ObservableList<TableFilterFactory> factories = createTableFilterFactories(treeView);// TODO move up
+		ChoiceBox<TableFilterFactory> tableFilterChoiceBox = createTableFilterChoiceBox(factories);
+		tableFilterChoiceBox.getSelectionModel().select(2);// TODO default as a conf property
 		TableView<Dependency> table = createTableView(filteredDependencies);
-		tree.getSelectionModel().selectedItemProperty().addListener(treeItem -> {
-			boolean displayChildren = true;// TODO
-			filteredDependencies.setPredicate(createTableFilter(tree.getSelectionModel(), displayChildren));
-		});
+		
+		tableFilterProperty.bind(tableFilterChoiceBox.valueProperty());
+		
 
-		SplitPane splitPane = new SplitPane(tree, table);
-		SplitPane.setResizableWithParent(tree, false);
+		VBox treePane = new VBox(treeView, tableFilterChoiceBox);
+		VBox.setVgrow(treeView, Priority.ALWAYS);
+
+		VBox tablePane = new VBox(table);
+		VBox.setVgrow(table, Priority.ALWAYS);
+
+		SplitPane splitPane = new SplitPane(treePane, tablePane);
+		SplitPane.setResizableWithParent(treeView, false);
 		DoubleProperty sliderPosition = splitPane.getDividers().get(0).positionProperty();
-		// TODO Use JavaFX observable properties for conf properties?
-		// Bind both or set DoubleProperty into conf? (need to load from conf)
-		sliderPosition.set(configuration.gui().dependencies().slider());
+		sliderPosition.set(configuration.gui().dependencies().slider());// TODO default as a conf property
 		sliderPosition.addListener((observable, oldValue, newValue) -> {
 			configuration.gui().dependencies().slider(newValue.doubleValue());
 		});
@@ -58,21 +74,65 @@ public class DependenciesPane extends BorderPane {
 		setCenter(splitPane);
 	}
 
-	private Predicate<Dependency> createTableFilter(MultipleSelectionModel<TreeItem<CodeItem>> selectionModel,
-			boolean displayChildren) {
-		if (selectionModel.isEmpty()) {
-			return dep -> true;
-		}
+	private ChoiceBox<TableFilterFactory> createTableFilterChoiceBox(ObservableList<TableFilterFactory> factories) {
+		ChoiceBox<TableFilterFactory> displayChildrenCheck = new ChoiceBox<>(factories);
+		return displayChildrenCheck;
+	}
 
-		TreeItem<CodeItem> selectedItem = selectionModel.getSelectedItem();
-		if (displayChildren) {
-			List<CodeItem> codeItems = Stream.of(selectedItem).flatMap(recursiveMapper(TreeItem<CodeItem>::getChildren))
-					.map(TreeItem::getValue).collect(Collectors.toList());
-			return dep -> codeItems.contains(dep.getSource());
-		} else {
-			CodeItem codeItem = selectedItem.getValue();
-			return dep -> codeItem.equals(dep.getSource());
-		}
+	private ObservableList<TableFilterFactory> createTableFilterFactories(TreeView<CodeItem> tree) {
+		TableFilterFactory displayAll = new TableFilterFactory() {
+			@Override
+			public Predicate<Dependency> create() {
+				return dep -> true;
+			}
+			
+			@Override
+			public String toString() {
+				return "Display all";
+			}
+		};
+		TableFilterFactory displayLevel = new TableFilterFactory() {
+			@Override
+			public Predicate<Dependency> create() {
+				MultipleSelectionModel<TreeItem<CodeItem>> selectionModel = tree.getSelectionModel();
+				if (selectionModel.isEmpty()) {
+					return dep -> true;
+				} else {
+					CodeItem codeItem = selectionModel.getSelectedItem().getValue();
+					return dep -> codeItem.equals(dep.getSource());
+				}
+			}
+			
+			@Override
+			public String toString() {
+				return "Display selected level";
+			}
+		};
+		TableFilterFactory displaySubtree = new TableFilterFactory() {
+			@Override
+			public Predicate<Dependency> create() {
+				MultipleSelectionModel<TreeItem<CodeItem>> selectionModel = tree.getSelectionModel();
+				if (selectionModel.isEmpty()) {
+					return dep -> true;
+				} else {
+					List<CodeItem> codeItems = Stream.of(selectionModel.getSelectedItem())
+							.flatMap(recursiveMapper(TreeItem<CodeItem>::getChildren)).map(TreeItem::getValue)
+							.collect(Collectors.toList());
+					return dep -> codeItems.contains(dep.getSource());
+				}
+			}
+			
+			@Override
+			public String toString() {
+				return "Display selected subtree";
+			}
+		};
+		ObservableList<TableFilterFactory> factories = FXCollections.observableArrayList(displayAll, displayLevel, displaySubtree);
+		return factories;
+	}
+
+	interface TableFilterFactory {
+		Predicate<Dependency> create();
 	}
 
 	private TreeView<CodeItem> createTreeView(ObservableList<Dependency> dependencies) {
