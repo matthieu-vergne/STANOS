@@ -6,177 +6,116 @@ import java.util.List;
 import java.util.Map;
 
 import fr.vergne.stanos.gui.scene.graph.Edge;
-import fr.vergne.stanos.gui.scene.graph.cell.ButtonCell;
 import fr.vergne.stanos.gui.scene.graph.cell.Cell;
-import fr.vergne.stanos.gui.scene.graph.cell.ImageCell;
-import fr.vergne.stanos.gui.scene.graph.cell.LabelCell;
-import fr.vergne.stanos.gui.scene.graph.cell.RectangleCell;
-import fr.vergne.stanos.gui.scene.graph.cell.TitledPaneCell;
-import fr.vergne.stanos.gui.scene.graph.cell.TriangleCell;
+import fr.vergne.stanos.gui.scene.graph.cell.CellFactory;
 
 public class Model {
 
-    Cell graphParent;
+	private final CellFactory cellFactory = new CellFactory();
+	
+	private final Cell graphRoot = new Cell("_ROOT_", Cell.NO_NODE);
 
-    List<Cell> allCells;
-    List<Cell> addedCells;
-    List<Cell> removedCells;
+	private final List<Cell> allCells = new ArrayList<>();
+	private final List<Cell> addedCells = new ArrayList<>();
+	private final List<Cell> removedCells = new ArrayList<>();
 
-    List<Edge> allEdges;
-    List<Edge> addedEdges;
-    List<Edge> removedEdges;
+	private final List<Edge> allEdges = new ArrayList<>();
+	private final List<Edge> addedEdges = new ArrayList<>();
+	private final List<Edge> removedEdges = new ArrayList<>();
 
-    Map<String,Cell> cellMap; // <id,cell>
+	private final Map<Object, Cell> cellMap = new HashMap<>();
+	
+	public CellFactory getCellFactory() {
+		return cellFactory;
+	}
 
-    public Model() {
+	public List<Cell> getAddedCells() {
+		return addedCells;
+	}
 
-         graphParent = new Cell( "_ROOT_");
+	public List<Cell> getRemovedCells() {
+		return removedCells;
+	}
 
-         // clear model, create lists
-         clear();
-    }
+	public List<Cell> getAllCells() {
+		return allCells;
+	}
 
-    public void clear() {
+	public List<Edge> getAddedEdges() {
+		return addedEdges;
+	}
 
-        allCells = new ArrayList<>();
-        addedCells = new ArrayList<>();
-        removedCells = new ArrayList<>();
+	public List<Edge> getRemovedEdges() {
+		return removedEdges;
+	}
 
-        allEdges = new ArrayList<>();
-        addedEdges = new ArrayList<>();
-        removedEdges = new ArrayList<>();
+	public List<Edge> getAllEdges() {
+		return allEdges;
+	}
 
-        cellMap = new HashMap<>(); // <id,cell>
+	public void addCell(Object object) {
+		cellMap.computeIfAbsent(object, obj -> {
+			Cell cell = cellFactory.create(object);
+			addedCells.add(cell);
+			return cell;
+		});
+	}
 
-    }
+	public void addEdge(Object source, Object target) {
 
-    public void clearAddedLists() {
-        addedCells.clear();
-        addedEdges.clear();
-    }
+		// TODO add only if not added yet
+		// TODO for multiple edges, attach a counter to the edge
+		Cell sourceCell = cellMap.get(source);
+		Cell targetCell = cellMap.get(target);
 
-    public List<Cell> getAddedCells() {
-        return addedCells;
-    }
+		Edge edge = new Edge(sourceCell, targetCell);
 
-    public List<Cell> getRemovedCells() {
-        return removedCells;
-    }
+		addedEdges.add(edge);
 
-    public List<Cell> getAllCells() {
-        return allCells;
-    }
+	}
 
-    public List<Edge> getAddedEdges() {
-        return addedEdges;
-    }
+	/**
+	 * Attach all cells which don't have a parent to graphParent
+	 * 
+	 * @param cellList
+	 */
+	public void attachOrphansToGraphParent(List<Cell> cellList) {
 
-    public List<Edge> getRemovedEdges() {
-        return removedEdges;
-    }
+		for (Cell cell : cellList) {
+			if (cell.getCellParents().size() == 0) {
+				graphRoot.addCellChild(cell);
+			}
+		}
 
-    public List<Edge> getAllEdges() {
-        return allEdges;
-    }
+	}
 
-    public void addCell(String id, CellType type) {
+	/**
+	 * Remove the graphParent reference if it is set
+	 * 
+	 * @param cellList
+	 */
+	public void disconnectFromGraphParent(List<Cell> cellList) {
 
-        switch (type) {
+		for (Cell cell : cellList) {
+			graphRoot.removeCellChild(cell);
+		}
+	}
 
-        case RECTANGLE:
-            RectangleCell rectangleCell = new RectangleCell(id);
-            addCell(rectangleCell);
-            break;
+	public void merge() {
 
-        case TRIANGLE:
-            TriangleCell circleCell = new TriangleCell(id);
-            addCell(circleCell);
-            break;
+		// cells
+		allCells.addAll(addedCells);
+		allCells.removeAll(removedCells);
 
-        case LABEL:
-            LabelCell labelCell = new LabelCell(id);
-            addCell(labelCell);
-            break;
+		addedCells.clear();
+		removedCells.clear();
 
-        case IMAGE:
-            ImageCell imageCell = new ImageCell(id);
-            addCell(imageCell);
-            break;
+		// edges
+		allEdges.addAll(addedEdges);
+		allEdges.removeAll(removedEdges);
 
-        case BUTTON:
-            ButtonCell buttonCell = new ButtonCell(id);
-            addCell(buttonCell);
-            break;
+		addedEdges.clear();
+		removedEdges.clear();
 
-        case TITLEDPANE:
-            TitledPaneCell titledPaneCell = new TitledPaneCell(id);
-            addCell(titledPaneCell);
-            break;
-
-        default:
-            throw new UnsupportedOperationException("Unsupported type: " + type);
-        }
-    }
-
-    private void addCell( Cell cell) {
-
-        addedCells.add(cell);
-
-        cellMap.put( cell.getCellId(), cell);
-
-    }
-
-    public void addEdge( String sourceId, String targetId) {
-
-        Cell sourceCell = cellMap.get( sourceId);
-        Cell targetCell = cellMap.get( targetId);
-
-        Edge edge = new Edge( sourceCell, targetCell);
-
-        addedEdges.add( edge);
-
-    }
-
-    /**
-     * Attach all cells which don't have a parent to graphParent 
-     * @param cellList
-     */
-    public void attachOrphansToGraphParent( List<Cell> cellList) {
-
-        for( Cell cell: cellList) {
-            if( cell.getCellParents().size() == 0) {
-                graphParent.addCellChild( cell);
-            }
-        }
-
-    }
-
-    /**
-     * Remove the graphParent reference if it is set
-     * @param cellList
-     */
-    public void disconnectFromGraphParent( List<Cell> cellList) {
-
-        for( Cell cell: cellList) {
-            graphParent.removeCellChild( cell);
-        }
-    }
-
-    public void merge() {
-
-        // cells
-        allCells.addAll( addedCells);
-        allCells.removeAll( removedCells);
-
-        addedCells.clear();
-        removedCells.clear();
-
-        // edges
-        allEdges.addAll( addedEdges);
-        allEdges.removeAll( removedEdges);
-
-        addedEdges.clear();
-        removedEdges.clear();
-
-    }
+	}
 }

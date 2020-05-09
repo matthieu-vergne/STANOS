@@ -43,6 +43,7 @@ public class App extends Application {
 			dependencies.addAll(dependencyAnalyser.analyse(CodeSelector.onPaths(paths)));
 			System.out.println(dependencies.size() + " dependencies retrieved");
 		};
+		refreshAction.run();// TODO remove
 
 		Tab pathsSelectorTab = new Tab("Classes", new PathsSelectorPane(configuration, paths, refreshAction));
 		Tab dependenciesTab = new Tab("Dependencies", new DependenciesPane(configuration, dependencies));

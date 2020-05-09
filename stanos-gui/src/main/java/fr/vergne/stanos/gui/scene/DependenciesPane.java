@@ -20,7 +20,7 @@ public class DependenciesPane extends BorderPane {
 		ObservableValue<TreeItem<CodeItem>> selectedItemProperty = codeItemsTreePane.selectedItemProperty();
 
 		Tab tableTab = new Tab("table", new DependenciesTablePane(configuration, dependencies, selectedItemProperty));
-		Tab graphTab = new Tab("graph", new DependenciesGraphPane());
+		Tab graphTab = new Tab("graph", new DependenciesGraphPane(configuration, dependencies));
 		TabPane tabPane = new TabPane(tableTab, graphTab);
 		tabPane.setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
 
