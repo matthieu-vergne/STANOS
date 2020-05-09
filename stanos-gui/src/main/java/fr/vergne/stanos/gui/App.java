@@ -44,9 +44,9 @@ public class App extends Application {
 			System.out.println(dependencies.size() + " dependencies retrieved");
 		};
 
-		TabPane tabPane = new TabPane();
-		tabPane.getTabs().add(new Tab("Classes", new PathsSelectorPane(configuration, paths, refreshAction)));
-		tabPane.getTabs().add(new Tab("Dependencies", new DependenciesPane(configuration, dependencies)));
+		Tab pathsSelectorTab = new Tab("Classes", new PathsSelectorPane(configuration, paths, refreshAction));
+		Tab dependenciesTab = new Tab("Dependencies", new DependenciesPane(configuration, dependencies));
+		TabPane tabPane = new TabPane(pathsSelectorTab, dependenciesTab);
 		tabPane.setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
 		tabPane.setOnKeyPressed(event -> {
 			if (KeyCode.F5.equals(event.getCode())) {
@@ -60,6 +60,9 @@ public class App extends Application {
 		primaryStage.setTitle("STANOS");
 		primaryStage.setScene(scene);
 		primaryStage.show();
+		
+		// TODO remove
+		tabPane.getSelectionModel().select(dependenciesTab);
 	}
 
 	private void ensureWorkspaceIsSet(Configuration configuration) {
