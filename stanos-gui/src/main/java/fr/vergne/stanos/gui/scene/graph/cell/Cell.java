@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import fr.vergne.stanos.gui.property.MetadataProperty;
+import fr.vergne.stanos.gui.property.MetadataProperty.MetadataKey;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
 
@@ -15,11 +17,29 @@ public class Cell extends Pane {
 	private final List<Cell> children = new ArrayList<>();
 	private final List<Cell> parents = new ArrayList<>();
 
+	private final MetadataProperty metadataProperty = new MetadataProperty();
+
 	public Cell(String cellId, Node node) {
 		if (!node.equals(NO_NODE)) {
 			getChildren().add(node);
 		}
 		setId(cellId);
+	}
+	
+	public MetadataProperty metadataProperty() {
+		return metadataProperty;
+	}
+	
+	public <T> void setMetadata(MetadataKey<T> key, T value) {
+		metadataProperty.put(key, value);
+	}
+	
+	public <T> T getMetadata(MetadataKey<T> key) {
+		return metadataProperty.get(key);
+	}
+	
+	public <T> T removeMetadata(MetadataKey<T> key) {
+		return metadataProperty.remove(key);
 	}
 	
 	public void addCellChild(Cell cell) {
