@@ -2,11 +2,11 @@ package fr.vergne.stanos.dependency.codeitem;
 
 import java.util.Objects;
 
-class BasicNode implements CodeItem {
+class CodeItemBase implements CodeItem {
 
 	private final String id;
 
-	public BasicNode(String id) {
+	public CodeItemBase(String id) {
 		this.id = id;
 	}
 
@@ -24,8 +24,8 @@ class BasicNode implements CodeItem {
 	public boolean equals(Object obj) {
 		if (this == obj) {
 			return true;
-		} else if (obj instanceof BasicNode) {
-			BasicNode that = (BasicNode) obj;
+		} else if (obj instanceof CodeItemBase) {
+			CodeItemBase that = (CodeItemBase) obj;
 			return Objects.equals(this.id, that.id);
 		} else {
 			return false;

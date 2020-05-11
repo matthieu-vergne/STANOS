@@ -1,7 +1,7 @@
 package fr.vergne.stanos.gui.scene.graph.layout;
 
-import fr.vergne.stanos.gui.scene.graph.Graph;
+import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 
 public interface GraphLayout {
-    void layout(Graph graph);
+    void layout(GraphModel model);
 }

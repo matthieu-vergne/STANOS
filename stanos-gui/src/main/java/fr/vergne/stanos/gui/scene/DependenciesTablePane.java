@@ -40,6 +40,7 @@ public class DependenciesTablePane extends BorderPane {
 
 		ObjectProperty<TableFilterFactory> tableFilterProperty = tableFilterChoiceBox.valueProperty();
 		FilteredList<Dependency> filteredDependencies = dependencies.filtered(tableFilterProperty.getValue().create());
+		
 		InvalidationListener tableFilterUpdate = observable -> {
 			filteredDependencies.predicateProperty().set(tableFilterProperty.getValue().create());
 		};

@@ -2,7 +2,7 @@ package fr.vergne.stanos.dependency.codeitem;
 
 import java.util.Objects;
 
-public class Package extends BasicNode {
+public class Package extends CodeItemBase {
 
 	private Package(String id) {
 		super(Objects.requireNonNull(id, "No ID provided"));

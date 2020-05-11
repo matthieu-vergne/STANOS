@@ -1,6 +1,6 @@
-package fr.vergne.stanos.gui.scene.graph.cell;
+package fr.vergne.stanos.gui.scene.graph.node;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
@@ -9,21 +9,16 @@ import fr.vergne.stanos.gui.property.MetadataProperty.MetadataKey;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
 
-public class Cell extends Pane {
+public class GraphNode extends Pane {
 	
-	public static final Node NO_NODE = new Node() {
-	};
-
-	private final List<Cell> children = new ArrayList<>();
-	private final List<Cell> parents = new ArrayList<>();
+	private final List<GraphNode> children = new LinkedList<>();
+	private final List<GraphNode> parents = new LinkedList<>();
 
 	private final MetadataProperty metadataProperty = new MetadataProperty();
 
-	public Cell(String cellId, Node node) {
-		if (!node.equals(NO_NODE)) {
-			getChildren().add(node);
-		}
-		setId(cellId);
+	public GraphNode(String id, Node node) {
+		setId(id);
+		getChildren().add(node);
 	}
 	
 	public MetadataProperty metadataProperty() {
@@ -42,32 +37,32 @@ public class Cell extends Pane {
 		return metadataProperty.remove(key);
 	}
 	
-	public void addCellChild(Cell cell) {
-		children.add(cell);
+	public void addGraphNodeChild(GraphNode node) {
+		children.add(node);
 	}
 
-	public List<Cell> getCellChildren() {
+	public List<GraphNode> getGraphNodeChildren() {
 		return children;
 	}
 
-	public void addCellParent(Cell cell) {
-		parents.add(cell);
+	public void addGraphNodeParent(GraphNode node) {
+		parents.add(node);
 	}
 
-	public List<Cell> getCellParents() {
+	public List<GraphNode> getGraphNodeParents() {
 		return parents;
 	}
 
-	public void removeCellChild(Cell cell) {
-		children.remove(cell);
+	public void removeGraphNodeChild(GraphNode node) {
+		children.remove(node);
 	}
 	
 	@Override
 	public boolean equals(Object obj) {
 		if (obj == this) {
 			return true;
-		} else if (obj instanceof Cell) {
-			Cell that = (Cell) obj;
+		} else if (obj instanceof GraphNode) {
+			GraphNode that = (GraphNode) obj;
 			return Objects.equals(this.getId(), that.getId());
 		} else {
 			return false;

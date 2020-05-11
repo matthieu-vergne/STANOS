@@ -1,23 +1,23 @@
-package fr.vergne.stanos.gui.scene.graph;
+package fr.vergne.stanos.gui.scene.graph.edge;
 
-import fr.vergne.stanos.gui.scene.graph.cell.Cell;
+import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
 import javafx.scene.Group;
 import javafx.scene.shape.Line;
 
-public class Edge extends Group {
+public class GraphEdge extends Group {
 
-    protected Cell source;
-    protected Cell target;
+    protected GraphNode source;
+    protected GraphNode target;
 
     Line line;
 
-    public Edge(Cell source, Cell target) {
+    public GraphEdge(GraphNode source, GraphNode target) {
 
         this.source = source;
         this.target = target;
 
-        source.addCellChild(target);
-        target.addCellParent(source);
+        source.addGraphNodeChild(target);
+        target.addGraphNodeParent(source);
 
         line = new Line();
 
@@ -31,11 +31,11 @@ public class Edge extends Group {
 
     }
 
-    public Cell getSource() {
+    public GraphNode getSource() {
         return source;
     }
 
-    public Cell getTarget() {
+    public GraphNode getTarget() {
         return target;
     }
 

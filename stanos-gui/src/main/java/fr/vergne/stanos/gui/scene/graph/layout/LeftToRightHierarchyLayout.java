@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Set;
 
 import fr.vergne.stanos.gui.property.MetadataProperty.MetadataKey;
-import fr.vergne.stanos.gui.scene.graph.Graph;
-import fr.vergne.stanos.gui.scene.graph.cell.Cell;
+import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
+import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.NumberBinding;
 import javafx.beans.property.SimpleDoubleProperty;
@@ -22,8 +22,8 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	private static int layerSpacing = 20;// TODO store in conf
 
 	@Override
-	public void layout(Graph graph) {
-		List<Cell> allCells = graph.getModel().getAllCells();
+	public void layout(GraphModel model) {
+		Collection<GraphNode> allCells = Collections.unmodifiableCollection(model.getNodes());
 
 		LayoutAlgorithm algorithm = LAYERS_ALGORITHM;
 
@@ -31,13 +31,13 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	}
 
 	interface LayoutAlgorithm {
-		void apply(Collection<Cell> allCells);
+		void apply(Collection<GraphNode> allCells);
 	}
 
 	@SuppressWarnings("unused")
 	private static final LayoutAlgorithm PARENTS_BINDS_ALGORITHM = allCells -> {
 		allCells.forEach(cell -> {
-			ObservableValue<Number> xValue = cell.getCellParents().stream()
+			ObservableValue<Number> xValue = cell.getGraphNodeParents().stream()
 					// Compute each parent constraint
 					.map(parent -> parent.layoutXProperty().add(parent.widthProperty()).add(layerSpacing))
 					// Reduce to a single constraint
@@ -53,24 +53,24 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	};
 
 	private static final LayoutAlgorithm LAYERS_ALGORITHM = allCells -> {
-		List<Set<Cell>> layers = new LinkedList<>();
+		List<Set<GraphNode>> layers = new LinkedList<>();
 
 		// Copy cells in higher layers as long as they are parents of same layer cells
-		layers.add(new HashSet<Cell>(allCells));
+		layers.add(new HashSet<GraphNode>(allCells));
 		do {
-			Set<Cell> currentRoots = layers.get(0);
-			Set<Cell> newRoots = new HashSet<Cell>(currentRoots.size());
-			for (Cell currentRoot : currentRoots) {
-				newRoots.addAll(currentRoot.getCellParents());
+			Set<GraphNode> currentRoots = layers.get(0);
+			Set<GraphNode> newRoots = new HashSet<GraphNode>(currentRoots.size());
+			for (GraphNode currentRoot : currentRoots) {
+				newRoots.addAll(currentRoot.getGraphNodeParents());
 			}
 			layers.add(0, newRoots);
 		} while (!layers.get(0).isEmpty());
 		layers.remove(0);
 
 		// Clean duplicates from roots to leaves
-		List<Cell> alreadySeen = new LinkedList<>();
+		List<GraphNode> alreadySeen = new LinkedList<>();
 		for (int i = 0; i < layers.size(); i++) {
-			Set<Cell> currentLayer = layers.get(i);
+			Set<GraphNode> currentLayer = layers.get(i);
 			currentLayer.removeAll(alreadySeen);
 			alreadySeen.addAll(currentLayer);
 		}
@@ -86,9 +86,9 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		// Set x coordinates to space layers from roots to leaves
 		{
 			double x = 0;
-			for (Set<Cell> layer : layers) {
+			for (Set<GraphNode> layer : layers) {
 				double maxWidth = 50;// TODO set to 0 when cell.getWidth() not zero anymore
-				for (Cell cell : layer) {
+				for (GraphNode cell : layer) {
 					cell.setMetadata(preX, x);
 					maxWidth = Math.max(maxWidth, cell.getWidth());
 				}
@@ -96,31 +96,29 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 			}
 		}
 
-		// Set y coordinates to space siblings from roots to leaves
+		// Spread y coordinates of leaves
 		{
-			for (Set<Cell> layer : layers) {
-				double y = 0;
-				for (Cell cell : layer) {
-					double height = Math.max(20, cell.getHeight());// TODO set to cell.getHeight() when not zero anymore
-					cell.setMetadata(preY, y);
-					y += height + layerSpacing;
-				}
+			Set<GraphNode> layer = layers.get(layers.size() - 1);
+			double y = 0;
+			for (GraphNode cell : layer) {
+				double height = Math.max(20, cell.getHeight());// TODO set to cell.getHeight() when not zero anymore
+				cell.setMetadata(preY, y);
+				y += height + layerSpacing;
 			}
 		}
 
-		// Adapt parents y coordinates as average of children
+		// Adapt y coordinates of parents as average of children
 		{
-			Collections.reverse(layers);
-			for (Set<Cell> layer : layers) {
-				for (Cell cell : layer) {
-					cell.getCellChildren().stream()
+			for (int i = layers.size() - 2; i >= 0; i--) {
+				Set<GraphNode> layer = layers.get(i);
+				for (GraphNode cell : layer) {
+					cell.getGraphNodeChildren().stream()
 							// Compute average of children
 							.mapToDouble(child -> child.getMetadata(preY)).average()
 							// Update Y if we could compute it
 							.ifPresent(y -> cell.setMetadata(preY, y));
 				}
 			}
-			Collections.reverse(layers);
 		}
 
 		// Apply coordinates
