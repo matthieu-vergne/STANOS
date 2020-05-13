@@ -1,19 +1,18 @@
-package fr.vergne.stanos.gui.scene.graph.edge;
+package fr.vergne.stanos.gui.scene.graph.layer;
 
 import java.util.Objects;
 
-import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
 import javafx.scene.Group;
 import javafx.scene.shape.Line;
 
-public class GraphEdge extends Group {
+public class GraphLayerEdge extends Group {
 
-	private final GraphNode source;
-	private final GraphNode target;
+	private final GraphLayerNode source;
+	private final GraphLayerNode target;
 
 	Line line;
 
-	public GraphEdge(GraphNode source, GraphNode target) {
+	public GraphLayerEdge(GraphLayerNode source, GraphLayerNode target) {
 
 		this.source = source;
 		this.target = target;
@@ -30,11 +29,11 @@ public class GraphEdge extends Group {
 
 	}
 
-	public GraphNode getSource() {
+	public GraphLayerNode getSource() {
 		return source;
 	}
 
-	public GraphNode getTarget() {
+	public GraphLayerNode getTarget() {
 		return target;
 	}
 
@@ -42,8 +41,8 @@ public class GraphEdge extends Group {
 	public boolean equals(Object obj) {
 		if (obj == this) {
 			return true;
-		} else if (obj instanceof GraphEdge) {
-			GraphEdge that = (GraphEdge) obj;
+		} else if (obj instanceof GraphLayerEdge) {
+			GraphLayerEdge that = (GraphLayerEdge) obj;
 			return Objects.equals(this.source, that.source) && Objects.equals(this.target, that.target);
 		} else {
 			return false;

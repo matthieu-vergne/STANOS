@@ -5,6 +5,7 @@ import java.util.Collections;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.TopToBottomHierarchyLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
+import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModel;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ObservableList;
@@ -17,7 +18,7 @@ public class GraphView extends Pane {
 	private final ObjectProperty<GraphLayout> layoutProperty;
 	
 	public GraphView() {
-		this(new GraphModel(Collections.emptyList(), Collections.emptyList()).immutable());
+		this(new SimpleGraphModel(Collections.emptyList(), Collections.emptyList(), true).immutable());
 	}
 	
 	public GraphView(GraphModel model) {
@@ -30,19 +31,14 @@ public class GraphView extends Pane {
 		this.layoutProperty.addListener((observable, oldLayout, newLayout) -> redraw());
 		this.modelProperty.addListener((observable, oldModel, newModel) -> redraw());
 	}
-
+	
 	private void redraw() {
-		GraphModel layoutModel = getLayout().layout(getModel());
-		
 		/**
 		 * the pane wrapper is necessary or else the scrollpane would always align the
 		 * top-most and left-most child to the top and left eg when you drag the top
 		 * child down, the entire scrollpane would move down
 		 */
-		Pane graphLayer = new Pane();
-		graphLayer.getChildren().addAll(layoutModel.getEdges());
-		graphLayer.getChildren().addAll(layoutModel.getNodes());
-		
+		Pane graphLayer = getLayout().layout(getModel());
 		
 		ObservableList<Node> children = getChildren();
 		if (children.isEmpty()) {

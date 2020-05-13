@@ -5,55 +5,34 @@ import static java.util.stream.Collectors.*;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
-import fr.vergne.stanos.gui.scene.graph.edge.GraphEdge;
-import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
+import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
+import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
 
-public class GraphModel {
+public interface GraphModel {
 
-	private final Collection<GraphNode> nodes;
-	private final Collection<GraphEdge> edges;
+	Collection<GraphModelNode> getNodes();
 
-	public GraphModel(Collection<GraphNode> nodes, Collection<GraphEdge> edges) {
-		Set<GraphNode> extraNodes = getEdgeOnlyNodes(nodes, edges);
-		if (!extraNodes.isEmpty()) {
-			throw new IllegalArgumentException("Some nodes are only in edges: " + extraNodes);
-		}
+	Collection<GraphModelEdge> getEdges();
 
-		this.nodes = nodes;
-		this.edges = edges;
-	}
+	Collection<GraphLayerNode> getGraphNodes();
 
-	private Set<GraphNode> getEdgeOnlyNodes(Collection<GraphNode> nodes, Collection<GraphEdge> edges) {
-		Set<GraphNode> extraNodes = edges.stream().flatMap(edge -> Stream.of(edge.getSource(), edge.getTarget()))
-				.collect(toSet());
-		extraNodes.removeAll(nodes);
-		return extraNodes;
-	}
+	Collection<GraphLayerEdge> getGraphEdges();
 
-	public Collection<GraphNode> getNodes() {
-		return nodes;
-	}
+	default GraphModel immutable() {
+		Map<GraphModelNode, GraphModelNode> nodeMap = getNodes().stream().collect(toMap(node -> node, node -> node.immutable()));
 
-	public Collection<GraphEdge> getEdges() {
-		return edges;
-	}
-
-	public GraphModel immutable() {
-		Map<GraphNode, GraphNode> nodeMap = nodes.stream().collect(toMap(node -> node, node -> node.immutable()));
-
-		Function<? super GraphNode, ? extends GraphNode> nodeAdapter = node -> nodeMap.get(node);
-		Function<? super GraphEdge, ? extends GraphEdge> edgeAdapter = edge -> {
-			GraphNode newSource = nodeMap.get(edge.getSource());
-			GraphNode newTarget = nodeMap.get(edge.getTarget());
-			return new GraphEdge(newSource, newTarget);
+		Function<? super GraphModelNode, ? extends GraphModelNode> nodeAdapter = node -> nodeMap.get(node);
+		Function<? super GraphModelEdge, ? extends GraphModelEdge> edgeAdapter = edge -> {
+			GraphModelNode newSource = nodeMap.get(edge.getSource());
+			GraphModelNode newTarget = nodeMap.get(edge.getTarget());
+			return new SimpleGraphModelEdge(newSource, newTarget);
 		};
 
-		List<GraphNode> immutableNodes = nodes.stream().map(nodeAdapter).collect(toUnmodifiableList());
-		List<GraphEdge> immutableEdges = edges.stream().map(edgeAdapter).collect(toUnmodifiableList());
-		return new GraphModel(immutableNodes, immutableEdges);
+		List<GraphModelNode> immutableNodes = getNodes().stream().map(nodeAdapter).collect(toUnmodifiableList());
+		List<GraphModelEdge> immutableEdges = getEdges().stream().map(edgeAdapter).collect(toUnmodifiableList());
+		return new SimpleGraphModel(immutableNodes, immutableEdges, true);
 	}
+
 }
