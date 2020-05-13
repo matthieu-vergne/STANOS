@@ -1,33 +1,49 @@
 package fr.vergne.stanos.gui.property;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import javafx.beans.property.MapProperty;
 import javafx.beans.property.SimpleMapProperty;
 import javafx.collections.FXCollections;
 
 public class MetadataProperty {
-	private final MapProperty<MetadataKey<?>, Object> metadata = new SimpleMapProperty<>(FXCollections.observableHashMap());
+	private final MapProperty<MetadataKey<?>, Object> metadataProperty;
+
+	private MetadataProperty(Map<MetadataKey<?>, Object> map) {
+		this.metadataProperty = new SimpleMapProperty<>(FXCollections.observableMap(map));
+	}
+
+	public MetadataProperty() {
+		this(new HashMap<>());
+	}
 
 	public static class MetadataKey<T> {
 		private MetadataKey() {
 		}
 	}
-	
+
 	public static <T> MetadataKey<T> createMetadataKey() {
 		return new MetadataKey<T>();
 	}
-	
+
 	public <T> void put(MetadataKey<T> key, T value) {
-		metadata.put(key, value);
+		metadataProperty.put(key, value);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <T> T get(MetadataKey<T> key) {
-		return (T) metadata.get(key);
+		return (T) metadataProperty.get(key);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <T> T remove(MetadataKey<T> key) {
-		return (T) metadata.remove(key);
+		return (T) metadataProperty.remove(key);
+	}
+
+	public MetadataProperty immutable() {
+		return new MetadataProperty(Collections.unmodifiableMap(metadataProperty.get()));
 	}
 
 }

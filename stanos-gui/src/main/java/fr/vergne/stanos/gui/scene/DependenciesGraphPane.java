@@ -22,7 +22,7 @@ import fr.vergne.stanos.gui.scene.graph.layout.LeftToRightHierarchyLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.RightToLeftHierarchyLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.TopToBottomHierarchyLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
-import fr.vergne.stanos.gui.scene.graph.node.GraphModelBuilder;
+import fr.vergne.stanos.gui.scene.graph.model.GraphModelBuilder;
 import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.ReadOnlyObjectProperty;
@@ -133,11 +133,12 @@ public class DependenciesGraphPane extends BorderPane {
 		dependencies.forEach(dep -> {
 			GraphNode source = nodeBuilder.apply(dep.getSource());
 			GraphNode target = nodeBuilder.apply(dep.getTarget());
+			source.addGraphNodeChild(target);
+			target.addGraphNodeParent(source);
 			edgeBuilder.apply(source, target);
 		});
 
-		GraphModel model = modelBuilder.build();
-		return model;
+		return modelBuilder.build().immutable();
 	}
 
 	private GraphNode createGraphNode(CodeItem item) {

@@ -7,12 +7,13 @@ public class BottomToTopHierarchyLayout implements GraphLayout {
 	private final GraphLayout delegate = new TopToBottomHierarchyLayout();
 
 	@Override
-	public void layout(GraphModel model) {
-		delegate.layout(model);
+	public GraphModel layout(GraphModel model) {
+		model = delegate.layout(model);
 		model.getNodes().forEach(cell -> {
 			double x = cell.getLayoutX();
 			double y = cell.getLayoutY();
 			cell.relocate(x, -y);// inverse Y
 		});
+		return model;
 	}
 }

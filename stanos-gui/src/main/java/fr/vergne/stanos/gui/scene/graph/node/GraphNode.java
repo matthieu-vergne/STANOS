@@ -1,7 +1,8 @@
 package fr.vergne.stanos.gui.scene.graph.node;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Objects;
 
 import fr.vergne.stanos.gui.property.MetadataProperty;
@@ -11,14 +12,27 @@ import javafx.scene.layout.Pane;
 
 public class GraphNode extends Pane {
 	
-	private final List<GraphNode> children = new LinkedList<>();
-	private final List<GraphNode> parents = new LinkedList<>();
+	private final Node node;
+	private final Collection<GraphNode> children;
+	private final Collection<GraphNode> parents;
+	private final MetadataProperty metadataProperty;
 
-	private final MetadataProperty metadataProperty = new MetadataProperty();
-
-	public GraphNode(String id, Node node) {
+	private GraphNode(String id, Node node, Collection<GraphNode> children, Collection<GraphNode> parents, MetadataProperty metadataProperty) {
+		this.node = node;
+		this.children = children;
+		this.parents = parents;
+		this.metadataProperty = metadataProperty;
+		
 		setId(id);
 		getChildren().add(node);
+	}
+
+	public Node getGraphNodeContent() {
+		return node;
+	}
+	
+	public GraphNode(String id, Node node) {
+		this(id, node, new LinkedList<>(), new LinkedList<>(), new MetadataProperty());
 	}
 	
 	public MetadataProperty metadataProperty() {
@@ -41,7 +55,7 @@ public class GraphNode extends Pane {
 		children.add(node);
 	}
 
-	public List<GraphNode> getGraphNodeChildren() {
+	public Collection<GraphNode> getGraphNodeChildren() {
 		return children;
 	}
 
@@ -49,12 +63,16 @@ public class GraphNode extends Pane {
 		parents.add(node);
 	}
 
-	public List<GraphNode> getGraphNodeParents() {
+	public Collection<GraphNode> getGraphNodeParents() {
 		return parents;
 	}
 
 	public void removeGraphNodeChild(GraphNode node) {
 		children.remove(node);
+	}
+	
+	public void removeGraphNodeParent(GraphNode node) {
+		parents.remove(node);
 	}
 	
 	@Override
@@ -72,5 +90,13 @@ public class GraphNode extends Pane {
 	@Override
 	public int hashCode() {
 		return Objects.hash(getId());
+	}
+
+	public GraphNode immutable() {
+		Collection<GraphNode> immutableChildren = Collections.unmodifiableCollection(children);
+		Collection<GraphNode> immutableParents = Collections.unmodifiableCollection(parents);
+		GraphNode copy = new GraphNode(getId(), node, immutableChildren, immutableParents, metadataProperty.immutable());
+		copy.relocate(getLayoutX(), getLayoutY());
+		return copy;
 	}
 }

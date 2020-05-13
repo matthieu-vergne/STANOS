@@ -1,10 +1,12 @@
 package fr.vergne.stanos.gui.scene.graph.model;
 
-import java.util.ArrayList;
+import static java.util.stream.Collectors.*;
+
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import fr.vergne.stanos.gui.scene.graph.edge.GraphEdge;
@@ -21,13 +23,13 @@ public class GraphModel {
 			throw new IllegalArgumentException("Some nodes are only in edges: " + extraNodes);
 		}
 
-		this.nodes = Collections.unmodifiableCollection(new ArrayList<>(nodes));
-		this.edges = Collections.unmodifiableCollection(new ArrayList<>(edges));
+		this.nodes = nodes;
+		this.edges = edges;
 	}
 
 	private Set<GraphNode> getEdgeOnlyNodes(Collection<GraphNode> nodes, Collection<GraphEdge> edges) {
 		Set<GraphNode> extraNodes = edges.stream().flatMap(edge -> Stream.of(edge.getSource(), edge.getTarget()))
-				.collect(Collectors.toSet());
+				.collect(toSet());
 		extraNodes.removeAll(nodes);
 		return extraNodes;
 	}
@@ -38,5 +40,20 @@ public class GraphModel {
 
 	public Collection<GraphEdge> getEdges() {
 		return edges;
+	}
+
+	public GraphModel immutable() {
+		Map<GraphNode, GraphNode> nodeMap = nodes.stream().collect(toMap(node -> node, node -> node.immutable()));
+
+		Function<? super GraphNode, ? extends GraphNode> nodeAdapter = node -> nodeMap.get(node);
+		Function<? super GraphEdge, ? extends GraphEdge> edgeAdapter = edge -> {
+			GraphNode newSource = nodeMap.get(edge.getSource());
+			GraphNode newTarget = nodeMap.get(edge.getTarget());
+			return new GraphEdge(newSource, newTarget);
+		};
+
+		List<GraphNode> immutableNodes = nodes.stream().map(nodeAdapter).collect(toUnmodifiableList());
+		List<GraphEdge> immutableEdges = edges.stream().map(edgeAdapter).collect(toUnmodifiableList());
+		return new GraphModel(immutableNodes, immutableEdges);
 	}
 }

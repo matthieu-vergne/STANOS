@@ -7,6 +7,8 @@ import fr.vergne.stanos.gui.scene.graph.layout.TopToBottomHierarchyLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.ObservableList;
+import javafx.scene.Node;
 import javafx.scene.layout.Pane;
 
 public class GraphView extends Pane {
@@ -15,31 +17,40 @@ public class GraphView extends Pane {
 	private final ObjectProperty<GraphLayout> layoutProperty;
 	
 	public GraphView() {
-		this(new GraphModel(Collections.emptyList(), Collections.emptyList()));
+		this(new GraphModel(Collections.emptyList(), Collections.emptyList()).immutable());
 	}
 	
 	public GraphView(GraphModel model) {
 		this.modelProperty = new SimpleObjectProperty<>();
 		this.layoutProperty = new SimpleObjectProperty<>();
 		
-		getChildren().add(new Pane());// init with empty cell layer
-		this.modelProperty.addListener((observable, oldModel, newModel) -> {
-			/**
-			 * the pane wrapper is necessary or else the scrollpane would always align the
-			 * top-most and left-most child to the top and left eg when you drag the top
-			 * child down, the entire scrollpane would move down
-			 */
-			Pane cellLayer = new Pane();
-			cellLayer.getChildren().addAll(newModel.getEdges());
-			cellLayer.getChildren().addAll(newModel.getNodes());
-			getChildren().set(0, cellLayer);
-		});
-		this.layoutProperty.addListener((observable, oldLayout, newLayout) -> {
-			newLayout.layout(getModel());
-		});
-		
-		this.modelProperty.set(model);
 		this.layoutProperty.set(new TopToBottomHierarchyLayout());
+		this.modelProperty.set(model);
+		
+		this.layoutProperty.addListener((observable, oldLayout, newLayout) -> redraw());
+		this.modelProperty.addListener((observable, oldModel, newModel) -> redraw());
+	}
+
+	private void redraw() {
+		GraphModel layoutModel = getLayout().layout(getModel());
+		
+		/**
+		 * the pane wrapper is necessary or else the scrollpane would always align the
+		 * top-most and left-most child to the top and left eg when you drag the top
+		 * child down, the entire scrollpane would move down
+		 */
+		Pane graphLayer = new Pane();
+		graphLayer.getChildren().addAll(layoutModel.getEdges());
+		graphLayer.getChildren().addAll(layoutModel.getNodes());
+		
+		
+		ObservableList<Node> children = getChildren();
+		if (children.isEmpty()) {
+			// First call
+			children.add(graphLayer);
+		} else {
+			children.set(0, graphLayer);
+		}
 	}
 
 	public ObjectProperty<GraphModel> modelProperty() {

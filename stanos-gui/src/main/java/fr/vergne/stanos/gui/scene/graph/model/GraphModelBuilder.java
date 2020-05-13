@@ -1,10 +1,10 @@
-package fr.vergne.stanos.gui.scene.graph.node;
+package fr.vergne.stanos.gui.scene.graph.model;
 
 import java.util.Collection;
 import java.util.LinkedList;
 
 import fr.vergne.stanos.gui.scene.graph.edge.GraphEdge;
-import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
+import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
 
 public class GraphModelBuilder {
 

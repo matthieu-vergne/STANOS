@@ -7,12 +7,13 @@ public class RightToLeftHierarchyLayout implements GraphLayout {
 	private final GraphLayout delegate = new LeftToRightHierarchyLayout();
 
 	@Override
-	public void layout(GraphModel model) {
-		delegate.layout(model);
-		model.getNodes().forEach(cell -> {
-			double x = cell.getLayoutX();
-			double y = cell.getLayoutY();
-			cell.relocate(-x, y);// inverse X
+	public GraphModel layout(GraphModel model) {
+		model = delegate.layout(model);
+		model.getNodes().forEach(node -> {
+			double x = node.getLayoutX();
+			double y = node.getLayoutY();
+			node.relocate(-x, y);// inverse X
 		});
+		return model;
 	}
 }

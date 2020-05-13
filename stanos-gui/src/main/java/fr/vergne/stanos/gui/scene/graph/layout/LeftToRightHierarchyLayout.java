@@ -1,92 +1,60 @@
 package fr.vergne.stanos.gui.scene.graph.layout;
 
 import static fr.vergne.stanos.gui.property.MetadataProperty.*;
+import static java.util.Comparator.*;
+import static java.util.stream.Collectors.*;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import fr.vergne.stanos.gui.property.MetadataProperty.MetadataKey;
+import fr.vergne.stanos.gui.scene.graph.edge.GraphEdge;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.node.GraphNode;
-import javafx.beans.binding.Bindings;
-import javafx.beans.binding.NumberBinding;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.value.ObservableValue;
+import javafx.scene.Group;
+import javafx.scene.Node;
 
 public class LeftToRightHierarchyLayout implements GraphLayout {
 
 	private static int layerSpacing = 20;// TODO store in conf
 
 	@Override
-	public void layout(GraphModel model) {
-		Collection<GraphNode> allCells = Collections.unmodifiableCollection(model.getNodes());
-
-		LayoutAlgorithm algorithm = LAYERS_ALGORITHM;
-
-		algorithm.apply(allCells);
+	public GraphModel layout(GraphModel model) {
+		return LAYERS_ALGORITHM.apply(model);
 	}
 
 	interface LayoutAlgorithm {
-		void apply(Collection<GraphNode> allCells);
+		GraphModel apply(GraphModel layoutModel);
 	}
 
-	@SuppressWarnings("unused")
-	private static final LayoutAlgorithm PARENTS_BINDS_ALGORITHM = allCells -> {
-		allCells.forEach(cell -> {
-			ObservableValue<Number> xValue = cell.getGraphNodeParents().stream()
-					// Compute each parent constraint
-					.map(parent -> parent.layoutXProperty().add(parent.widthProperty()).add(layerSpacing))
-					// Reduce to a single constraint
-					.map(binding -> (NumberBinding) binding).reduce(Bindings::max)
-					// Convert into property
-					.map(binding -> (ObservableValue<Number>) binding)
-					// Default to origin
-					.orElse(new SimpleDoubleProperty(0));
-			cell.layoutXProperty().bind(xValue);
+	private static final LayoutAlgorithm LAYERS_ALGORITHM = model -> {
+		GraphModel layoutModel = mutableCopy(model);
+		
+		List<Collection<GraphNode>> layers = distributeIntoLayers(layoutModel);
+		addIntermediaries(layers, layoutModel);
+		sort(layers);
 
-			// TODO y
-		});
-	};
-
-	private static final LayoutAlgorithm LAYERS_ALGORITHM = allCells -> {
-		List<Set<GraphNode>> layers = new LinkedList<>();
-
-		// Copy cells in higher layers as long as they are parents of same layer cells
-		layers.add(new HashSet<GraphNode>(allCells));
-		do {
-			Set<GraphNode> currentRoots = layers.get(0);
-			Set<GraphNode> newRoots = new HashSet<GraphNode>(currentRoots.size());
-			for (GraphNode currentRoot : currentRoots) {
-				newRoots.addAll(currentRoot.getGraphNodeParents());
-			}
-			layers.add(0, newRoots);
-		} while (!layers.get(0).isEmpty());
-		layers.remove(0);
-
-		// Clean duplicates from roots to leaves
-		List<GraphNode> alreadySeen = new LinkedList<>();
-		for (int i = 0; i < layers.size(); i++) {
-			Set<GraphNode> currentLayer = layers.get(i);
-			currentLayer.removeAll(alreadySeen);
-			alreadySeen.addAll(currentLayer);
-		}
+		// From here, we don't want to change the layers anymore
+		layers.replaceAll(Collections::unmodifiableCollection);
 
 		// Start coordinates to origin
 		MetadataKey<Double> preX = createMetadataKey();
 		MetadataKey<Double> preY = createMetadataKey();
-		allCells.forEach(cell -> {
-			cell.setMetadata(preX, 0.0);
-			cell.setMetadata(preY, 0.0);
+		layoutModel.getNodes().forEach(node -> {
+			node.setMetadata(preX, 0.0);
+			node.setMetadata(preY, 0.0);
 		});
 
 		// Set x coordinates to space layers from roots to leaves
 		{
 			double x = 0;
-			for (Set<GraphNode> layer : layers) {
+			for (Collection<GraphNode> layer : layers) {
 				double maxWidth = 50;// TODO set to 0 when cell.getWidth() not zero anymore
 				for (GraphNode cell : layer) {
 					cell.setMetadata(preX, x);
@@ -98,7 +66,7 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 
 		// Spread y coordinates of leaves
 		{
-			Set<GraphNode> layer = layers.get(layers.size() - 1);
+			Collection<GraphNode> layer = layers.get(layers.size() - 1);
 			double y = 0;
 			for (GraphNode cell : layer) {
 				double height = Math.max(20, cell.getHeight());// TODO set to cell.getHeight() when not zero anymore
@@ -110,22 +78,123 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		// Adapt y coordinates of parents as average of children
 		{
 			for (int i = layers.size() - 2; i >= 0; i--) {
-				Set<GraphNode> layer = layers.get(i);
-				for (GraphNode cell : layer) {
-					cell.getGraphNodeChildren().stream()
+				Collection<GraphNode> layer = layers.get(i);
+				for (GraphNode node : layer) {
+					node.getGraphNodeChildren().stream()
 							// Compute average of children
 							.mapToDouble(child -> child.getMetadata(preY)).average()
 							// Update Y if we could compute it
-							.ifPresent(y -> cell.setMetadata(preY, y));
+							.ifPresent(y -> node.setMetadata(preY, y));
 				}
 			}
 		}
 
 		// Apply coordinates
-		allCells.forEach(cell -> {
-			double x = cell.removeMetadata(preX);
-			double y = cell.removeMetadata(preY);
-			cell.relocate(x, y);
+		layoutModel.getNodes().forEach(node -> {
+			double x = node.removeMetadata(preX);
+			double y = node.removeMetadata(preY);
+			node.relocate(x, y);
 		});
+
+		return layoutModel.immutable();
 	};
+
+	private static void sort(List<Collection<GraphNode>> layers) {
+		layers.replaceAll(ArrayList::new);
+
+		List<GraphNode> roots = (List<GraphNode>) layers.get(0);
+		Comparator<GraphNode> defaultComparator = comparing(node -> node.getId());
+		roots.sort(defaultComparator);
+
+		for (int i = 0; i < layers.size() - 1; i++) {
+			List<GraphNode> parentsLayer = (List<GraphNode>) layers.get(i);
+			Comparator<GraphNode> parentsComparator = comparing(
+					// Assume single parent because hierarchy
+					node -> parentsLayer.indexOf(node.getGraphNodeParents().iterator().next()));
+
+			List<GraphNode> childrenLayer = (List<GraphNode>) layers.get(i + 1);
+			childrenLayer.sort(parentsComparator.thenComparing(defaultComparator));
+		}
+	}
+
+	private static void addIntermediaries(List<Collection<GraphNode>> layers, GraphModel layoutModel) {
+		int intermediaryCounter = 0;
+		for (int i = 0; i < layers.size() - 1; i++) {
+			Collection<GraphNode> currentLayer = layers.get(i);
+			Collection<GraphNode> nextLayer = layers.get(i + 1);
+			for (GraphNode parent : currentLayer) {
+				for (GraphNode child : new ArrayList<>(parent.getGraphNodeChildren())) {
+					if (nextLayer.contains(child)) {
+						// No need for intermediary
+					} else {
+						GraphNode intermediary = createIntermediary(parent, child, intermediaryCounter++);
+						replaceParentsAndChildren(parent, child, intermediary);
+						updateLayout(layoutModel, parent, child, intermediary);
+						nextLayer.add(intermediary);
+					}
+				}
+			}
+		}
+	}
+
+	private static void updateLayout(GraphModel layoutModel, GraphNode parent, GraphNode child, GraphNode intermediary) {
+		layoutModel.getNodes().add(intermediary);
+		
+		layoutModel.getEdges().remove(new GraphEdge(parent, child));
+		layoutModel.getEdges().add(new GraphEdge(parent, intermediary));
+		layoutModel.getEdges().add(new GraphEdge(intermediary, child));
+	}
+
+	private static void replaceParentsAndChildren(GraphNode parent, GraphNode child, GraphNode intermediary) {
+		intermediary.addGraphNodeChild(child);
+		intermediary.addGraphNodeParent(parent);
+		parent.addGraphNodeChild(intermediary);
+		parent.removeGraphNodeChild(child);
+		child.addGraphNodeParent(intermediary);
+		child.removeGraphNodeParent(parent);
+	}
+
+	private static GraphNode createIntermediary(GraphNode parent, GraphNode child, int intermediaryIndex) {
+		Node intermediaryContent = new Group();
+		String intermediaryId = parent.getId() + "@inter" + intermediaryIndex + "@"
+				+ child.getId();
+		GraphNode intermediary = new GraphNode(intermediaryId, intermediaryContent);
+		return intermediary;
+	}
+
+	private static List<Collection<GraphNode>> distributeIntoLayers(GraphModel layoutModel) {
+		List<Collection<GraphNode>> layers = new LinkedList<>();
+		layers.add(new HashSet<GraphNode>(layoutModel.getNodes()));
+
+		do {
+			Collection<GraphNode> currentRoots = layers.get(0);
+			Collection<GraphNode> newRoots = currentRoots.stream().flatMap(root -> {
+				return root.getGraphNodeParents().stream();
+			}).collect(toSet());
+			currentRoots.removeAll(newRoots);
+			layers.add(0, newRoots);
+		} while (!layers.get(0).isEmpty());
+		layers.remove(0);// Last, empty layer
+
+		return layers;
+	}
+
+	private static GraphModel mutableCopy(GraphModel model) {
+		Map<GraphNode, GraphNode> nodesCopies = model.getNodes().stream()
+				.collect(toMap(node -> node, node -> new GraphNode(node.getId(), node.getGraphNodeContent())));
+		nodesCopies.entrySet().forEach(entry -> {
+			GraphNode node = entry.getKey();
+			GraphNode copy = entry.getValue();
+			node.getGraphNodeChildren().stream().map(nodesCopies::get).forEach(copy::addGraphNodeChild);
+			node.getGraphNodeParents().stream().map(nodesCopies::get).forEach(copy::addGraphNodeParent);
+		});
+
+		Collection<GraphEdge> edgesCopies = model.getEdges().stream().map(edge -> {
+			GraphNode source = nodesCopies.get(edge.getSource());
+			GraphNode target = nodesCopies.get(edge.getTarget());
+			return new GraphEdge(source, target);
+		}).collect(toList());
+
+		return new GraphModel(new ArrayList<>(nodesCopies.values()), new ArrayList<>(edgesCopies));
+	}
 }
