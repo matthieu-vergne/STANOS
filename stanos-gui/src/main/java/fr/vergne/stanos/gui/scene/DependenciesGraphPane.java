@@ -67,8 +67,8 @@ public class DependenciesGraphPane extends BorderPane {
 
 		// TODO redo after each update (after graph.endUpdate())
 		MouseGestures mouseGestures = new MouseGestures(graphPane::getScaleValue);
-		graphView.getModel().getGraphNodes().forEach(cell -> {
-			mouseGestures.makeDraggable(cell);
+		graphView.getGraphLayer().getGraphNodes().forEach(node -> {
+			mouseGestures.makeDraggable(node);
 		});
 
 		setCenter(new VBox(spacing, options, graphPane));
@@ -115,7 +115,7 @@ public class DependenciesGraphPane extends BorderPane {
 		Map<CodeItem, GraphModelNode> nodesMap = new HashMap<>();
 		Function<CodeItem, GraphModelNode> nodeBuilder = codeItem -> {
 			return nodesMap.computeIfAbsent(codeItem, item -> {
-				SimpleGraphModelNode node = new SimpleGraphModelNode(item);
+				SimpleGraphModelNode node = new SimpleGraphModelNode(item.getId(), item);
 				modelBuilder.addNode(node);
 				return node;
 			});
@@ -135,6 +135,6 @@ public class DependenciesGraphPane extends BorderPane {
 			edgeBuilder.apply(source, target);
 		});
 
-		return modelBuilder.build().immutable();
+		return modelBuilder.build();
 	}
 }

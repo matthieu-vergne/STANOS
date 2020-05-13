@@ -2,6 +2,7 @@ package fr.vergne.stanos.gui.scene.graph;
 
 import java.util.Collections;
 
+import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.TopToBottomHierarchyLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
@@ -16,9 +17,10 @@ public class GraphView extends Pane {
 
 	private final ObjectProperty<GraphModel> modelProperty;
 	private final ObjectProperty<GraphLayout> layoutProperty;
+	private GraphLayer graphLayer;
 	
 	public GraphView() {
-		this(new SimpleGraphModel(Collections.emptyList(), Collections.emptyList(), true).immutable());
+		this(new SimpleGraphModel(Collections.emptyList(), Collections.emptyList()));
 	}
 	
 	public GraphView(GraphModel model) {
@@ -38,7 +40,7 @@ public class GraphView extends Pane {
 		 * top-most and left-most child to the top and left eg when you drag the top
 		 * child down, the entire scrollpane would move down
 		 */
-		Pane graphLayer = getLayout().layout(getModel());
+		graphLayer = getLayout().layout(getModel());
 		
 		ObservableList<Node> children = getChildren();
 		if (children.isEmpty()) {
@@ -47,6 +49,10 @@ public class GraphView extends Pane {
 		} else {
 			children.set(0, graphLayer);
 		}
+	}
+	
+	public GraphLayer getGraphLayer() {
+		return graphLayer;
 	}
 
 	public ObjectProperty<GraphModel> modelProperty() {

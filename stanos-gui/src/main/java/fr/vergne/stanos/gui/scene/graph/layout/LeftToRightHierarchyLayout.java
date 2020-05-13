@@ -141,12 +141,13 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	}
 
 	private static GraphLayerNode createLayerNode(GraphModelNode modelNode) {
-		CodeItem item = modelNode.getContent();
+		Object content = modelNode.getContent();
 
-		Node content;
-		if (item.getId().contains("@inter")) {
-			content = new Group();
-		} else {
+		Node layerNode;
+		if (content instanceof Intermediary) {
+			layerNode = new Group();
+		} else if (content instanceof CodeItem) {
+			CodeItem item = (CodeItem) content;
 			// TODO use proper graphics
 			String name = item.getId().replaceAll("\\(.+\\)", "(...)").replaceAll("\\.?[^()]+\\.", "")
 					.replaceAll("\\).+", ")");
@@ -154,9 +155,11 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 					: item instanceof Type ? 'T'// TODO 'C' & 'I'
 							: item instanceof Method ? 'M'
 									: item instanceof Constructor ? 'Z' : item instanceof Lambda ? 'L' : '?';
-			content = new Label(String.format("[%s] %s", prefix, name));
+			layerNode = new Label(String.format("[%s] %s", prefix, name));
+		} else {
+			throw new IllegalStateException("Unmanaged case: " + content.getClass());
 		}
-		return new GraphLayerNode(item.getId(), content);
+		return new GraphLayerNode(modelNode.getId(), layerNode);
 	}
 
 	private static void sort(List<Collection<GraphModelNode>> layers) {
@@ -178,7 +181,6 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	}
 
 	private static void addIntermediaries(List<Collection<GraphModelNode>> layers, GraphModel layoutModel) {
-		int intermediaryCounter = 0;
 		for (int i = 0; i < layers.size() - 1; i++) {
 			Collection<GraphModelNode> currentLayer = layers.get(i);
 			Collection<GraphModelNode> nextLayer = layers.get(i + 1);
@@ -187,7 +189,7 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 					if (nextLayer.contains(child)) {
 						// No need for intermediary
 					} else {
-						GraphModelNode intermediary = createIntermediary(parent, child, intermediaryCounter++);
+						GraphModelNode intermediary = createIntermediary(parent, child);
 						replaceParentsAndChildren(parent, child, intermediary);
 						updateLayout(layoutModel, parent, child, intermediary);
 						nextLayer.add(intermediary);
@@ -216,18 +218,23 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		child.removeParent(parent);
 	}
 
-	private static GraphModelNode createIntermediary(GraphModelNode parent, GraphModelNode child,
-			int intermediaryIndex) {
-		String intermediaryId = parent.getId() + "@inter" + intermediaryIndex + "@" + child.getId();
-		// TODO replace by something else than CodeItem
-		GraphModelNode intermediary = new SimpleGraphModelNode(new CodeItem() {
+	private static class Intermediary {
+		private static int counter = 0;
 
-			@Override
-			public String getId() {
-				return intermediaryId;
-			}
-		});
-		return intermediary;
+		private final String id;
+
+		public Intermediary(GraphModelNode parent, GraphModelNode child) {
+			id = parent.getId() + "@inter" + counter++ + "@" + child.getId();
+		}
+
+		public String getId() {
+			return id;
+		}
+	}
+
+	private static GraphModelNode createIntermediary(GraphModelNode parent, GraphModelNode child) {
+		Intermediary inter = new Intermediary(parent, child);
+		return new SimpleGraphModelNode(inter.getId(), inter);
 	}
 
 	private static List<Collection<GraphModelNode>> distributeIntoLayers(GraphModel layoutModel) {
@@ -248,8 +255,8 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	}
 
 	private static GraphModel mutableCopy(GraphModel model) {
-		Map<GraphModelNode, GraphModelNode> nodesCopies = model.getNodes().stream()
-				.collect(toMap(node -> node, node -> new SimpleGraphModelNode(node.getContent())));
+		Map<GraphModelNode, GraphModelNode> nodesCopies = model.getNodes().stream().collect(
+				toMap(node -> node, node -> new SimpleGraphModelNode(node.getId(), (CodeItem) node.getContent())));
 		nodesCopies.entrySet().forEach(entry -> {
 			GraphModelNode node = entry.getKey();
 			GraphModelNode copy = entry.getValue();
@@ -263,6 +270,6 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 			return new SimpleGraphModelEdge(source, target);
 		}).collect(toList());
 
-		return new SimpleGraphModel(new ArrayList<>(nodesCopies.values()), new ArrayList<>(edgesCopies), true);
+		return new SimpleGraphModel(new ArrayList<>(nodesCopies.values()), new ArrayList<>(edgesCopies));
 	}
 }

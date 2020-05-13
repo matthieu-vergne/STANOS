@@ -2,8 +2,6 @@ package fr.vergne.stanos.gui.scene.graph.model;
 
 import java.util.Objects;
 
-import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
-
 public class SimpleGraphModelEdge implements GraphModelEdge {
 
 	private final GraphModelNode source;
@@ -25,16 +23,6 @@ public class SimpleGraphModelEdge implements GraphModelEdge {
 	}
 
 	@Override
-	public GraphLayerEdge toLayerNode() {
-		return CACHE.computeIfAbsent(this, n -> {
-			// TODO move to layer or layout package
-			GraphLayerEdge layerEdge = new GraphLayerEdge(source.toLayerNode(), target.toLayerNode());
-			LAYER_MAP.put(layerEdge, this);
-			return layerEdge;
-		});
-	}
-	
-	@Override
 	public boolean equals(Object obj) {
 		if (obj == this) {
 			return true;
@@ -45,7 +33,7 @@ public class SimpleGraphModelEdge implements GraphModelEdge {
 			return false;
 		}
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return Objects.hash(source, target);
