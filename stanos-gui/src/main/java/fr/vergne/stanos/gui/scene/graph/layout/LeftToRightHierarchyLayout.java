@@ -1,6 +1,5 @@
 package fr.vergne.stanos.gui.scene.graph.layout;
 
-import static fr.vergne.stanos.gui.property.MetadataProperty.*;
 import static java.util.Comparator.*;
 import static java.util.stream.Collectors.*;
 
@@ -19,7 +18,6 @@ import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Method;
 import fr.vergne.stanos.dependency.codeitem.Package;
 import fr.vergne.stanos.dependency.codeitem.Type;
-import fr.vergne.stanos.gui.property.MetadataProperty.MetadataKey;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
@@ -45,34 +43,24 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 	interface LayoutAlgorithm {
 		GraphLayer apply(GraphModel layoutModel);
 	}
-
-	private static final LayoutAlgorithm LAYERS_ALGORITHM = model -> {
+	
+	private final LayoutAlgorithm LAYERS_ALGORITHM = model -> {
 		GraphModel layoutModel = mutableCopy(model);
 
 		List<Collection<GraphModelNode>> modelLayers = distributeIntoLayers(layoutModel);
 		addIntermediaries(modelLayers, layoutModel);
 		sort(modelLayers);
 
-		List<List<GraphLayerNode>> guiLayers = toGuiLayers(modelLayers);
-
-		// Start coordinates to origin
-		MetadataKey<Double> preX = createMetadataKey();
-		MetadataKey<Double> preY = createMetadataKey();
-		guiLayers.forEach(layer -> {
-			layer.forEach(node -> {
-				node.setMetadata(preX, 0.0);
-				node.setMetadata(preY, 0.0);
-			});
-		});
-
+		List<List<GraphLayerNode>> guiLayers = prepareGuiLayers(modelLayers);
+		
 		// Set x coordinates to space layers from roots to leaves
 		{
 			double x = 0;
-			for (Collection<GraphLayerNode> layer : guiLayers) {
+			for (List<GraphLayerNode> layer : guiLayers) {
 				double maxWidth = 50;// TODO set to 0 when cell.getWidth() not zero anymore
-				for (GraphLayerNode cell : layer) {
-					cell.setMetadata(preX, x);
-					maxWidth = Math.max(maxWidth, cell.getWidth());
+				for (GraphLayerNode node : layer) {
+					node.setLayoutX(x);
+					maxWidth = Math.max(maxWidth, node.getWidth());
 				}
 				x += maxWidth + layerSpacing;
 			}
@@ -80,11 +68,11 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 
 		// Spread y coordinates of leaves
 		{
-			Collection<GraphLayerNode> layer = guiLayers.get(guiLayers.size() - 1);
+			List<GraphLayerNode> layer = guiLayers.get(guiLayers.size() - 1);
 			double y = 0;
-			for (GraphLayerNode cell : layer) {
-				double height = Math.max(20, cell.getHeight());// TODO set to cell.getHeight() when not zero anymore
-				cell.setMetadata(preY, y);
+			for (GraphLayerNode node : layer) {
+				double height = Math.max(20, node.getHeight());// TODO set to cell.getHeight() when not zero anymore
+				node.setLayoutY(y);
 				y += height + layerSpacing;
 			}
 		}
@@ -92,25 +80,16 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		// Adapt y coordinates of parents as average of children
 		{
 			for (int i = guiLayers.size() - 2; i >= 0; i--) {
-				Collection<GraphLayerNode> layer = guiLayers.get(i);
+				List<GraphLayerNode> layer = guiLayers.get(i);
 				for (GraphLayerNode node : layer) {
 					node.getGraphNodeChildren().stream()
 							// Compute average of children
-							.mapToDouble(child -> child.getMetadata(preY)).average()
+							.mapToDouble(child -> child.getLayoutY()).average()
 							// Update Y if we could compute it
-							.ifPresent(y -> node.setMetadata(preY, y));
+							.ifPresent(y -> node.setLayoutY(y));
 				}
 			}
 		}
-
-		// Apply coordinates
-		guiLayers.forEach(layer -> {
-			layer.forEach(node -> {
-				double x = node.removeMetadata(preX);
-				double y = node.removeMetadata(preY);
-				node.relocate(x, y);
-			});
-		});
 
 		Collection<GraphLayerNode> layerNodes = guiLayers.stream().flatMap(layer -> layer.stream()).collect(toList());
 		Collection<GraphLayerEdge> layerEdges = layerNodes.stream().flatMap(
@@ -120,12 +99,12 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		return new GraphLayer(layerNodes, layerEdges);
 	};
 
-	private static List<List<GraphLayerNode>> toGuiLayers(List<Collection<GraphModelNode>> modelLayers) {
+	private List<List<GraphLayerNode>> prepareGuiLayers(List<Collection<GraphModelNode>> modelLayers) {
 		// Create isolated layer nodes
 		Map<GraphModelNode, GraphLayerNode> nodesMap = new HashMap<>();
 		List<List<GraphLayerNode>> guiLayers = modelLayers.stream()
 				.map(layer -> layer.stream().map(
-						modelNode -> nodesMap.computeIfAbsent(modelNode, LeftToRightHierarchyLayout::createLayerNode))
+						modelNode -> nodesMap.computeIfAbsent(modelNode, this::createLayerNode))
 						.collect(toUnmodifiableList()))
 				.collect(toUnmodifiableList());
 
@@ -140,12 +119,12 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		return guiLayers;
 	}
 
-	private static GraphLayerNode createLayerNode(GraphModelNode modelNode) {
+	private GraphLayerNode createLayerNode(GraphModelNode modelNode) {
 		Object content = modelNode.getContent();
 
-		Node layerNode;
+		Node layerNodeContent;
 		if (content instanceof Intermediary) {
-			layerNode = new Group();
+			layerNodeContent = new Group();
 		} else if (content instanceof CodeItem) {
 			CodeItem item = (CodeItem) content;
 			// TODO use proper graphics
@@ -155,14 +134,18 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 					: item instanceof Type ? 'T'// TODO 'C' & 'I'
 							: item instanceof Method ? 'M'
 									: item instanceof Constructor ? 'Z' : item instanceof Lambda ? 'L' : '?';
-			layerNode = new Label(String.format("[%s] %s", prefix, name));
+			layerNodeContent = new Label(String.format("[%s] %s", prefix, name));
 		} else {
 			throw new IllegalStateException("Unmanaged case: " + content.getClass());
 		}
-		return new GraphLayerNode(modelNode.getId(), layerNode);
+		
+		GraphLayerNode layerNode = new GraphLayerNode(layerNodeContent);
+		layerNode.relocate(0, 0);
+		
+		return layerNode;
 	}
 
-	private static void sort(List<Collection<GraphModelNode>> layers) {
+	private void sort(List<Collection<GraphModelNode>> layers) {
 		layers.replaceAll(ArrayList::new);
 
 		List<GraphModelNode> roots = (List<GraphModelNode>) layers.get(0);
@@ -180,7 +163,7 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		}
 	}
 
-	private static void addIntermediaries(List<Collection<GraphModelNode>> layers, GraphModel layoutModel) {
+	private void addIntermediaries(List<Collection<GraphModelNode>> layers, GraphModel layoutModel) {
 		for (int i = 0; i < layers.size() - 1; i++) {
 			Collection<GraphModelNode> currentLayer = layers.get(i);
 			Collection<GraphModelNode> nextLayer = layers.get(i + 1);
@@ -199,7 +182,7 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		}
 	}
 
-	private static void updateLayout(GraphModel layoutModel, GraphModelNode parent, GraphModelNode child,
+	private void updateLayout(GraphModel layoutModel, GraphModelNode parent, GraphModelNode child,
 			GraphModelNode intermediary) {
 		layoutModel.getNodes().add(intermediary);
 
@@ -208,7 +191,7 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		layoutModel.getEdges().add(new SimpleGraphModelEdge(intermediary, child));
 	}
 
-	private static void replaceParentsAndChildren(GraphModelNode parent, GraphModelNode child,
+	private void replaceParentsAndChildren(GraphModelNode parent, GraphModelNode child,
 			GraphModelNode intermediary) {
 		intermediary.addChild(child);
 		intermediary.addParent(parent);
@@ -232,12 +215,12 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		}
 	}
 
-	private static GraphModelNode createIntermediary(GraphModelNode parent, GraphModelNode child) {
+	private GraphModelNode createIntermediary(GraphModelNode parent, GraphModelNode child) {
 		Intermediary inter = new Intermediary(parent, child);
 		return new SimpleGraphModelNode(inter.getId(), inter);
 	}
 
-	private static List<Collection<GraphModelNode>> distributeIntoLayers(GraphModel layoutModel) {
+	private List<Collection<GraphModelNode>> distributeIntoLayers(GraphModel layoutModel) {
 		List<Collection<GraphModelNode>> layers = new LinkedList<>();
 		layers.add(new HashSet<GraphModelNode>(layoutModel.getNodes()));
 
@@ -254,7 +237,7 @@ public class LeftToRightHierarchyLayout implements GraphLayout {
 		return layers;
 	}
 
-	private static GraphModel mutableCopy(GraphModel model) {
+	private GraphModel mutableCopy(GraphModel model) {
 		Map<GraphModelNode, GraphModelNode> nodesCopies = model.getNodes().stream().collect(
 				toMap(node -> node, node -> new SimpleGraphModelNode(node.getId(), (CodeItem) node.getContent())));
 		nodesCopies.entrySet().forEach(entry -> {

@@ -1,6 +1,5 @@
 package fr.vergne.stanos.gui.property;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -8,6 +7,7 @@ import javafx.beans.property.MapProperty;
 import javafx.beans.property.SimpleMapProperty;
 import javafx.collections.FXCollections;
 
+// TODO make each key-value a property on its own
 public class MetadataProperty {
 	private final MapProperty<MetadataKey<?>, Object> metadataProperty;
 
@@ -41,9 +41,4 @@ public class MetadataProperty {
 	public <T> T remove(MetadataKey<T> key) {
 		return (T) metadataProperty.remove(key);
 	}
-
-	public MetadataProperty immutable() {
-		return new MetadataProperty(Collections.unmodifiableMap(metadataProperty.get()));
-	}
-
 }
