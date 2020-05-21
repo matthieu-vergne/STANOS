@@ -33,14 +33,14 @@ public class App extends Application {
 
 		ObservableList<Path> paths = FXCollections.observableList(new LinkedList<Path>());
 		paths.add(Path.of(
-				"/home/matthieu/Programing/Java/Pester/pester-core/target/classes/fr/vergne/pester/util/cache"));
+				"target/classes/fr/vergne/stanos/gui/scene/graph/layout"));
 		ObservableList<Dependency> dependencies = FXCollections.observableList(new LinkedList<>());
 		DependencyAnalyser dependencyAnalyser = new ASMByteCodeAnalyser();
 
 		Runnable refreshAction = () -> {
 			System.out.println("Refresh dependencies");
 			dependencies.clear();
-			dependencies.addAll(dependencyAnalyser.analyse(CodeSelector.onPaths(paths)));
+			dependencies.addAll(dependencyAnalyser.analyze(CodeSelector.onPaths(paths)));
 			System.out.println(dependencies.size() + " dependencies retrieved");
 		};
 		refreshAction.run();// TODO remove

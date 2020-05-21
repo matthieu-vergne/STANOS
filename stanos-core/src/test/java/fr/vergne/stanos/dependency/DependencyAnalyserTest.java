@@ -1,17 +1,14 @@
 package fr.vergne.stanos.dependency;
 
-import static fr.vergne.stanos.dependency.codeitem.Constructor.constructor;
-import static fr.vergne.stanos.dependency.codeitem.Constructor.nestedConstructor;
-import static fr.vergne.stanos.dependency.codeitem.Lambda.lambda;
-import static fr.vergne.stanos.dependency.codeitem.Method.method;
-import static fr.vergne.stanos.dependency.codeitem.Type.type;
-import static fr.vergne.stanos.dependency.util.Formatter.removeClassPrefixes;
-import static java.nio.file.attribute.PosixFilePermissions.asFileAttribute;
-import static java.nio.file.attribute.PosixFilePermissions.fromString;
-import static java.util.function.Predicate.isEqual;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static fr.vergne.stanos.dependency.codeitem.Constructor.*;
+import static fr.vergne.stanos.dependency.codeitem.Lambda.*;
+import static fr.vergne.stanos.dependency.codeitem.Method.*;
+import static fr.vergne.stanos.dependency.codeitem.Type.*;
+import static fr.vergne.stanos.dependency.util.Formatter.*;
+import static java.nio.file.attribute.PosixFilePermissions.*;
+import static java.util.function.Predicate.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,7 +51,7 @@ public interface DependencyAnalyserTest {
 	default void testAnalyseOfNonClassPathFails(Path classFile) {
 		DependencyAnalyser analyser = createDependencyAnalyzer();
 
-		Executable analyse = () -> analyser.analyse(classFile);
+		Executable analyse = () -> analyser.analyze(classFile);
 
 		assertThrows(IllegalArgumentException.class, analyse);
 	}
@@ -73,7 +70,7 @@ public interface DependencyAnalyserTest {
 		DependencyAnalyser analyser = createDependencyAnalyzer();
 
 		InputStream inputStream = Files.newInputStream(classFile);
-		Executable analyse = () -> analyser.analyse(inputStream);
+		Executable analyse = () -> analyser.analyze(inputStream);
 
 		assertThrows(IllegalArgumentException.class, analyse);
 	}
@@ -88,16 +85,16 @@ public interface DependencyAnalyserTest {
 	/** @return {@link Analyse}s on the analysed class only */
 	static Stream<Analyse> focusedAnalyses() {
 		return Stream.of(name("analyze(class)", (analyser, analysedClass) -> {
-			return analyser.analyse(analysedClass);
+			return analyser.analyze(analysedClass);
 		}), name("analyze(is)", (analyser, analysedClass) -> {
 			String classPath = toClassPath(analysedClass);
 			InputStream is = analysedClass.getResourceAsStream(classPath);
-			return analyser.analyse(is);
+			return analyser.analyze(is);
 		}), name("analyze(path)", (analyser, analysedClass) -> {
 			try {
 				String classPath = toClassPath(analysedClass);
 				Path path = Paths.get(analysedClass.getResource(classPath).toURI());
-				return analyser.analyse(path);
+				return analyser.analyze(path);
 			} catch (URISyntaxException cause) {
 				throw new RuntimeException(cause);
 			}
@@ -106,7 +103,7 @@ public interface DependencyAnalyserTest {
 				String classPath = toClassPath(analysedClass);
 				Path path = Paths.get(analysedClass.getResource(classPath).toURI());
 				CodeSelector selector = CodeSelector.onFile(path);
-				return analyser.analyse(selector);
+				return analyser.analyze(selector);
 			} catch (URISyntaxException cause) {
 				throw new RuntimeException(cause);
 			}
@@ -115,7 +112,7 @@ public interface DependencyAnalyserTest {
 				String classPath = toClassPath(analysedClass);
 				Path path = Paths.get(analysedClass.getResource(classPath).toURI());
 				CodeSelector selector = CodeSelector.onPaths(Arrays.asList(path, path));
-				return analyser.analyse(selector);
+				return analyser.analyze(selector);
 			} catch (URISyntaxException cause) {
 				throw new RuntimeException(cause);
 			}
@@ -150,6 +147,11 @@ public interface DependencyAnalyserTest {
 		cases.analyse(DependencyAnalyserTest.class).test(p2).declares(0, type(DependencyAnalyserTest.class));
 		cases.analyse(DependencyAnalyserTest.class).test(p3).declares(0, type(DependencyAnalyserTest.class));
 		cases.analyse(DependencyAnalyserTest.class).test(p4).declares(1, type(DependencyAnalyserTest.class));
+
+		cases.analyse(DependencyAnalyserTest.class).test(p1).declares(0, type(Declare.class));
+		cases.analyse(DependencyAnalyserTest.class).test(p2).declares(0, type(Declare.class));
+		cases.analyse(DependencyAnalyserTest.class).test(p3).declares(0, type(Declare.class));
+		cases.analyse(DependencyAnalyserTest.class).test(p4).declares(0, type(Declare.class));
 
 		cases.testType(Declare.Type.AsInnerClass.class).declares(1, type(Declare.Type.AsInnerClass.Declared.class));
 		cases.testType(Declare.Type.AsInterface.class).declares(1, type(Declare.Type.AsInterface.Declared.class));
@@ -218,7 +220,7 @@ public interface DependencyAnalyserTest {
 						String classPath = toClassPath(analysedClass);
 						Path path = Paths.get(analysedClass.getResource(classPath).toURI());
 						CodeSelector selector = CodeSelector.onDirectory(path.getParent());
-						return analyser.analyse(selector);
+						return analyser.analyze(selector);
 					} catch (URISyntaxException cause) {
 						throw new RuntimeException(cause);
 					}
@@ -227,7 +229,7 @@ public interface DependencyAnalyserTest {
 						String classPath = toClassPath(analysedClass);
 						Path path = Paths.get(analysedClass.getResource(classPath).toURI());
 						CodeSelector selector = CodeSelector.onPaths(Arrays.asList(path, path.getParent()));
-						return analyser.analyse(selector);
+						return analyser.analyze(selector);
 					} catch (URISyntaxException cause) {
 						throw new RuntimeException(cause);
 					}

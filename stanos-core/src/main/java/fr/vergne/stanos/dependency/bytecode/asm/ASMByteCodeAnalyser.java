@@ -53,36 +53,43 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 	private static final int ASM_VERSION = Opcodes.ASM8;
 
 	@Override
-	public Collection<Dependency> analyse(CodeSelector codes) {
-		return codes.getCodes().map(Code::open).map(this::analyse).flatMap(Collection<Dependency>::stream)
-				/*
-				 * Let the analyse of each class generates its own package declarations and
-				 * filter them out here to avoid duplicates.
-				 */
-				.filter(distinctPackages())
-				//
+	public Collection<Dependency> analyze(CodeSelector codes) {
+		return codes.getCodes().map(Code::open).map(this::analyze).flatMap(Collection<Dependency>::stream)//
+				.filter(expectedDuplicates())// Filter duplicates built by this implementation
 				.collect(Collectors.toList());
 	}
 
-	private Predicate<Dependency> distinctPackages() {
-		Set<Dependency> packageDeclarations = new HashSet<>();
+	/**
+	 * We expect duplications on several kinds of dependencies:
+	 * <ul>
+	 * <li>Package declarations: they are inferred from analyzed types. A package
+	 * hierarchy will be declared as many times as there is types in it, including
+	 * inner types.
+	 * <li>Parent type declarations: inner classes infer their own parent classes. A
+	 * class hierarchy will be declared as many times as there is inner types in it.
+	 * </ul>
+	 */
+	private Predicate<Dependency> expectedDuplicates() {
+		Set<Dependency> expectedDuplicates = new HashSet<>();
 		return dep -> {
-			if (!(dep.getSource() instanceof Package)) {
+			if (!(dep.getAction().equals(DECLARES)
+					&& (dep.getTarget() instanceof Type || dep.getTarget() instanceof Package))) {
 				return true;
 			}
-			if (packageDeclarations.contains(dep)) {
+			if (expectedDuplicates.contains(dep)) {
 				return false;
 			}
-			packageDeclarations.add(dep);
+			expectedDuplicates.add(dep);
 			return true;
 		};
 	}
 
 	@Override
-	public Collection<Dependency> analyse(InputStream inputStream) {
+	public Collection<Dependency> analyze(InputStream inputStream) {
 		List<Dependency> dependencies = new LinkedList<>();
 		ClassVisitor visitor = createClassVisitor(dependencies);
-		int options = 0;// ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES;
+		int options = 0;// TODO ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG |
+						// ClassReader.SKIP_FRAMES;
 		ClassReader classReader;
 		try {
 			classReader = new ClassReader(inputStream);
@@ -103,13 +110,29 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 			public void visit(int version, int access, String classPath, String signature, String superName,
 					String[] interfaces) {
 				classType = Type.fromClassPath(classPath);
-				declarePackageHierarchy(classType);
+				Type rootType = declareClassHierarchy(classType);
+				declarePackageHierarchy(rootType);
+			}
+
+			private Type declareClassHierarchy(Type type) {
+				String typePath = type.getId();
+				int lastDollarIndex = typePath.lastIndexOf('$');
+				boolean isInnerType = lastDollarIndex != -1;
+				if (isInnerType) {
+					String parentTypeName = typePath.substring(0, lastDollarIndex);
+					Type parentType = Type.fromClassName(parentTypeName);
+					dependencies.add(new Dependency(parentType, DECLARES, type));
+					return declareClassHierarchy(parentType);
+				} else {
+					return type;
+				}
 			}
 
 			private void declarePackageHierarchy(CodeItem item) {
 				String itemPath = item.getId();
 				int lastDotIndex = itemPath.lastIndexOf('.');
-				if (lastDotIndex != -1) {
+				boolean isInPackage = lastDotIndex != -1;
+				if (isInPackage) {
 					String packageName = itemPath.substring(0, lastDotIndex);
 					Package itemPackage = Package.fromPackageName(packageName);
 					dependencies.add(new Dependency(itemPackage, DECLARES, item));
