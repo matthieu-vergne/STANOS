@@ -22,9 +22,7 @@ import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelNode;
 import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder;
 import javafx.beans.InvalidationListener;
-import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Pos;
@@ -38,41 +36,48 @@ import javafx.scene.layout.VBox;
 public class DependenciesGraphPane extends BorderPane {
 
 	public DependenciesGraphPane(Configuration configuration, ObservableList<Dependency> dependencies) {
+		/*
+		 * COMPONENTS
+		 */
+
 		int spacing = configuration.gui().globalSpacing();
-		
+
 		// TODO support more filters
 		FilteredList<Dependency> filteredDependencies = dependencies
 				.filtered(dep -> dep.getAction().equals(Action.DECLARES));
-		// TODO update upon dependencies refresh
-		filteredDependencies.addListener((ListChangeListener<Dependency>) x -> {
-			System.err.println("********");
-		});
 
-		GraphView graphView = createGraphView(filteredDependencies);
-
-		ObservableList<GraphLayout> layouts = createGraphLayouts();
-		ChoiceBox<GraphLayout> layoutBox = new ChoiceBox<>(layouts);
-		ReadOnlyObjectProperty<GraphLayout> selectedLayoutProperty = layoutBox.getSelectionModel()
-				.selectedItemProperty();
-		selectedLayoutProperty.addListener((observable, oldLayout, newLayout) -> {
-			graphView.setLayout(newLayout);
-		});
-		layoutBox.getSelectionModel().select(0);// TODO from conf
+		ChoiceBox<GraphLayout> layoutBox = new ChoiceBox<>(createGraphLayouts());
 		HBox options = new HBox(spacing, new Label("Layout:"), layoutBox);
 		options.setAlignment(Pos.CENTER_LEFT);
 
-		var graphPane = new ZoomableScrollPane(graphView);
+		GraphView graphView = new GraphView();
+		ZoomableScrollPane graphPane = new ZoomableScrollPane(graphView);
 		graphPane.setFitToWidth(true);
 		graphPane.setFitToHeight(true);
-
-		// TODO redo after each update (after graph.endUpdate())
 		MouseGestures mouseGestures = new MouseGestures(graphPane::getScaleValue);
-		graphView.getGraphLayer().getGraphNodes().forEach(node -> {
-			mouseGestures.makeDraggable(node);
-		});
 
 		setCenter(new VBox(spacing, options, graphPane));
 		VBox.setVgrow(graphPane, Priority.ALWAYS);
+
+		/**
+		 * OBSERVERS
+		 */
+
+		layoutBox.getSelectionModel().selectedItemProperty().addListener((observable, oldLayout, newLayout) -> {
+			graphView.setLayout(newLayout);
+		});
+		filteredDependencies.addListener((InvalidationListener) observable -> {
+			graphView.setModel(createGraphModel(filteredDependencies));
+		});
+		graphView.graphLayerProperty().addListener((observable, oldLayer, newLayer) -> {
+			newLayer.getGraphNodes().forEach(mouseGestures::makeDraggable);
+		});
+
+		/**
+		 * DEFAULTS
+		 */
+
+		layoutBox.getSelectionModel().select(0);// TODO from conf
 	}
 
 	private ObservableList<GraphLayout> createGraphLayouts() {
@@ -97,16 +102,6 @@ public class DependenciesGraphPane extends BorderPane {
 				return "↑";
 			}
 		});
-	}
-
-	private GraphView createGraphView(ObservableList<Dependency> dependencies) {
-		GraphModel model = createGraphModel(dependencies);
-		GraphView graphView = new GraphView(model);
-		dependencies.addListener((InvalidationListener) observable -> {
-			System.err.println("change");
-			graphView.setModel(createGraphModel(dependencies));
-		});
-		return graphView;
 	}
 
 	private GraphModel createGraphModel(ObservableList<Dependency> dependencies) {

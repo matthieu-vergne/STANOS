@@ -32,26 +32,28 @@ public class App extends Application {
 		ensureWorkspaceIsSet(configuration);
 
 		ObservableList<Path> paths = FXCollections.observableList(new LinkedList<Path>());
-		paths.add(Path.of(
-				"target/classes/fr/vergne/stanos/gui/scene/graph/layout"));
+		paths.add(Path.of("target/classes/fr/vergne/stanos/gui/scene/graph/layout"));
 		ObservableList<Dependency> dependencies = FXCollections.observableList(new LinkedList<>());
 		DependencyAnalyser dependencyAnalyser = new ASMByteCodeAnalyser();
 
-		Runnable refreshAction = () -> {
+		Runnable refresh = () -> {
 			System.out.println("Refresh dependencies");
-			dependencies.clear();
-			dependencies.addAll(dependencyAnalyser.analyze(CodeSelector.onPaths(paths)));
+			dependencies.setAll(dependencyAnalyser.analyze(CodeSelector.onPaths(paths)));
 			System.out.println(dependencies.size() + " dependencies retrieved");
 		};
-		refreshAction.run();// TODO remove
 
-		Tab pathsSelectorTab = new Tab("Classes", new PathsSelectorPane(configuration, paths, refreshAction));
-		Tab dependenciesTab = new Tab("Dependencies", new DependenciesPane(configuration, dependencies));
+		// FIXME 
+		PathsSelectorPane pathsSelectorPane = new PathsSelectorPane(configuration, paths);
+		pathsSelectorPane.setRefreshAction(refresh);
+		DependenciesPane dependenciesPane = new DependenciesPane(configuration, dependencies);
+		
+		Tab pathsSelectorTab = new Tab("Classes", pathsSelectorPane);
+		Tab dependenciesTab = new Tab("Dependencies", dependenciesPane);
 		TabPane tabPane = new TabPane(pathsSelectorTab, dependenciesTab);
 		tabPane.setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
 		tabPane.setOnKeyPressed(event -> {
 			if (KeyCode.F5.equals(event.getCode())) {
-				refreshAction.run();
+				refresh.run();
 			}
 		});
 
@@ -61,7 +63,7 @@ public class App extends Application {
 		primaryStage.setTitle("STANOS");
 		primaryStage.setScene(scene);
 		primaryStage.show();
-		
+
 		// TODO remove
 		tabPane.getSelectionModel().select(dependenciesTab);
 	}

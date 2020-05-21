@@ -25,7 +25,9 @@ import javafx.stage.Window;
 
 public class PathsSelectorPane extends BorderPane {
 
-	public PathsSelectorPane(Configuration configuration, ObservableList<Path> paths, Runnable refreshAction) {
+	private final Button refreshButton;
+
+	public PathsSelectorPane(Configuration configuration, ObservableList<Path> paths) {
 		int spacing = configuration.gui().globalSpacing();
 		
 		TableView<Path> tableView = createTableView(paths);
@@ -34,7 +36,7 @@ public class PathsSelectorPane extends BorderPane {
 		Button addFileButton = createAddFilesButton(paths, tableView);
 		Button addDirectoryButton = createAddDirectoryButton(paths, tableView);
 		Button removeSelectionButton = createRemoveSelectionButton(paths, tableView);
-		Button refreshButton = createRefreshButton(refreshAction);
+		refreshButton = new Button("Refresh");
 		HBox buttons = new HBox(spacing, addFileButton, addDirectoryButton, removeSelectionButton, refreshButton);
 
 		VBox vBox = new VBox(spacing, buttons, tableView);
@@ -43,11 +45,9 @@ public class PathsSelectorPane extends BorderPane {
 		setCenter(vBox);
 		setPadding(new Insets(spacing));
 	}
-
-	private Button createRefreshButton(Runnable refreshAction) {
-		Button refreshButton = new Button("Refresh");
-		refreshButton.setOnAction(event -> refreshAction.run());
-		return refreshButton;
+	
+	public void setRefreshAction(Runnable action) {
+		refreshButton.setOnAction(event -> action.run());
 	}
 	
 	private Button createAddFilesButton(final ObservableList<Path> entries, TableView<Path> table) {
