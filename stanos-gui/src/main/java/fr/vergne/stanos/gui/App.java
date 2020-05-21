@@ -42,7 +42,6 @@ public class App extends Application {
 			System.out.println(dependencies.size() + " dependencies retrieved");
 		};
 
-		// FIXME 
 		PathsSelectorPane pathsSelectorPane = new PathsSelectorPane(configuration, paths);
 		pathsSelectorPane.setRefreshAction(refresh);
 		DependenciesPane dependenciesPane = new DependenciesPane(configuration, dependencies);
