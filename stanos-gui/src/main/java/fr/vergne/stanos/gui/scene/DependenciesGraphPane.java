@@ -35,31 +35,36 @@ import javafx.scene.layout.VBox;
 
 public class DependenciesGraphPane extends BorderPane {
 
+	// Store it as member to avoid GC
+	private final FilteredList<Dependency> filteredDependencies;
+
 	public DependenciesGraphPane(Configuration configuration, ObservableList<Dependency> dependencies) {
+		// TODO support more filters
+		filteredDependencies = dependencies.filtered(dep -> dep.getAction().equals(Action.DECLARES));
+
 		/*
 		 * COMPONENTS
 		 */
 
 		int spacing = configuration.gui().globalSpacing();
 
-		// TODO support more filters
-		FilteredList<Dependency> filteredDependencies = dependencies
-				.filtered(dep -> dep.getAction().equals(Action.DECLARES));
-
 		ChoiceBox<GraphLayout> layoutBox = new ChoiceBox<>(createGraphLayouts());
 		HBox options = new HBox(spacing, new Label("Layout:"), layoutBox);
 		options.setAlignment(Pos.CENTER_LEFT);
 
+		// TODO Provide a model which auto updates upon filteredDependencies update
+		// TODO Move filteredDependencies field to model
 		GraphView graphView = new GraphView();
 		ZoomableScrollPane graphPane = new ZoomableScrollPane(graphView);
 		graphPane.setFitToWidth(true);
 		graphPane.setFitToHeight(true);
 		MouseGestures mouseGestures = new MouseGestures(graphPane::getScaleValue);
+		graphPane.zoomTo(0.5);// TODO remove
 
 		setCenter(new VBox(spacing, options, graphPane));
 		VBox.setVgrow(graphPane, Priority.ALWAYS);
 
-		/**
+		/*
 		 * OBSERVERS
 		 */
 

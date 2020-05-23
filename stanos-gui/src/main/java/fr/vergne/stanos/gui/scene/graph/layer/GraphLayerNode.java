@@ -41,4 +41,10 @@ public class GraphLayerNode extends Pane {
 	public void removeGraphNodeParent(GraphLayerNode node) {
 		parents.remove(node);
 	}
+	
+	@Override
+	public String toString() {
+		Node node = getChildren().iterator().next();
+		return node.toString();
+	}
 }
