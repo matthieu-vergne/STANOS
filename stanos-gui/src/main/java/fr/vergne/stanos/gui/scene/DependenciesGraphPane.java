@@ -10,7 +10,9 @@ import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.gui.configuration.Configuration;
 import fr.vergne.stanos.gui.scene.graph.GraphView;
-import fr.vergne.stanos.gui.scene.graph.layout.DownTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.DownCenterTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.DownGroundTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.DownSurfaceTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.LeftCenterTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.LeftGroundTreeLayout;
@@ -18,7 +20,9 @@ import fr.vergne.stanos.gui.scene.graph.layout.LeftSurfaceTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.RightCenterTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.RightGroundTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.RightSurfaceTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.UpTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.UpTreeCenterLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.UpTreeGroundLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.UpTreeSurfaceLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
@@ -63,7 +67,7 @@ public class DependenciesGraphPane extends BorderPane {
 		graphPane.setFitToWidth(true);
 		graphPane.setFitToHeight(true);
 		MouseGestures mouseGestures = new MouseGestures(graphPane::getScaleValue);
-		graphPane.zoomTo(0.5);// TODO remove
+		graphPane.zoomTo(1);// TODO remove
 
 		setCenter(new VBox(spacing, options, graphPane));
 		VBox.setVgrow(graphPane, Priority.ALWAYS);
@@ -86,7 +90,7 @@ public class DependenciesGraphPane extends BorderPane {
 		 * DEFAULTS
 		 */
 
-		layoutBox.getSelectionModel().select(0);// TODO from conf
+		layoutBox.getSelectionModel().select(9);// TODO from conf
 	}
 
 	private ObservableList<GraphLayout> createGraphLayouts() {
@@ -121,15 +125,35 @@ public class DependenciesGraphPane extends BorderPane {
 					public String toString() {
 						return "←←";
 					}
-				}, new DownTreeLayout() {
+				}, new DownSurfaceTreeLayout() {
 					@Override
 					public String toString() {
 						return "↓";
 					}
-				}, new UpTreeLayout() {
+				}, new DownCenterTreeLayout() {
+					@Override
+					public String toString() {
+						return "↓.";
+					}
+				}, new DownGroundTreeLayout() {
+					@Override
+					public String toString() {
+						return "↓↓";
+					}
+				}, new UpTreeSurfaceLayout() {
 					@Override
 					public String toString() {
 						return "↑";
+					}
+				}, new UpTreeCenterLayout() {
+					@Override
+					public String toString() {
+						return "↑.";
+					}
+				}, new UpTreeGroundLayout() {
+					@Override
+					public String toString() {
+						return "↑↑";
 					}
 				});
 	}

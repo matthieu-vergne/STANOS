@@ -119,7 +119,8 @@ public class TreeLayout implements GraphLayout {
 	}
 
 	private final Direction direction;
-	private final Anchor anchor;
+	private final Anchor layerAnchor;
+	private final Anchor nodeAnchor;
 
 	private final PropertyAccessor depthCoordinate;
 	private final ReadOnlyPropertyAccessor thickness;
@@ -154,7 +155,8 @@ public class TreeLayout implements GraphLayout {
 			ReadOnlyPropertyAccessor spreadSize, //
 			PropertySupplier spreadSpacing) {
 		this.direction = direction;
-		this.anchor = anchor;
+		this.layerAnchor = anchor;
+		this.nodeAnchor = direction.apply(anchor);// TODO why this one is directed?
 
 		this.depthCoordinate = depthCoordinate;
 		this.thickness = depthSize;
@@ -297,6 +299,7 @@ public class TreeLayout implements GraphLayout {
 		} else {
 			spreadLeaves(guiLayers);
 			centerParentsOnChildren(guiLayers);
+			// FIXME parents overlaps due to small children
 		}
 	}
 
@@ -339,34 +342,78 @@ public class TreeLayout implements GraphLayout {
 	}
 
 	private void bindLayersCoordinates(List<List<GraphLayerNode>> guiLayers) {
-		NumberExpression layerSpacing = direction.apply(depthSpacing.get());
 		List<NumberExpression> layerThicknesses = createLayerThicknessProperties(guiLayers);
 		for (int i = 0; i < guiLayers.size(); i++) {
-			NumberExpression parentLayerThickness = i == 0 ? null : direction.apply(layerThicknesses.get(i - 1));
 			for (GraphLayerNode node : guiLayers.get(i)) {
 				Collection<GraphLayerNode> parents = node.getGraphNodeParents();
-				NumberExpression layerThickness = direction.apply(layerThicknesses.get(i));
 				if (parents.isEmpty()) {
 					// Root starts at the origin
 					depthCoordinate.get(node).set(0);
 				} else {
-					GraphLayerNode parent = parents.iterator().next();// Assume single parent because tree
-					NumberExpression parentThickness = thickness.get(parent);
-					NumberExpression nodeThickness = thickness.get(node);
+					// Assume single parent because assumed to be a tree
+					GraphLayerNode parentNode = parents.iterator().next();
 
-					// TODO clarify anchors: why some directed and others not?
-					NumberExpression parentAnchor = direction.apply(anchor).compute(parentThickness);
-					NumberExpression nodeAnchor = direction.apply(anchor).compute(nodeThickness);
-					NumberExpression deltaAnchor = anchor.revert().compute(parentLayerThickness);
-					NumberExpression layerAnchor = anchor.compute(layerThickness);
-					NumberExpression layerCoordinate = depthCoordinate.get(parent)//
-							.add(parentAnchor)//
-							.add(deltaAnchor)//
-							.add(layerSpacing)//
-							.add(layerAnchor);
+					/**
+					 * The coordinate of the node is based on its parents coordinate. Consequently,
+					 * we always need to add a whole layer's thickness worth to pass from one to the
+					 * other. This thickness is however a combination of the current layer and the
+					 * parent layer. As such, a piece of it come from one layer and the remaining
+					 * from the other. This is why we use reverted anchors between the two: they
+					 * complement each others.
+					 * 
+					 * Because we always build on 2 consecutive layers, we also always need to
+					 * include the space between the two. Thus the third component.
+					 * 
+					 * Depending on the direction, the thickness must be either added or subtracted
+					 * to the coordinate. Thus, the direction is applied on the total to make it
+					 * positive or negative.
+					 * 
+					 * For example, here is a summary of the contribution of each component if we go
+					 * to the right (R) or left (L), with an anchor on the surface (S), the center
+					 * (C), or the ground (G):
+					 * <ul>
+					 * <li>parent layer : RS= 1.0, RC= 0.5, RG= 0.0, LS=-1.0, LC=-0.5, LG=-0.0
+					 * <li>current layer: RS= 0.0, RC= 0.5, RG= 1.0, LS=-0.0, LC=-0.5, LG=-1.0
+					 * <li>layer spacing: RS= 1.0, RC= 1.0, RG= 1.0, LS=-1.0, LC=-1.0, LG=-1.0
+					 * </ul>
+					 * 
+					 * Note that these values are only weights. They must be applied to the actual
+					 * thickness of each component to know the actual value. So the two layers
+					 * combination does not always give the same value.
+					 */
+					var parentLayerPart = layerAnchor.revert().compute(layerThicknesses.get(i - 1));
+					var currentLayerPart = layerAnchor.compute(layerThicknesses.get(i));
+					var layerSpacing = depthSpacing.get();
+					var layersBlock = direction.apply(parentLayerPart.add(currentLayerPart).add(layerSpacing));
 
-					NumberExpression nodeCoordinate = layerCoordinate.subtract(nodeAnchor);
-					depthCoordinate.get(node).bind(nodeCoordinate);
+					/**
+					 * The general logics is that the overall distance between a parent node and its
+					 * child is a layer's worth + the space between their respective layers. All of
+					 * that is computed by the previous components. However, we may need small
+					 * adaptations based on the thicknesses of both nodes to have a perfect
+					 * placement. This is what we compute below.
+					 * 
+					 * In the trivial case, where they have the same thickness, no adaptation is
+					 * required. In general, we compute the difference to know how much to adapt.
+					 * 
+					 * For example, here is a summary of the contribution of each component if we go
+					 * to the right (R) or left (L), with an anchor on the surface (S), the center
+					 * (C), or the ground (G):
+					 * <ul>
+					 * <li>parent node : RS= 0.0, RC= 0.5, RG= 1.0, LS= 1.0, LC= 0.5, LG= 0.0
+					 * <li>current node: RS=-0.0, RC=-0.5, RG=-1.0, LS=-1.0, LC=-0.5, LG=-0.0
+					 * </ul>
+					 * 
+					 * Note that these values are only weights: they always complement each other,
+					 * but they must be applied to the actual thickness of each component to know
+					 * the actual value. So they rarely compute a zero value.
+					 */
+					var parentNodePart = nodeAnchor.compute(thickness.get(parentNode));
+					var currentNodePart = nodeAnchor.compute(thickness.get(node));
+					var nodesDifference = parentNodePart.subtract(currentNodePart);
+
+					// Bind the current node coordinate to the adapted coordinate of the parent node
+					depthCoordinate.get(node).bind(depthCoordinate.get(parentNode).add(layersBlock).add(nodesDifference));
 				}
 			}
 		}
@@ -459,7 +506,7 @@ public class TreeLayout implements GraphLayout {
 			for (int i = 0; i < layers.size() - 1; i++) {
 				List<GraphModelNode> parentsLayer = (List<GraphModelNode>) layers.get(i);
 				Comparator<GraphModelNode> parentsComparator = comparing(node -> {
-					// Assume single parent because hierarchy
+					// Assume single parent because assumed to be a tree
 					GraphModelNode parent = node.getParents().iterator().next();
 					return parentsLayer.indexOf(parent);
 				});
