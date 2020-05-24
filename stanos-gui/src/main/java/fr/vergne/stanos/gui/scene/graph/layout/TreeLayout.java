@@ -86,20 +86,25 @@ public class TreeLayout implements GraphLayout {
 			return transformation.apply(property);
 		}
 
-		Anchor apply(Anchor anchor) {
+		private Anchor apply(Anchor anchor) {
 			return transformation2.apply(anchor);
 		}
 	}
 
-	private static interface LayerAnchor {
-
-		NumberExpression atDirection(Direction direction);
-	}
-
 	public static enum Anchor {
-		SURFACE, CENTER, GROUND;
+		SURFACE(thickness -> ZERO_EXPRESSION), CENTER(thickness -> thickness.divide(2)), GROUND(thickness -> thickness);
 
-		Anchor revert() {
+		private final UnaryOperator<NumberExpression> transformation;
+
+		private Anchor(UnaryOperator<NumberExpression> transformation) {
+			this.transformation = transformation;
+		}
+
+		private NumberExpression compute(NumberExpression thickness) {
+			return transformation.apply(thickness);
+		}
+
+		private Anchor revert() {
 			switch (this) {
 			case SURFACE:
 				return Anchor.GROUND;
@@ -107,45 +112,6 @@ public class TreeLayout implements GraphLayout {
 				return Anchor.CENTER;
 			case GROUND:
 				return Anchor.SURFACE;
-			default:
-				throw new RuntimeException("Unmanaged anchor: " + this);
-			}
-		}
-
-		NumberExpression ofNode(NumberExpression nodeThickness) {
-			switch (this) {
-			case SURFACE:
-				return ZERO_EXPRESSION;
-			case CENTER:
-				return nodeThickness.divide(2);
-			case GROUND:
-				return nodeThickness;
-			default:
-				throw new RuntimeException("Unmanaged anchor: " + this);
-			}
-		}
-
-		NumberExpression ofLayerDelta(NumberExpression layerThickness) {
-			switch (this) {
-			case SURFACE:
-				return layerThickness;
-			case CENTER:
-				return layerThickness.divide(2);
-			case GROUND:
-				return ZERO_EXPRESSION;
-			default:
-				throw new RuntimeException("Unmanaged anchor: " + this);
-			}
-		}
-
-		NumberExpression ofLayer(NumberExpression layerThickness) {
-			switch (this) {
-			case SURFACE:
-				return ZERO_EXPRESSION;
-			case CENTER:
-				return layerThickness.divide(2);
-			case GROUND:
-				return layerThickness;
 			default:
 				throw new RuntimeException("Unmanaged anchor: " + this);
 			}
@@ -376,10 +342,7 @@ public class TreeLayout implements GraphLayout {
 		NumberExpression layerSpacing = direction.apply(depthSpacing.get());
 		List<NumberExpression> layerThicknesses = createLayerThicknessProperties(guiLayers);
 		for (int i = 0; i < guiLayers.size(); i++) {
-			NumberExpression parentLayerThickness = null;
-			if (i > 0) {
-				parentLayerThickness = direction.apply(layerThicknesses.get(i - 1));
-			}
+			NumberExpression parentLayerThickness = i == 0 ? null : direction.apply(layerThicknesses.get(i - 1));
 			for (GraphLayerNode node : guiLayers.get(i)) {
 				Collection<GraphLayerNode> parents = node.getGraphNodeParents();
 				NumberExpression layerThickness = direction.apply(layerThicknesses.get(i));
@@ -390,12 +353,12 @@ public class TreeLayout implements GraphLayout {
 					GraphLayerNode parent = parents.iterator().next();// Assume single parent because tree
 					NumberExpression parentThickness = thickness.get(parent);
 					NumberExpression nodeThickness = thickness.get(node);
-					
+
 					// TODO clarify anchors: why some directed and others not?
-					NumberExpression parentAnchor = direction.apply(anchor).ofNode(parentThickness);
-					NumberExpression nodeAnchor = direction.apply(anchor).ofNode(nodeThickness);
-					NumberExpression deltaAnchor = anchor.ofLayerDelta(parentLayerThickness);
-					NumberExpression layerAnchor = anchor.ofLayer(layerThickness);
+					NumberExpression parentAnchor = direction.apply(anchor).compute(parentThickness);
+					NumberExpression nodeAnchor = direction.apply(anchor).compute(nodeThickness);
+					NumberExpression deltaAnchor = anchor.revert().compute(parentLayerThickness);
+					NumberExpression layerAnchor = anchor.compute(layerThickness);
 					NumberExpression layerCoordinate = depthCoordinate.get(parent)//
 							.add(parentAnchor)//
 							.add(deltaAnchor)//
