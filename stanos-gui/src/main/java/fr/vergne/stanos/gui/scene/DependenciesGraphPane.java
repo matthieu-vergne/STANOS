@@ -10,19 +10,13 @@ import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.gui.configuration.Configuration;
 import fr.vergne.stanos.gui.scene.graph.GraphView;
-import fr.vergne.stanos.gui.scene.graph.layout.DownCenterTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.DownGroundTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.DownSurfaceTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.LeftCenterTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.LeftGroundTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.LeftSurfaceTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.RightCenterTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.RightGroundTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.RightSurfaceTreeLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.UpTreeCenterLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.UpTreeGroundLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.UpTreeSurfaceLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.Anchor;
+import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.Direction;
+import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.PropertyAccessor;
+import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.ExpressionAccessor;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
@@ -30,6 +24,8 @@ import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelNode;
 import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder;
 import javafx.beans.InvalidationListener;
+import javafx.beans.binding.NumberExpression;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -94,63 +90,105 @@ public class DependenciesGraphPane extends BorderPane {
 	}
 
 	private ObservableList<GraphLayout> createGraphLayouts() {
+		NumberExpression layersSpacing = new SimpleDoubleProperty(50);// TODO from conf
+		NumberExpression neighborsSpacing = new SimpleDoubleProperty(0);// TODO from conf
+		PropertyAccessor nodeX = GraphLayerNode::layoutXProperty;
+		PropertyAccessor nodeY = GraphLayerNode::layoutYProperty;
+		ExpressionAccessor nodeWidth = GraphLayerNode::widthProperty;
+		ExpressionAccessor nodeHeight = GraphLayerNode::heightProperty;
 		return FXCollections.observableArrayList(//
-				new RightSurfaceTreeLayout() {
+				new TreeLayout(//
+						Direction.NORMAL, Anchor.SURFACE, //
+						nodeX, nodeWidth, layersSpacing, //
+						nodeY, nodeHeight, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "→";
 					}
-				}, new RightCenterTreeLayout() {
+				}, new TreeLayout(//
+						Direction.NORMAL, Anchor.CENTER, //
+						nodeX, nodeWidth, layersSpacing, //
+						nodeY, nodeHeight, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "→.";
 					}
-				}, new RightGroundTreeLayout() {
+				}, new TreeLayout(//
+						Direction.NORMAL, Anchor.GROUND, //
+						nodeX, nodeWidth, layersSpacing, //
+						nodeY, nodeHeight, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "→→";
 					}
-				}, new LeftSurfaceTreeLayout() {
+				}, new TreeLayout(//
+						Direction.OPPOSITE, Anchor.SURFACE, //
+						nodeX, nodeWidth, layersSpacing, //
+						nodeY, nodeHeight, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "←";
 					}
-				}, new LeftCenterTreeLayout() {
+				}, new TreeLayout(//
+						Direction.OPPOSITE, Anchor.CENTER, //
+						nodeX, nodeWidth, layersSpacing, //
+						nodeY, nodeHeight, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return ".←";
 					}
-				}, new LeftGroundTreeLayout() {
+				}, new TreeLayout(//
+						Direction.OPPOSITE, Anchor.GROUND, //
+						nodeX, nodeWidth, layersSpacing, //
+						nodeY, nodeHeight, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "←←";
 					}
-				}, new DownSurfaceTreeLayout() {
+				}, new TreeLayout(//
+						Direction.NORMAL, Anchor.SURFACE, //
+						nodeY, nodeHeight, layersSpacing, //
+						nodeX, nodeWidth, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "↓";
 					}
-				}, new DownCenterTreeLayout() {
+				}, new TreeLayout(//
+						Direction.NORMAL, Anchor.CENTER, //
+						nodeY, nodeHeight, layersSpacing, //
+						nodeX, nodeWidth, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "↓.";
 					}
-				}, new DownGroundTreeLayout() {
+				}, new TreeLayout(//
+						Direction.NORMAL, Anchor.GROUND, //
+						nodeY, nodeHeight, layersSpacing, //
+						nodeX, nodeWidth, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "↓↓";
 					}
-				}, new UpTreeSurfaceLayout() {
+				}, new TreeLayout(//
+						Direction.OPPOSITE, Anchor.SURFACE, //
+						nodeY, nodeHeight, layersSpacing, //
+						nodeX, nodeWidth, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "↑";
 					}
-				}, new UpTreeCenterLayout() {
+				}, new TreeLayout(//
+						Direction.OPPOSITE, Anchor.CENTER, //
+						nodeY, nodeHeight, layersSpacing, //
+						nodeX, nodeWidth, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "↑.";
 					}
-				}, new UpTreeGroundLayout() {
+				}, new TreeLayout(//
+						Direction.OPPOSITE, Anchor.GROUND, //
+						nodeY, nodeHeight, layersSpacing, //
+						nodeX, nodeWidth, neighborsSpacing) {
 					@Override
 					public String toString() {
 						return "↑↑";

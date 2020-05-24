@@ -35,7 +35,6 @@ import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelNode;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.NumberExpression;
 import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.ReadOnlyDoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -50,25 +49,21 @@ import javafx.scene.layout.CornerRadii;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
-// TODO Generalize by removing CodeItem dependencies
+//TODO Generalize by removing CodeItem dependencies
+//TODO Extract algorithm for easy testing (remove javaFX dependencies)
 public class TreeLayout implements GraphLayout {
 
 	private static final NumberExpression ZERO_EXPRESSION = DoubleProperty
 			.readOnlyDoubleProperty(new SimpleDoubleProperty(0));
 
 	@FunctionalInterface
-	interface ReadOnlyPropertyAccessor {
-		ReadOnlyDoubleProperty get(GraphLayerNode node);
+	public interface ExpressionAccessor {
+		NumberExpression get(GraphLayerNode node);
 	}
 
 	@FunctionalInterface
-	interface PropertyAccessor {
+	public interface PropertyAccessor {
 		DoubleProperty get(GraphLayerNode node);
-	}
-
-	@FunctionalInterface
-	interface PropertySupplier {
-		ReadOnlyDoubleProperty get();
 	}
 
 	public static enum Direction {
@@ -123,48 +118,33 @@ public class TreeLayout implements GraphLayout {
 	private final Anchor nodeAnchor;
 
 	private final PropertyAccessor depthCoordinate;
-	private final ReadOnlyPropertyAccessor thickness;
-	private final PropertySupplier depthSpacing;
+	private final ExpressionAccessor thickness;
 
 	private final PropertyAccessor spreadCoordinate;
-	private final ReadOnlyPropertyAccessor spreadSize;
-	private final PropertySupplier spreadSpacing;
-
-	private static int layerSpacingX = 50;// TODO store in conf
-	private static int layerSpacingY = 0;// TODO store in conf
-
-	public TreeLayout() {
-		this(//
-				Direction.NORMAL, //
-				Anchor.SURFACE, //
-				GraphLayerNode::layoutXProperty, //
-				GraphLayerNode::widthProperty, //
-				() -> new SimpleDoubleProperty(layerSpacingX), //
-				GraphLayerNode::layoutYProperty, //
-				GraphLayerNode::heightProperty, //
-				() -> new SimpleDoubleProperty(layerSpacingY));
-	}
+	private final ExpressionAccessor spreading;
+	private final NumberExpression neighborsSpacing;
+	private final NumberExpression layersSpacing;
 
 	public TreeLayout(//
 			Direction direction, //
 			Anchor anchor, //
 			PropertyAccessor depthCoordinate, //
-			ReadOnlyPropertyAccessor depthSize, //
-			PropertySupplier depthSpacing, //
+			ExpressionAccessor depthSize, //
+			NumberExpression depthSpacing, //
 			PropertyAccessor spreadCoordinate, //
-			ReadOnlyPropertyAccessor spreadSize, //
-			PropertySupplier spreadSpacing) {
+			ExpressionAccessor spreadSize, //
+			NumberExpression spreadSpacing) {
 		this.direction = direction;
 		this.layerAnchor = anchor;
 		this.nodeAnchor = direction.apply(anchor);// TODO why this one is directed?
 
 		this.depthCoordinate = depthCoordinate;
 		this.thickness = depthSize;
-		this.depthSpacing = depthSpacing;
+		this.layersSpacing = depthSpacing;
 
 		this.spreadCoordinate = spreadCoordinate;
-		this.spreadSize = spreadSize;
-		this.spreadSpacing = spreadSpacing;
+		this.spreading = spreadSize;
+		this.neighborsSpacing = spreadSpacing;
 	}
 
 	@Override
@@ -299,7 +279,7 @@ public class TreeLayout implements GraphLayout {
 		} else {
 			spreadLeaves(guiLayers);
 			centerParentsOnChildren(guiLayers);
-			// FIXME parents overlaps due to small children
+			// FIXME parents overlap due to small children
 		}
 	}
 
@@ -311,13 +291,13 @@ public class TreeLayout implements GraphLayout {
 				NumberExpression centerSum = null;
 				for (GraphLayerNode child : children) {
 					NumberExpression childCoordinate = spreadCoordinate.get(child);
-					NumberExpression childSize = spreadSize.get(child);
+					NumberExpression childSize = spreading.get(child);
 					NumberExpression childCenter = childCoordinate.add(childSize.divide(2));
 					centerSum = centerSum == null ? childCenter : centerSum.add(childCenter);
 				}
 
 				NumberExpression nodeCenter = centerSum.divide(children.size());
-				NumberExpression nodeSize = spreadSize.get(node);
+				NumberExpression nodeSize = spreading.get(node);
 				NumberExpression nodeCoordinate = nodeCenter.subtract(nodeSize.divide(2));
 				spreadCoordinate.get(node).bind(nodeCoordinate);
 			}
@@ -325,16 +305,15 @@ public class TreeLayout implements GraphLayout {
 	}
 
 	private void spreadLeaves(List<List<GraphLayerNode>> guiLayers) {
-		ReadOnlyDoubleProperty spacing = spreadSpacing.get();
 		List<GraphLayerNode> layer = guiLayers.get(guiLayers.size() - 1);
 		GraphLayerNode previousNode = null;
 		for (GraphLayerNode node : layer) {
 			if (previousNode == null) {
 				spreadCoordinate.get(node).set(0);
 			} else {
-				NumberExpression previousSize = spreadSize.get(previousNode);
+				NumberExpression previousSize = spreading.get(previousNode);
 				NumberExpression previousCoordinate = spreadCoordinate.get(previousNode);
-				NumberExpression nodeCoordinate = previousCoordinate.add(previousSize).add(spacing);
+				NumberExpression nodeCoordinate = previousCoordinate.add(previousSize).add(neighborsSpacing);
 				spreadCoordinate.get(node).bind(nodeCoordinate);
 			}
 			previousNode = node;
@@ -383,8 +362,7 @@ public class TreeLayout implements GraphLayout {
 					 */
 					var parentLayerPart = layerAnchor.revert().compute(layerThicknesses.get(i - 1));
 					var currentLayerPart = layerAnchor.compute(layerThicknesses.get(i));
-					var layerSpacing = depthSpacing.get();
-					var layersBlock = direction.apply(parentLayerPart.add(currentLayerPart).add(layerSpacing));
+					var layersBlock = direction.apply(parentLayerPart.add(currentLayerPart).add(layersSpacing));
 
 					/**
 					 * The general logics is that the overall distance between a parent node and its

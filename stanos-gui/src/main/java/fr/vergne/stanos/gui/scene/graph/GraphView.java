@@ -4,7 +4,7 @@ import java.util.Collections;
 
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.DownSurfaceTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.NoLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModel;
 import javafx.beans.property.ObjectProperty;
@@ -26,7 +26,7 @@ public class GraphView extends Pane {
 	}
 
 	public GraphView(GraphModel model) {
-		this(new DownSurfaceTreeLayout(), model);
+		this(new NoLayout(), model);
 	}
 
 	public GraphView(GraphLayout layout, GraphModel model) {
