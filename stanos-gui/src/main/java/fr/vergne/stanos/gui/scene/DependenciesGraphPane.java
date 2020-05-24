@@ -10,11 +10,15 @@ import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.gui.configuration.Configuration;
 import fr.vergne.stanos.gui.scene.graph.GraphView;
-import fr.vergne.stanos.gui.scene.graph.layout.BottomToTopHierarchyLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.DownTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.LeftToRightHierarchyLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.RightToLeftHierarchyLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.TopToBottomHierarchyLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.LeftCenterTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.LeftGroundTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.LeftSurfaceTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.RightCenterTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.RightGroundTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.RightSurfaceTreeLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.UpTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
@@ -86,27 +90,48 @@ public class DependenciesGraphPane extends BorderPane {
 	}
 
 	private ObservableList<GraphLayout> createGraphLayouts() {
-		return FXCollections.observableArrayList(new LeftToRightHierarchyLayout() {
-			@Override
-			public String toString() {
-				return "→";
-			}
-		}, new RightToLeftHierarchyLayout() {
-			@Override
-			public String toString() {
-				return "←";
-			}
-		}, new TopToBottomHierarchyLayout() {
-			@Override
-			public String toString() {
-				return "↓";
-			}
-		}, new BottomToTopHierarchyLayout() {
-			@Override
-			public String toString() {
-				return "↑";
-			}
-		});
+		return FXCollections.observableArrayList(//
+				new RightSurfaceTreeLayout() {
+					@Override
+					public String toString() {
+						return "→";
+					}
+				}, new RightCenterTreeLayout() {
+					@Override
+					public String toString() {
+						return "→.";
+					}
+				}, new RightGroundTreeLayout() {
+					@Override
+					public String toString() {
+						return "→→";
+					}
+				}, new LeftSurfaceTreeLayout() {
+					@Override
+					public String toString() {
+						return "←";
+					}
+				}, new LeftCenterTreeLayout() {
+					@Override
+					public String toString() {
+						return ".←";
+					}
+				}, new LeftGroundTreeLayout() {
+					@Override
+					public String toString() {
+						return "←←";
+					}
+				}, new DownTreeLayout() {
+					@Override
+					public String toString() {
+						return "↓";
+					}
+				}, new UpTreeLayout() {
+					@Override
+					public String toString() {
+						return "↑";
+					}
+				});
 	}
 
 	private GraphModel createGraphModel(ObservableList<Dependency> dependencies) {

@@ -16,8 +16,8 @@ public class GraphLayerEdge extends Group {
 
 	public GraphLayerEdge(GraphLayerNode source, GraphLayerNode target) {
 
-		List<Point> sources = createAnchors(source);
-		List<Point> targets = createAnchors(target);
+		List<Anchor> sources = createAnchors(source);
+		List<Anchor> targets = createAnchors(target);
 
 		List<Link> links = createPossibleLinks(sources, targets);
 		ObjectBinding<Link> shortestLink = identifyShortestLink(links);
@@ -67,13 +67,13 @@ public class GraphLayerEdge extends Group {
 		};
 	}
 
-	private List<Link> createPossibleLinks(List<Point> sources, List<Point> targets) {
+	private List<Link> createPossibleLinks(List<Anchor> sources, List<Anchor> targets) {
 		return sources.stream()//
 				.flatMap(src -> targets.stream().map(tgt -> new Link(src, tgt)))//
 				.collect(Collectors.toList());
 	}
 
-	private List<Point> createAnchors(GraphLayerNode node) {
+	private List<Anchor> createAnchors(GraphLayerNode node) {
 		DoubleExpression x = node.layoutXProperty();
 		DoubleExpression y = node.layoutYProperty();
 		DoubleExpression w = node.widthProperty();
@@ -88,28 +88,28 @@ public class GraphLayerEdge extends Group {
 		DoubleExpression bottomY = y.add(h);
 
 		return Arrays.asList(//
-				new Point(leftX, centerY), //
-				new Point(rightX, centerY), //
-				new Point(centerX, topY), //
-				new Point(centerX, bottomY));
+				new Anchor(leftX, centerY), //
+				new Anchor(rightX, centerY), //
+				new Anchor(centerX, topY), //
+				new Anchor(centerX, bottomY));
 	}
 
-	class Point {
+	class Anchor {
 		final DoubleExpression x;
 		final DoubleExpression y;
 
-		public Point(DoubleExpression x, DoubleExpression y) {
+		public Anchor(DoubleExpression x, DoubleExpression y) {
 			this.x = x;
 			this.y = y;
 		}
 	}
 
 	class Link {
-		private final Point src;
-		private final Point tgt;
+		private final Anchor src;
+		private final Anchor tgt;
 		private final DoubleExpression lengthProperty;
 
-		public Link(Point src, Point tgt) {
+		public Link(Anchor src, Anchor tgt) {
 			this.src = src;
 			this.tgt = tgt;
 			lengthProperty = new DoubleBinding() {

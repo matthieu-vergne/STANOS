@@ -3,9 +3,9 @@ package fr.vergne.stanos.gui.scene.graph.layout;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 
-public class TopToBottomHierarchyLayout implements GraphLayout {
+public class DownTreeLayout implements GraphLayout {
 
-	private final GraphLayout delegate = new LeftToRightHierarchyLayout();
+	private final GraphLayout delegate = new TreeLayout();
 
 	@Override
 	public GraphLayer layout(GraphModel model) {

@@ -4,7 +4,7 @@ import java.util.Collections;
 
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
-import fr.vergne.stanos.gui.scene.graph.layout.TopToBottomHierarchyLayout;
+import fr.vergne.stanos.gui.scene.graph.layout.DownTreeLayout;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModel;
 import javafx.beans.property.ObjectProperty;
@@ -26,7 +26,7 @@ public class GraphView extends Pane {
 	}
 
 	public GraphView(GraphModel model) {
-		this(new TopToBottomHierarchyLayout(), model);
+		this(new DownTreeLayout(), model);
 	}
 
 	public GraphView(GraphLayout layout, GraphModel model) {
@@ -42,8 +42,6 @@ public class GraphView extends Pane {
 	}
 
 	private void redraw() {
-		// FIXME different successive rendering of same content
-		// FIXME Redraw stops after some refreshes despite different list
 		System.err.println("redraw");
 		/**
 		 * the pane wrapper is necessary or else the scrollpane would always align the
