@@ -334,64 +334,175 @@ public class TreeLayout implements GraphLayout {
 
 					/**
 					 * The coordinate of the node is based on its parents coordinate. Consequently,
-					 * we always need to add a whole layer's thickness worth to pass from one to the
-					 * other. This thickness is however a combination of the current layer and the
-					 * parent layer. As such, a piece of it come from one layer and the remaining
-					 * from the other. This is why we use reverted anchors between the two: they
-					 * complement each others.
+					 * the separation of the two goes through 2 consecutive layers: the parent layer
+					 * and the current layer. Assuming no space is added between the layers, the
+					 * diagram below shows that the nodes ('o' symbols) always have a distance equal
+					 * to the thickness of a whole layer:
 					 * 
-					 * Because we always build on 2 consecutive layers, we also always need to
-					 * include the space between the two. Thus the third component.
+					 * <pre>
+					 * Anchors | Surface | Center  | Ground  |
+					 *         |────o────|─────────|─────────|
+					 * Parent  |         |         |         |
+					 * layer   |         |    o----|---------|--^
+					 *         |         |         |         |  │
+					 *         |────o────|─────────|────o────|  │ 1 layer thickness
+					 *         |         |         |         |  │
+					 * Current |         |    o----|---------|--v
+					 * layer   |         |         |         |
+					 *         |─────────|─────────|────o────|
+					 * </pre>
 					 * 
-					 * Depending on the direction, the thickness must be either added or subtracted
-					 * to the coordinate. Thus, the direction is applied on the total to make it
-					 * positive or negative.
+					 * This diagram also shows that each layer contributes to this distance in a
+					 * complementary way: what is not consumed in one is consumed in the other.
 					 * 
-					 * For example, here is a summary of the contribution of each component if we go
-					 * to the right (R) or left (L), with an anchor on the surface (S), the center
-					 * (C), or the ground (G):
+					 * However, layers do not always have the same thickness, so the result cannot
+					 * be computed simply by taking one layer or the other. We must take the
+					 * relevant part of each layer based on their respective thickness.
+					 * 
+					 * Since the part consumed in a given layer depends on the anchor of the node in
+					 * that layer, we also need to consider this aspect.
+					 * 
+					 * The computation below brings together all these elements:
 					 * <ul>
-					 * <li>parent layer : RS= 1.0, RC= 0.5, RG= 0.0, LS=-1.0, LC=-0.5, LG=-0.0
-					 * <li>current layer: RS= 0.0, RC= 0.5, RG= 1.0, LS=-0.0, LC=-0.5, LG=-1.0
-					 * <li>layer spacing: RS= 1.0, RC= 1.0, RG= 1.0, LS=-1.0, LC=-1.0, LG=-1.0
+					 * <li>we retrieve a part for each layer
+					 * <li>we compute it from the anchor and thickness of the corresponding layer
+					 * <li>the complementariness of both layers leads to use opposite anchors
 					 * </ul>
-					 * 
-					 * Note that these values are only weights. They must be applied to the actual
-					 * thickness of each component to know the actual value. So the two layers
-					 * combination does not always give the same value.
 					 */
 					var parentLayerPart = layerAnchor.revert().compute(layerThicknesses.get(i - 1));
 					var currentLayerPart = layerAnchor.compute(layerThicknesses.get(i));
-					var layersBlock = direction.apply(parentLayerPart.add(currentLayerPart).add(layersSpacing));
 
 					/**
-					 * The general logics is that the overall distance between a parent node and its
-					 * child is a layer's worth + the space between their respective layers. All of
-					 * that is computed by the previous components. However, we may need small
-					 * adaptations based on the thicknesses of both nodes to have a perfect
-					 * placement. This is what we compute below.
+					 * Before to combine them, we must also consider the space which separates the
+					 * two layers, as shown in the more complete diagram below:
 					 * 
-					 * In the trivial case, where they have the same thickness, no adaptation is
-					 * required. In general, we compute the difference to know how much to adapt.
+					 * <pre>
+					 * Anchors | Surface | Center  | Ground  |
+					 *         |────o────|─────────|─────────|
+					 * Parent  |         |         |         |
+					 * layer   |         |    o    |         |
+					 *         |         |         |         |
+					 *         |─────────|─────────|─────────|--^
+					 *         |         |         |         |  │ Layer spacing
+					 *         |────o────|─────────|────o────|--v
+					 *         |         |         |         |
+					 * Current |         |    o    |         |
+					 * layer   |         |         |         |
+					 *         |─────────|─────────|────o────|
+					 * </pre>
 					 * 
-					 * For example, here is a summary of the contribution of each component if we go
-					 * to the right (R) or left (L), with an anchor on the surface (S), the center
-					 * (C), or the ground (G):
+					 * This spacing is constant, so we just need to add it to the two layer parts.
+					 * 
+					 * Then, because this layout is generic, it can cope with both positive and
+					 * negative directions. Thus, the sum needs to be adapted based on the direction
+					 * to consider.
+					 */
+					var layersPart = direction.apply(parentLayerPart.add(currentLayerPart).add(layersSpacing));
+
+					/**
+					 * With the previous elements, we considered nodes as points in the layers. Now
+					 * we also need to consider their own thickness. The diagram below shows
+					 * different examples for the center anchor:
+					 * 
+					 * <pre>
+					 * Bigger  |  Same   | Parent  | Current |
+					 *         |─────────|─────────|─────────|
+					 * Parent  |         |    █    |         |
+					 * layer   |    █    |    █    |    █    |
+					 *         |         |    █    |         |
+					 *         |─────────|─────────|─────────|
+					 *         |         |         |         |
+					 *         |─────────|─────────|─────────|
+					 *         |         |         |    █    |
+					 * Current |    █    |    █    |    █    |
+					 * layer   |         |         |    █    |
+					 *         |─────────|─────────|─────────|
+					 * </pre>
+					 * 
+					 * Let's consider the trivial case in the first example, where both nodes have
+					 * the same thickness. Because the nodes are placed within the same coordinate
+					 * system, they use the same origin. With a center anchor, the origin is at the
+					 * center of the nodes:
+					 * 
+					 * <pre>
+					 *         |─────────|
+					 * Parent  |         | origin of parent node
+					 * layer   |    █────|────────────────────────
+					 *         |         |                        ^
+					 *         |─────────|                        │ 1 layer thickness
+					 *         |         |                        │ + layer spacing
+					 *         |─────────|                        │
+					 *         |         | origin of current node v
+					 * Current |    █────|────────────────────────
+					 * layer   |         |
+					 *         |─────────|
+					 * </pre>
+					 * 
+					 * In this trivial case the distance remains always the same. The thickness of
+					 * the nodes is irrelevant, because we always consider the center of each node.
+					 * 
+					 * Now, let's add complexity by changing the anchor. We keep the current model
+					 * to facilitate the explanation, but let's take a surface anchor for the node:
+					 * 
+					 * <pre>
+					 *         |─────────|
+					 * Parent  |         | origin of parent node
+					 * layer   |    █¯¯¯¯|¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯^
+					 *         |         |                        │
+					 *         |─────────|                        │ 1 layer thickness
+					 *         |         |                        │ + layer spacing
+					 *         |─────────|                        │
+					 *         |         | origin of current node v
+					 * Current |    █¯¯¯¯|¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
+					 * layer   |         |
+					 *         |─────────|
+					 * </pre>
+					 * 
+					 * In this case, the thickness of each node is the same, so no adaptation is
+					 * required: the distance between the two nodes origins is exactly the layer
+					 * part. If the anchor of the node changes, both origins are translated as much,
+					 * so no adaptation is required as long as the nodes have the same thickness.
+					 * 
+					 * However, if the parent node is bigger as shown below, its origin moves. Now,
+					 * the current node should be placed farther to compensate the difference of
+					 * thickness between the two nodes:
+					 * 
+					 * <pre>
+					 *         |─────────|   ___________________
+					 * Parent  |    █¯¯¯¯|¯¯║ Adaptation        ^
+					 * layer   |    █¯¯¯¯|¯¯^                   │
+					 *         |    █    |  │                   │ Total
+					 *         |─────────|  │ 1 layer thickness │ distance
+					 *         |         |  │ + layer spacing   │
+					 *         |─────────|  │                   │
+					 *         |         |  v                   v
+					 * Current |    █¯¯¯¯|¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
+					 * layer   |         |
+					 *         |─────────|
+					 * </pre>
+					 * 
+					 * If the current node is the thickest, the adaptation is reversed and the
+					 * distance reduced.
+					 * 
+					 * In the general case, the adaptation is related to the difference in thickness
+					 * between the two nodes. Moreover, it also depends on the anchor, as we
+					 * explained before that a center anchor never needs an adaptation.
+					 * 
+					 * The code below reflects all these elements:
 					 * <ul>
-					 * <li>parent node : RS= 0.0, RC= 0.5, RG= 1.0, LS= 1.0, LC= 0.5, LG= 0.0
-					 * <li>current node: RS=-0.0, RC=-0.5, RG=-1.0, LS=-1.0, LC=-0.5, LG=-0.0
+					 * <li>we retrieve a part for each node
+					 * <li>we compute it from the anchor and thickness of the corresponding node
+					 * <li>the adaptation is the difference between both parts
+					 * <li>the total distance is the layer part + the adaptation
 					 * </ul>
-					 * 
-					 * Note that these values are only weights: they always complement each other,
-					 * but they must be applied to the actual thickness of each component to know
-					 * the actual value. So they rarely compute a zero value.
 					 */
 					var parentNodePart = nodeAnchor.compute(thickness.get(parentNode));
 					var currentNodePart = nodeAnchor.compute(thickness.get(node));
-					var nodesDifference = parentNodePart.subtract(currentNodePart);
+					var adaptation = parentNodePart.subtract(currentNodePart);
+					var totalDistance = layersPart.add(adaptation);
 
-					// Bind the current node coordinate to the adapted coordinate of the parent node
-					depthCoordinate.get(node).bind(depthCoordinate.get(parentNode).add(layersBlock).add(nodesDifference));
+					// Place the current node at distance from the parent node
+					depthCoordinate.get(node).bind(depthCoordinate.get(parentNode).add(totalDistance));
 				}
 			}
 		}
@@ -441,7 +552,7 @@ public class TreeLayout implements GraphLayout {
 			// TODO use proper graphics
 			String name = item.getId()//
 					.replaceAll("\\.?[^()]+\\.", "")// Remove packages
-					.replaceAll(".+\\$", "")// Remove parent class & "lambda"
+					.replaceAll(".+\\$([^0-9])", "$1")// Remove declaring class
 					.replaceAll("\\(.+\\)", "(...)")// Reduce arguments types
 					.replaceAll("\\).+", ")");// Remove return type
 			char prefix = item instanceof Package ? 'P'//

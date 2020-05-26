@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import javafx.beans.Observable;
 import javafx.beans.binding.DoubleBinding;
 import javafx.beans.binding.DoubleExpression;
+import javafx.beans.binding.NumberExpression;
 import javafx.beans.binding.ObjectBinding;
 import javafx.scene.Group;
 import javafx.scene.shape.Line;
@@ -15,17 +16,17 @@ import javafx.scene.shape.Line;
 public class GraphLayerEdge extends Group {
 
 	public GraphLayerEdge(GraphLayerNode source, GraphLayerNode target) {
-
+		// TODO Externalize anchors generation
 		List<Anchor> sources = createAnchors(source);
 		List<Anchor> targets = createAnchors(target);
 
 		List<Link> links = createPossibleLinks(sources, targets);
 		ObjectBinding<Link> shortestLink = identifyShortestLink(links);
 
-		DoubleBinding startX = extractCoordinate(shortestLink, Link -> Link.src.x);
-		DoubleBinding startY = extractCoordinate(shortestLink, link -> link.src.y);
-		DoubleBinding endX = extractCoordinate(shortestLink, link -> link.tgt.x);
-		DoubleBinding endY = extractCoordinate(shortestLink, link -> link.tgt.y);
+		NumberExpression startX = extractCoordinate(shortestLink, Link -> Link.src.x);
+		NumberExpression startY = extractCoordinate(shortestLink, link -> link.src.y);
+		NumberExpression endX = extractCoordinate(shortestLink, link -> link.tgt.x);
+		NumberExpression endY = extractCoordinate(shortestLink, link -> link.tgt.y);
 
 		Line line = new Line();
 		line.startXProperty().bind(startX);
@@ -37,7 +38,7 @@ public class GraphLayerEdge extends Group {
 
 	}
 
-	private DoubleBinding extractCoordinate(ObjectBinding<Link> shortestLink,
+	private NumberExpression extractCoordinate(ObjectBinding<Link> shortestLink,
 			Function<Link, DoubleExpression> extractor) {
 		return new DoubleBinding() {
 
