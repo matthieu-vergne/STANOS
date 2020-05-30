@@ -1,10 +1,5 @@
 package fr.vergne.stanos.gui.scene;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
 import fr.vergne.stanos.dependency.Action;
 import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
@@ -15,13 +10,9 @@ import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.Anchor;
 import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.Direction;
-import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.PropertyAccessor;
 import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.ExpressionAccessor;
+import fr.vergne.stanos.gui.scene.graph.layout.TreeLayout.PropertyAccessor;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
-import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
-import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelEdge;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelNode;
 import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder;
 import javafx.beans.InvalidationListener;
 import javafx.beans.binding.NumberExpression;
@@ -76,7 +67,8 @@ public class DependenciesGraphPane extends BorderPane {
 			graphView.setLayout(newLayout);
 		});
 		filteredDependencies.addListener((InvalidationListener) observable -> {
-			graphView.setModel(createGraphModel(filteredDependencies));
+			GraphModel model = GraphModelBuilder.createFromEdges(CodeItem::getId, filteredDependencies, Dependency::getSource, Dependency::getTarget).build();
+			graphView.setModel(model);
 		});
 		graphView.graphLayerProperty().addListener((observable, oldLayer, newLayer) -> {
 			newLayer.getGraphNodes().forEach(mouseGestures::makeDraggable);
@@ -194,34 +186,5 @@ public class DependenciesGraphPane extends BorderPane {
 						return "↑↑";
 					}
 				});
-	}
-
-	private GraphModel createGraphModel(ObservableList<Dependency> dependencies) {
-		GraphModelBuilder modelBuilder = new GraphModelBuilder();
-
-		Map<CodeItem, GraphModelNode> nodesMap = new HashMap<>();
-		Function<CodeItem, GraphModelNode> nodeBuilder = codeItem -> {
-			return nodesMap.computeIfAbsent(codeItem, item -> {
-				SimpleGraphModelNode node = new SimpleGraphModelNode(item.getId(), item);
-				modelBuilder.addNode(node);
-				return node;
-			});
-		};
-		BiFunction<GraphModelNode, GraphModelNode, GraphModelEdge> edgeBuilder = (source, target) -> {
-			// TODO update counter instead of multiple edges
-			GraphModelEdge edge = new SimpleGraphModelEdge(source, target);
-			modelBuilder.addEdge(edge);
-			return edge;
-		};
-
-		dependencies.forEach(dep -> {
-			GraphModelNode source = nodeBuilder.apply(dep.getSource());
-			GraphModelNode target = nodeBuilder.apply(dep.getTarget());
-			source.addChild(target);
-			target.addParent(source);
-			edgeBuilder.apply(source, target);
-		});
-
-		return modelBuilder.build();
 	}
 }

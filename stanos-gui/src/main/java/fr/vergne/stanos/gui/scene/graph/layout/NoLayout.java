@@ -5,6 +5,7 @@ import static java.util.stream.Collectors.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
@@ -21,24 +22,24 @@ public class NoLayout implements GraphLayout {
 		Map<GraphModelNode, GraphLayerNode> nodesMap = new HashMap<>();
 		List<GraphLayerNode> layerNodes = model.getNodes().stream()
 				.map(modelNode -> nodesMap.computeIfAbsent(modelNode, n -> {
-					return new GraphLayerNode(new Label(n.getId()));
+					return new GraphLayerNode(modelNode, new Label(n.getId()));
 				})).collect(toList());
 
 		// Retrieve parents & children
 		nodesMap.entrySet().forEach(entry -> {
 			GraphModelNode modelNode = entry.getKey();
 			GraphLayerNode layerNode = entry.getValue();
-			modelNode.getChildren().stream().map(nodesMap::get).forEach(layerNode::addGraphNodeChild);
-			modelNode.getParents().stream().map(nodesMap::get).forEach(layerNode::addGraphNodeParent);
+			model.getChildren(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeChild);
+			model.getParents(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeParent);
 		});
 
 		// Create layer edges
-		// TODO edges & parents/children redundant, simplify
-		List<GraphLayerEdge> layerEdges = layerNodes.stream().//
-				flatMap(parent -> parent.getGraphNodeChildren().stream()//
-						.map(child -> new GraphLayerEdge(parent, child)))//
-				.collect(toList());
-		
+		List<GraphLayerEdge> layerEdges = model.getEdges().stream().map(edge -> {
+			GraphLayerNode source = nodesMap.get(edge.getSource());
+			GraphLayerNode target = nodesMap.get(edge.getTarget());
+			return new GraphLayerEdge(source, target);
+		}).collect(Collectors.toList());
+
 		return new GraphLayer(layerNodes, layerEdges);
 	}
 
