@@ -27,12 +27,10 @@ import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
-import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModel;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelEdge;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelNode;
 import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder;
+import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder.GraphModelBuilderEdge;
+import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder.GraphModelBuilderNode;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.NumberExpression;
 import javafx.beans.property.DoubleProperty;
@@ -150,13 +148,19 @@ public class TreeLayout implements GraphLayout {
 
 	@Override
 	public GraphLayer layout(GraphModel model) {
-		model = mutableCopy(model);
+		GraphModelBuilder<Object> newModel = GraphModelBuilder.createFromModel(obj -> {
+			if (obj instanceof CodeItem) {
+				return ((CodeItem)obj).getId();
+			} else {
+				throw new RuntimeException("Unmanaged type of content: "+obj.getClass());
+			}
+		}, model);
 
-		List<Collection<GraphModelNode>> modelLayers = distributeIntoLayers(model);
-		addIntermediaries(model, modelLayers);
-		sort(model, modelLayers);
+		List<Collection<GraphModelBuilderNode>> modelLayers = distributeIntoLayers(newModel);
+		addIntermediaries(newModel, modelLayers);
+		sort(newModel, modelLayers);
 
-		List<List<GraphLayerNode>> guiLayers = prepareGuiLayers(model, modelLayers);
+		List<List<GraphLayerNode>> guiLayers = prepareGuiLayers(newModel, modelLayers);
 		bindLayersCoordinates(guiLayers);
 		bindNeighborsCoordinates(guiLayers);
 
@@ -522,10 +526,10 @@ public class TreeLayout implements GraphLayout {
 		return layerThicknesses;
 	};
 
-	private List<List<GraphLayerNode>> prepareGuiLayers(GraphModel layoutModel,
-			List<Collection<GraphModelNode>> modelLayers) {
+	private List<List<GraphLayerNode>> prepareGuiLayers(GraphModelBuilder<Object> layoutModel,
+			List<Collection<GraphModelBuilderNode>> modelLayers) {
 		// Create isolated layer nodes
-		Map<GraphModelNode, GraphLayerNode> nodesMap = new HashMap<>();
+		Map<GraphModelBuilderNode, GraphLayerNode> nodesMap = new HashMap<>();
 		List<List<GraphLayerNode>> guiLayers = modelLayers.stream()
 				.map(layer -> layer.stream()
 						.map(modelNode -> nodesMap.computeIfAbsent(modelNode, this::createLayerNode))
@@ -534,7 +538,7 @@ public class TreeLayout implements GraphLayout {
 
 		// Retrieve parents & children
 		nodesMap.entrySet().forEach(entry -> {
-			GraphModelNode modelNode = entry.getKey();
+			GraphModelBuilderNode modelNode = entry.getKey();
 			GraphLayerNode layerNode = entry.getValue();
 			layoutModel.getChildren(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeChild);
 			layoutModel.getParents(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeParent);
@@ -543,7 +547,7 @@ public class TreeLayout implements GraphLayout {
 		return guiLayers;
 	}
 
-	private GraphLayerNode createLayerNode(GraphModelNode modelNode) {
+	private GraphLayerNode createLayerNode(GraphModelBuilderNode modelNode) {
 		Object content = modelNode.getContent();
 
 		Node layerNodeContent;
@@ -584,41 +588,40 @@ public class TreeLayout implements GraphLayout {
 		return layerNode;
 	}
 
-	private void sort(GraphModel model, List<Collection<GraphModelNode>> layers) {
+	private void sort(GraphModelBuilder<Object> model, List<Collection<GraphModelBuilderNode>> layers) {
 		if (layers.isEmpty()) {
 			// No need to sort
 		} else {
 			layers.replaceAll(ArrayList::new);
 
-			List<GraphModelNode> roots = (List<GraphModelNode>) layers.get(0);
-			Comparator<GraphModelNode> idComparator = comparing(node -> node.getId());
+			List<GraphModelBuilderNode> roots = (List<GraphModelBuilderNode>) layers.get(0);
+			Comparator<GraphModelBuilderNode> idComparator = comparing(node -> node.getId());
 			roots.sort(idComparator);
 
 			for (int i = 0; i < layers.size() - 1; i++) {
-				List<GraphModelNode> parentsLayer = (List<GraphModelNode>) layers.get(i);
-				Comparator<GraphModelNode> parentsComparator = comparing(node -> {
+				List<GraphModelBuilderNode> parentsLayer = (List<GraphModelBuilderNode>) layers.get(i);
+				Comparator<GraphModelBuilderNode> parentsComparator = comparing(node -> {
 					// Assume single parent because assumed to be a tree
-					GraphModelNode parent = model.getParents(node).iterator().next();
+					GraphModelBuilderNode parent = model.getParents(node).iterator().next();
 					return parentsLayer.indexOf(parent);
 				});
 
-				List<GraphModelNode> childrenLayer = (List<GraphModelNode>) layers.get(i + 1);
+				List<GraphModelBuilderNode> childrenLayer = (List<GraphModelBuilderNode>) layers.get(i + 1);
 				childrenLayer.sort(parentsComparator.thenComparing(idComparator));
 			}
 		}
 	}
 
-	private void addIntermediaries(GraphModel model, List<Collection<GraphModelNode>> layers) {
+	private void addIntermediaries(GraphModelBuilder<Object> model, List<Collection<GraphModelBuilderNode>> layers) {
 		for (int i = 0; i < layers.size() - 1; i++) {
-			Collection<GraphModelNode> currentLayer = layers.get(i);
-			Collection<GraphModelNode> nextLayer = layers.get(i + 1);
-			for (GraphModelNode parent : currentLayer) {
-				for (GraphModelNode child : new ArrayList<>(model.getChildren(parent))) {
+			Collection<GraphModelBuilderNode> currentLayer = layers.get(i);
+			Collection<GraphModelBuilderNode> nextLayer = layers.get(i + 1);
+			for (GraphModelBuilderNode parent : currentLayer) {
+				for (GraphModelBuilderNode child : new ArrayList<>(model.getChildren(parent))) {
 					if (nextLayer.contains(child)) {
 						// No need for intermediary
 					} else {
-						GraphModelNode intermediary = createIntermediary(parent, child);
-						replaceParentsAndChildren(model, parent, child, intermediary);
+						GraphModelBuilderNode intermediary = createIntermediary(parent, child);
 						updateLayout(model, parent, child, intermediary);
 						nextLayer.add(intermediary);
 					}
@@ -627,40 +630,20 @@ public class TreeLayout implements GraphLayout {
 		}
 	}
 
-	private void updateLayout(GraphModel model, GraphModelNode parent, GraphModelNode child,
-			GraphModelNode intermediary) {
+	private void updateLayout(GraphModelBuilder<Object> model, GraphModelBuilderNode parent, GraphModelBuilderNode child,
+			GraphModelBuilderNode intermediary) {
 		model.addNode(intermediary);
 
-		model.removeEdge(new SimpleGraphModelEdge(parent, child));
-		model.addEdge(new SimpleGraphModelEdge(parent, intermediary));
-		model.addEdge(new SimpleGraphModelEdge(intermediary, child));
-	}
-
-	private void replaceParentsAndChildren(GraphModel model, GraphModelNode parent, GraphModelNode child,
-			GraphModelNode intermediary) {
-		model.addChild(intermediary, child);
-		model.addParent(intermediary, parent);
-		model.addChild(parent, intermediary);
-		model.removeChild(parent, child);
-		model.addParent(child, intermediary);
-		model.removeParent(child, parent);
+		model.removeEdge(new GraphModelBuilderEdge(parent, child));
+		model.addEdge(new GraphModelBuilderEdge(parent, intermediary));
+		model.addEdge(new GraphModelBuilderEdge(intermediary, child));
 	}
 
 	private static class Intermediary {
-		private final GraphModelNode parent;
-		private final GraphModelNode child;
 		private final String id;
 
 		public Intermediary(GraphModelNode parent, GraphModelNode child) {
-			while (parent instanceof Intermediary) {
-				parent = ((Intermediary) parent).parent;
-			}
-			while (child instanceof Intermediary) {
-				child = ((Intermediary) child).child;
-			}
 			this.id = parent.getId() + "@" + child.getId();
-			this.parent = parent;
-			this.child = child;
 		}
 
 		public String getId() {
@@ -668,22 +651,22 @@ public class TreeLayout implements GraphLayout {
 		}
 	}
 
-	private GraphModelNode createIntermediary(GraphModelNode parent, GraphModelNode child) {
+	private GraphModelBuilderNode createIntermediary(GraphModelBuilderNode parent, GraphModelBuilderNode child) {
 		Intermediary inter = new Intermediary(parent, child);
-		return new SimpleGraphModelNode(inter.getId(), inter);
+		return new GraphModelBuilderNode(inter.getId(), inter);
 	}
 
-	private List<Collection<GraphModelNode>> distributeIntoLayers(GraphModel model) {
-		Collection<GraphModelNode> nodes = model.getNodes();
-		List<Collection<GraphModelNode>> layers = new LinkedList<>();
+	private List<Collection<GraphModelBuilderNode>> distributeIntoLayers(GraphModelBuilder<Object> model) {
+		Collection<GraphModelBuilderNode> nodes = model.getNodes();
+		List<Collection<GraphModelBuilderNode>> layers = new LinkedList<>();
 
 		if (nodes.isEmpty()) {
 			// Nothing to distribute
 		} else {
-			layers.add(new HashSet<GraphModelNode>(nodes));
+			layers.add(new HashSet<GraphModelBuilderNode>(nodes));
 			do {
-				Collection<GraphModelNode> currentRoots = layers.get(0);
-				Collection<GraphModelNode> newRoots = new HashSet<>();
+				Collection<GraphModelBuilderNode> currentRoots = layers.get(0);
+				Collection<GraphModelBuilderNode> newRoots = new HashSet<>();
 				insertParentsInNextLayer(model, currentRoots, newRoots);
 				insertBiggerScopesInNextLayer(currentRoots, newRoots);
 				currentRoots.removeAll(newRoots);
@@ -695,18 +678,18 @@ public class TreeLayout implements GraphLayout {
 		return layers;
 	}
 
-	private void insertParentsInNextLayer(GraphModel model, Collection<GraphModelNode> currentLayer,
-			Collection<GraphModelNode> aboveLayer) {
+	private void insertParentsInNextLayer(GraphModelBuilder<Object> model, Collection<GraphModelBuilderNode> currentLayer,
+			Collection<GraphModelBuilderNode> aboveLayer) {
 		currentLayer.stream()//
 				.flatMap(node -> model.getParents(node).stream())//
 				.forEach(aboveLayer::add);
 	}
 
-	private void insertBiggerScopesInNextLayer(Collection<GraphModelNode> currentLayer,
-			Collection<GraphModelNode> aboveLayer) {
-		List<GraphModelNode> methods = new LinkedList<>();
-		List<GraphModelNode> types = new LinkedList<>();
-		List<GraphModelNode> packages = new LinkedList<>();
+	private void insertBiggerScopesInNextLayer(Collection<GraphModelBuilderNode> currentLayer,
+			Collection<GraphModelBuilderNode> aboveLayer) {
+		List<GraphModelBuilderNode> methods = new LinkedList<>();
+		List<GraphModelBuilderNode> types = new LinkedList<>();
+		List<GraphModelBuilderNode> packages = new LinkedList<>();
 		currentLayer.forEach(node -> {
 			CodeItem item = (CodeItem) node.getContent();
 			if (item instanceof Method || item instanceof Constructor || item instanceof StaticBlock
@@ -728,28 +711,6 @@ public class TreeLayout implements GraphLayout {
 		} else {
 			// Already package level, nothing above
 		}
-	}
-
-	private GraphModel mutableCopy(GraphModel model) {
-		Map<GraphModelNode, GraphModelNode> nodesCopies = model.getNodes().stream().collect(
-				toMap(node -> node, node -> new SimpleGraphModelNode(node.getId(), (CodeItem) node.getContent())));
-		nodesCopies.entrySet().forEach(entry -> {
-			GraphModelNode node = entry.getKey();
-			GraphModelNode copy = entry.getValue();
-			model.getChildren(node).stream().map(nodesCopies::get).forEach(child -> model.addChild(copy, child));
-			model.getParents(node).stream().map(nodesCopies::get).forEach(parent -> model.addParent(copy, parent));
-		});
-
-		Collection<GraphModelEdge> edgesCopies = model.getEdges().stream().map(edge -> {
-			GraphModelNode source = nodesCopies.get(edge.getSource());
-			GraphModelNode target = nodesCopies.get(edge.getTarget());
-			return new SimpleGraphModelEdge(source, target);
-		}).collect(toList());
-		SimpleGraphModel model2 = new SimpleGraphModel(new ArrayList<>(nodesCopies.values()),
-				new ArrayList<>(edgesCopies));
-
-		// TODO replace by new model builder from model
-		return model2;
 	}
 
 }
