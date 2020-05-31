@@ -28,7 +28,7 @@ import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
 import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder;
-import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilder.GraphModelBuilderNode;
+import fr.vergne.stanos.gui.scene.graph.model.builder.GraphModelBuilderNode;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.NumberExpression;
 import javafx.beans.property.DoubleProperty;
@@ -48,7 +48,7 @@ import javafx.scene.shape.Rectangle;
 
 //TODO Generalize by removing CodeItem dependencies
 //TODO Extract algorithm for easy testing (remove javaFX dependencies)
-public class TreeLayout implements GraphLayout {
+public class TreeLayout implements GraphLayout<CodeItem> {
 
 	private static final NumberExpression ZERO_EXPRESSION = DoubleProperty
 			.readOnlyDoubleProperty(new SimpleDoubleProperty(0));
@@ -145,7 +145,7 @@ public class TreeLayout implements GraphLayout {
 	}
 
 	@Override
-	public GraphLayer layout(GraphModel model) {
+	public GraphLayer layout(GraphModel<CodeItem> model) {
 		GraphModelBuilder<Object> newModel = GraphModelBuilder.createFromModel(obj -> {
 			if (obj instanceof CodeItem) {
 				return ((CodeItem) obj).getId();
@@ -540,8 +540,8 @@ public class TreeLayout implements GraphLayout {
 		nodesMap.entrySet().forEach(entry -> {
 			GraphModelBuilderNode<Object> modelNode = entry.getKey();
 			GraphLayerNode layerNode = entry.getValue();
-			model.getChildren(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeChild);
-			model.getParents(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeParent);
+			modelNode.getChildren().stream().map(nodesMap::get).forEach(layerNode::addGraphNodeChild);
+			modelNode.getParents().stream().map(nodesMap::get).forEach(layerNode::addGraphNodeParent);
 		});
 
 		return guiLayers;
@@ -602,32 +602,30 @@ public class TreeLayout implements GraphLayout {
 				List<GraphModelBuilderNode<Object>> parentsLayer = (List<GraphModelBuilderNode<Object>>) layers.get(i);
 				Comparator<GraphModelBuilderNode<Object>> parentsComparator = comparing(node -> {
 					// Assume single parent because assumed to be a tree
-					GraphModelBuilderNode<Object> parent = model.getParents(node).iterator().next();
+					GraphModelBuilderNode<Object> parent = node.getParents().iterator().next();
 					return parentsLayer.indexOf(parent);
 				});
 
-				List<GraphModelBuilderNode<Object>> childrenLayer = (List<GraphModelBuilderNode<Object>>) layers.get(i + 1);
+				List<GraphModelBuilderNode<Object>> childrenLayer = (List<GraphModelBuilderNode<Object>>) layers
+						.get(i + 1);
 				childrenLayer.sort(parentsComparator.thenComparing(idComparator));
 			}
 		}
 	}
 
-	private void addIntermediaries(GraphModelBuilder<Object> model, List<Collection<GraphModelBuilderNode<Object>>> layers) {
+	private void addIntermediaries(GraphModelBuilder<Object> model,
+			List<Collection<GraphModelBuilderNode<Object>>> layers) {
 		for (int i = 0; i < layers.size() - 1; i++) {
 			Collection<GraphModelBuilderNode<Object>> currentLayer = layers.get(i);
 			Collection<GraphModelBuilderNode<Object>> nextLayer = layers.get(i + 1);
 			for (GraphModelBuilderNode<Object> parent : currentLayer) {
-				for (GraphModelBuilderNode<Object> child : new ArrayList<>(model.getChildren(parent))) {
+				for (GraphModelBuilderNode<Object> child : new ArrayList<>(parent.getChildren())) {
 					if (nextLayer.contains(child)) {
 						// No need for intermediary
 					} else {
-						GraphModelBuilderNode<Object> inter = model.addNode(new Intermediary(parent, child));
-//						parent.getEdge(child.getContent()).insert(new Intermediary(parent, child));
-						model.removeEdge(parent.getContent(), child.getContent());
-						model.addEdge(parent.getContent(), inter.getContent());
-						model.addEdge(inter.getContent(), child.getContent());
-
-						nextLayer.add(inter);
+						Intermediary intermediary = new Intermediary(parent, child);
+						parent.streamEdges(child.getContent()).findFirst().get().insert(intermediary);
+						nextLayer.add(model.addNode(intermediary));
 					}
 				}
 			}
@@ -669,9 +667,10 @@ public class TreeLayout implements GraphLayout {
 	}
 
 	private void insertParentsInNextLayer(GraphModelBuilder<Object> model,
-			Collection<GraphModelBuilderNode<Object>> currentLayer, Collection<GraphModelBuilderNode<Object>> aboveLayer) {
+			Collection<GraphModelBuilderNode<Object>> currentLayer,
+			Collection<GraphModelBuilderNode<Object>> aboveLayer) {
 		currentLayer.stream()//
-				.flatMap(node -> model.getParents(node).stream())//
+				.flatMap(node -> node.getParents().stream())//
 				.forEach(aboveLayer::add);
 	}
 

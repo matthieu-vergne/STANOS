@@ -1,71 +1,99 @@
 package fr.vergne.stanos.gui.scene.graph.model.builder;
 
+import static java.util.Collections.*;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
-import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
-import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
 import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModel;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelEdge;
-import fr.vergne.stanos.gui.scene.graph.model.SimpleGraphModelNode;
 
-public class GraphModelBuilder<N> {
+public class GraphModelBuilder<T> {
 
-	private final Map<String, GraphModelBuilderNode<N>> nodes = new HashMap<>();
-	private final Collection<GraphModelBuilderEdge<N>> edges = new LinkedList<>();
-	private final Function<N, String> nodeIdentifier;
+	private final Map<String, GraphModelBuilderNode<T>> nodes = new HashMap<>();
+	private final Collection<GraphModelBuilderEdge<T>> edges = new LinkedList<>();
+	// TODO remove to use instance directly?
+	private final Function<T, String> nodeIdentifier;
 
-	private GraphModelBuilder(Function<N, String> nodeIdentifier) {
+	private GraphModelBuilder(Function<T, String> nodeIdentifier) {
 		this.nodeIdentifier = nodeIdentifier;
 	}
 
-	public Collection<GraphModelBuilderNode<N>> getNodes() {
-		return nodes.values();
+	public Collection<GraphModelBuilderNode<T>> getNodes() {
+		return unmodifiableCollection(nodes.values());
 	}
 
-	public Collection<GraphModelBuilderEdge<N>> getEdges() {
-		return edges;
+	public Stream<GraphModelBuilderNode<T>> streamNodes() {
+		return nodes.values().stream();
+	}
+
+	public Collection<GraphModelBuilderEdge<T>> getEdges() {
+		return unmodifiableCollection(edges);
+	}
+
+	public Stream<GraphModelBuilderEdge<T>> streamEdges() {
+		return edges.stream();
 	}
 
 	// TODO document node reuse
-	public GraphModelBuilderNode<N> addNode(N content) {
+	public GraphModelBuilderNode<T> addNode(T content) {
 		return nodes.computeIfAbsent(nodeIdentifier.apply(content), //
-				id -> new GraphModelBuilderNode<>(id, content));
+				id -> new GraphModelBuilderNode<>(this, id, content));
 	}
 
-	public void removeNode(N content) {
+	public Optional<GraphModelBuilderNode<T>> getNode(T content) {
+		return Optional.ofNullable(nodes.get(nodeIdentifier.apply(content)));
+	}
+
+	public void removeNode(T content) {
 		nodes.remove(nodeIdentifier.apply(content));
 	}
 
 	// TODO document node reuse
-	public GraphModelBuilderEdge<N> addEdge(N source, N target) {
-		GraphModelBuilderNode<N> srcNode = addNode(source);
-		GraphModelBuilderNode<N> tgtNode = addNode(target);
-		GraphModelBuilderEdge<N> edge = new GraphModelBuilderEdge<>(srcNode, tgtNode);
+	public GraphModelBuilderEdge<T> addEdge(T source, T target) {
+		GraphModelBuilderNode<T> srcNode = addNode(source);
+		GraphModelBuilderNode<T> tgtNode = addNode(target);
+		GraphModelBuilderEdge<T> edge = new GraphModelBuilderEdge<>(this, srcNode, tgtNode);
 		edges.add(edge);
 		return edge;
 	}
 
-	public void removeEdge(N source, N target) {
-		GraphModelBuilderNode<N> srcNode = nodes.get(nodeIdentifier.apply(source));
+	public void removeEdge(T source, T target) {
+		GraphModelBuilderNode<T> srcNode = nodes.get(nodeIdentifier.apply(source));
 		if (srcNode == null) {
 			return;// No node, so no edge already
 		}
-		GraphModelBuilderNode<N> tgtNode = nodes.get(nodeIdentifier.apply(target));
+		GraphModelBuilderNode<T> tgtNode = nodes.get(nodeIdentifier.apply(target));
 		if (tgtNode == null) {
 			return;// No node, so no edge already
 		}
-		edges.remove(new GraphModelBuilderEdge<>(srcNode, tgtNode));
+		edges.remove(new GraphModelBuilderEdge<>(this, srcNode, tgtNode));
 	}
 
-	public GraphModel build() {
-		return new SimpleGraphModel(//
+	public Optional<GraphModelBuilderEdge<T>> getEdge(T source, T target) {
+		GraphModelBuilderNode<T> srcNode = getNode(source).orElse(null);
+		if (srcNode == null) {
+			return Optional.empty();
+		}
+		GraphModelBuilderNode<T> tgtNode = getNode(target).orElse(null);
+		if (tgtNode == null) {
+			return Optional.empty();
+		}
+		GraphModelBuilderEdge<T> edge = new GraphModelBuilderEdge<>(this, srcNode, tgtNode);
+		if (!edges.contains(edge)) {
+			return Optional.empty();
+		}
+		return Optional.of(edge);
+	}
+
+	public GraphModel<T> build() {
+		return new SimpleGraphModel<T>(//
 				nodes.values().stream()//
 						.map(GraphModelBuilderNode::getModel)//
 						.collect(Collectors.toList()), //
@@ -87,111 +115,16 @@ public class GraphModelBuilder<N> {
 		return builder;
 	}
 
-	public static <N> GraphModelBuilder<N> createFromModel(Function<N, String> nodeIdentifier, GraphModel model) {
-		GraphModelBuilder<N> builder = createEmpty(nodeIdentifier);
+	public static <T> GraphModelBuilder<T> createFromModel(Function<T, String> nodeIdentifier,
+			GraphModel<? extends T> model) {
+		GraphModelBuilder<T> builder = createEmpty(nodeIdentifier);
 		model.getNodes().forEach(node -> {
-			builder.addNode((N) node.getContent());
+			builder.addNode(node.getContent());
 		});
 		model.getEdges().forEach(edge -> {
-			builder.addEdge((N) edge.getSource().getContent(), (N) edge.getTarget().getContent());
+			builder.addEdge(edge.getSource().getContent(), edge.getTarget().getContent());
 		});
 		return builder;
 	}
 
-	public Collection<GraphModelBuilderNode<N>> getChildren(GraphModelBuilderNode<N> parent) {
-		return edges.stream()//
-				.filter(edge -> edge.getSource().equals(parent))//
-				.map(edge -> edge.getTarget())//
-				.collect(Collectors.toList());
-	}
-
-	public Collection<GraphModelBuilderNode<N>> getParents(GraphModelBuilderNode<N> child) {
-		return edges.stream()//
-				.filter(edge -> edge.getTarget().equals(child))//
-				.map(edge -> edge.getSource())//
-				.collect(Collectors.toList());
-	}
-
-	public static class GraphModelBuilderNode<N> {
-
-		private final SimpleGraphModelNode node;
-
-		public GraphModelBuilderNode(String id, Object content) {
-			node = new SimpleGraphModelNode(id, content);
-		}
-
-		public GraphModelNode getModel() {
-			return node;
-		}
-
-		public String getId() {
-			return node.getId();
-		}
-
-		@SuppressWarnings("unchecked")
-		public N getContent() {
-			return (N) node.getContent();
-		}
-
-		public boolean equals(Object obj) {
-			if (obj == this) {
-				return true;
-			} else if (obj instanceof GraphModelBuilderNode) {
-				var that = (GraphModelBuilderNode<?>) obj;
-				return Objects.equals(this.getId(), that.getId());
-			} else {
-				return false;
-			}
-		}
-
-		public int hashCode() {
-			return Objects.hash(getId());
-		}
-
-		public String toString() {
-			return getId();
-		}
-	}
-
-	public static class GraphModelBuilderEdge<N> {
-
-		private final GraphModelBuilderNode<N> source;
-		private final GraphModelBuilderNode<N> target;
-		private final SimpleGraphModelEdge model;
-
-		public GraphModelBuilderEdge(GraphModelBuilderNode<N> source, GraphModelBuilderNode<N> target) {
-			this.source = source;
-			this.target = target;
-			model = new SimpleGraphModelEdge(source.getModel(), target.getModel());
-		}
-
-		public GraphModelEdge getModel() {
-			return model;
-		}
-
-		public GraphModelBuilderNode<N> getSource() {
-			return source;
-		}
-
-		public GraphModelBuilderNode<N> getTarget() {
-			return target;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (obj == this) {
-				return true;
-			} else if (obj instanceof GraphModelBuilderEdge) {
-				var that = (GraphModelBuilderEdge<?>) obj;
-				return Objects.equals(this.source, that.source) && Objects.equals(this.target, that.target);
-			} else {
-				return false;
-			}
-		}
-
-		@Override
-		public int hashCode() {
-			return Objects.hash(source, target);
-		}
-	}
 }

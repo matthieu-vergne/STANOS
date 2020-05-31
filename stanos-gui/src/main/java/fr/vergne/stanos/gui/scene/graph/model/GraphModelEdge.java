@@ -1,8 +1,9 @@
 package fr.vergne.stanos.gui.scene.graph.model;
 
-public interface GraphModelEdge {
+// TODO generalize to (un)ordered edges (nodes set + metadata)
+public interface GraphModelEdge<T> {
 
-	GraphModelNode getSource();
+	GraphModelNode<T> getSource();
 
-	GraphModelNode getTarget();
+	GraphModelNode<T> getTarget();
 }

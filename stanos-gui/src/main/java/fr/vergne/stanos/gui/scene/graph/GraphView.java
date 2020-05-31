@@ -2,6 +2,7 @@ package fr.vergne.stanos.gui.scene.graph;
 
 import java.util.Collections;
 
+import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layout.GraphLayout;
 import fr.vergne.stanos.gui.scene.graph.layout.NoLayout;
@@ -17,19 +18,19 @@ import javafx.scene.layout.Pane;
 
 public class GraphView extends Pane {
 
-	private final ObjectProperty<GraphModel> modelProperty;
-	private final ObjectProperty<GraphLayout> layoutProperty;
+	private final ObjectProperty<GraphModel<CodeItem>> modelProperty;
+	private final ObjectProperty<GraphLayout<CodeItem>> layoutProperty;
 	private final ReadOnlyObjectWrapper<GraphLayer> graphLayerProperty;
 
 	public GraphView() {
-		this(new SimpleGraphModel(Collections.emptyList(), Collections.emptyList()));
+		this(new SimpleGraphModel<>(Collections.emptyList(), Collections.emptyList()));
 	}
 
-	public GraphView(GraphModel model) {
-		this(new NoLayout(), model);
+	public GraphView(GraphModel<CodeItem> model) {
+		this(new NoLayout<>(), model);
 	}
 
-	public GraphView(GraphLayout layout, GraphModel model) {
+	public GraphView(GraphLayout<CodeItem> layout, GraphModel<CodeItem> model) {
 		this.modelProperty = new SimpleObjectProperty<>();
 		this.layoutProperty = new SimpleObjectProperty<>();
 		this.graphLayerProperty = new ReadOnlyObjectWrapper<>();
@@ -69,27 +70,27 @@ public class GraphView extends Pane {
 		return graphLayerProperty.getReadOnlyProperty();
 	}
 
-	public ObjectProperty<GraphModel> modelProperty() {
+	public ObjectProperty<GraphModel<CodeItem>> modelProperty() {
 		return modelProperty;
 	}
 
-	public GraphModel getModel() {
+	public GraphModel<CodeItem> getModel() {
 		return modelProperty.get();
 	}
 
-	public void setModel(GraphModel model) {
+	public void setModel(GraphModel<CodeItem> model) {
 		modelProperty.set(model);
 	}
 
-	public ObjectProperty<GraphLayout> layoutProperty() {
+	public ObjectProperty<GraphLayout<CodeItem>> layoutProperty() {
 		return layoutProperty;
 	}
 
-	public GraphLayout getLayout() {
+	public GraphLayout<CodeItem> getLayout() {
 		return layoutProperty.get();
 	}
 
-	public void setLayout(GraphLayout layout) {
+	public void setLayout(GraphLayout<CodeItem> layout) {
 		layoutProperty.set(layout);
 	}
 }

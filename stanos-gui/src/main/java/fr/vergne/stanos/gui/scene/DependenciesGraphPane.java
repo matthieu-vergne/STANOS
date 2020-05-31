@@ -1,5 +1,7 @@
 package fr.vergne.stanos.gui.scene;
 
+import java.util.Arrays;
+
 import fr.vergne.stanos.dependency.Action;
 import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
@@ -43,7 +45,7 @@ public class DependenciesGraphPane extends BorderPane {
 
 		int spacing = configuration.gui().globalSpacing();
 
-		ChoiceBox<GraphLayout> layoutBox = new ChoiceBox<>(createGraphLayouts());
+		ChoiceBox<GraphLayout<CodeItem>> layoutBox = new ChoiceBox<>(createGraphLayouts());
 		HBox options = new HBox(spacing, new Label("Layout:"), layoutBox);
 		options.setAlignment(Pos.CENTER_LEFT);
 
@@ -67,7 +69,8 @@ public class DependenciesGraphPane extends BorderPane {
 			graphView.setLayout(newLayout);
 		});
 		filteredDependencies.addListener((InvalidationListener) observable -> {
-			GraphModel model = GraphModelBuilder.createFromEdges(CodeItem::getId, filteredDependencies, Dependency::getSource, Dependency::getTarget).build();
+			GraphModel<CodeItem> model = GraphModelBuilder.createFromEdges(CodeItem::getId, filteredDependencies,
+					Dependency::getSource, Dependency::getTarget).build();
 			graphView.setModel(model);
 		});
 		graphView.graphLayerProperty().addListener((observable, oldLayer, newLayer) -> {
@@ -81,14 +84,14 @@ public class DependenciesGraphPane extends BorderPane {
 		layoutBox.getSelectionModel().select(9);// TODO from conf
 	}
 
-	private ObservableList<GraphLayout> createGraphLayouts() {
+	private ObservableList<GraphLayout<CodeItem>> createGraphLayouts() {
 		NumberExpression layersSpacing = new SimpleDoubleProperty(50);// TODO from conf
 		NumberExpression neighborsSpacing = new SimpleDoubleProperty(0);// TODO from conf
 		PropertyAccessor nodeX = GraphLayerNode::layoutXProperty;
 		PropertyAccessor nodeY = GraphLayerNode::layoutYProperty;
 		ExpressionAccessor nodeWidth = GraphLayerNode::widthProperty;
 		ExpressionAccessor nodeHeight = GraphLayerNode::heightProperty;
-		return FXCollections.observableArrayList(//
+		return FXCollections.observableArrayList(Arrays.asList(//
 				new TreeLayout(//
 						Direction.NORMAL, Anchor.SURFACE, //
 						nodeX, nodeWidth, layersSpacing, //
@@ -185,6 +188,6 @@ public class DependenciesGraphPane extends BorderPane {
 					public String toString() {
 						return "↑↑";
 					}
-				});
+				}));
 	}
 }

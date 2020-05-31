@@ -11,15 +11,16 @@ import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModel;
+import fr.vergne.stanos.gui.scene.graph.model.GraphModelEdge;
 import fr.vergne.stanos.gui.scene.graph.model.GraphModelNode;
 import javafx.scene.control.Label;
 
-public class NoLayout implements GraphLayout {
+public class NoLayout<T> implements GraphLayout<T> {
 
 	@Override
-	public GraphLayer layout(GraphModel model) {
+	public GraphLayer layout(GraphModel<T> model) {
 		// Create isolated layer nodes
-		Map<GraphModelNode, GraphLayerNode> nodesMap = new HashMap<>();
+		Map<GraphModelNode<T>, GraphLayerNode> nodesMap = new HashMap<>();
 		List<GraphLayerNode> layerNodes = model.getNodes().stream()
 				.map(modelNode -> nodesMap.computeIfAbsent(modelNode, n -> {
 					return new GraphLayerNode(modelNode, new Label(n.getId()));
@@ -27,10 +28,18 @@ public class NoLayout implements GraphLayout {
 
 		// Retrieve parents & children
 		nodesMap.entrySet().forEach(entry -> {
-			GraphModelNode modelNode = entry.getKey();
+			GraphModelNode<T> modelNode = entry.getKey();
 			GraphLayerNode layerNode = entry.getValue();
-			model.getChildren(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeChild);
-			model.getParents(modelNode).stream().map(nodesMap::get).forEach(layerNode::addGraphNodeParent);
+			model.getEdges().stream()//
+					.filter(edge -> edge.getSource().equals(modelNode))//
+					.map(GraphModelEdge::getTarget)//
+					.map(nodesMap::get)//
+					.forEach(layerNode::addGraphNodeChild);
+			model.getEdges().stream()//
+					.filter(edge -> edge.getTarget().equals(modelNode))//
+					.map(GraphModelEdge::getSource)//
+					.map(nodesMap::get)//
+					.forEach(layerNode::addGraphNodeParent);
 		});
 
 		// Create layer edges

@@ -2,12 +2,12 @@ package fr.vergne.stanos.gui.scene.graph.model;
 
 import java.util.Objects;
 
-public class SimpleGraphModelNode implements GraphModelNode {
+public class SimpleGraphModelNode<T> implements GraphModelNode<T> {
 
 	private final String id;
-	private final Object content;
+	private final T content;
 
-	public SimpleGraphModelNode(String id, Object content) {
+	public SimpleGraphModelNode(String id, T content) {
 		this.id = id;
 		this.content = content;
 	}
@@ -18,7 +18,7 @@ public class SimpleGraphModelNode implements GraphModelNode {
 	}
 
 	@Override
-	public Object getContent() {
+	public T getContent() {
 		return content;
 	}
 
@@ -27,7 +27,7 @@ public class SimpleGraphModelNode implements GraphModelNode {
 		if (obj == this) {
 			return true;
 		} else if (obj instanceof SimpleGraphModelNode) {
-			var that = (SimpleGraphModelNode) obj;
+			var that = (SimpleGraphModelNode<?>) obj;
 			return Objects.equals(this.getId(), that.getId());
 		} else {
 			return false;

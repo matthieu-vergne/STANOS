@@ -9,13 +9,13 @@ import javafx.scene.layout.Pane;
 
 public class GraphLayerNode extends Pane {
 
-	private final GraphModelNode modelNode;
+	private final GraphModelNode<?> modelNode;
 	// TODO remove
 	private final Collection<GraphLayerNode> children;
 	// TODO remove
 	private final Collection<GraphLayerNode> parents;
 
-	public GraphLayerNode(GraphModelNode modelNode, Node node) {
+	public GraphLayerNode(GraphModelNode<?> modelNode, Node node) {
 		this.modelNode = modelNode;
 		this.children = new LinkedList<>();
 		this.parents = new LinkedList<>();
@@ -23,7 +23,7 @@ public class GraphLayerNode extends Pane {
 		getChildren().add(node);
 	}
 	
-	public GraphModelNode getGraphModelNode() {
+	public GraphModelNode<?> getGraphModelNode() {
 		return modelNode;
 	}
 

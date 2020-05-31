@@ -2,23 +2,23 @@ package fr.vergne.stanos.gui.scene.graph.model;
 
 import java.util.Objects;
 
-public class SimpleGraphModelEdge implements GraphModelEdge {
+public class SimpleGraphModelEdge<T> implements GraphModelEdge<T> {
 
-	private final GraphModelNode source;
-	private final GraphModelNode target;
+	private final GraphModelNode<T> source;
+	private final GraphModelNode<T> target;
 
-	public SimpleGraphModelEdge(GraphModelNode source, GraphModelNode target) {
+	public SimpleGraphModelEdge(GraphModelNode<T> source, GraphModelNode<T> target) {
 		this.source = source;
 		this.target = target;
 	}
 
 	@Override
-	public GraphModelNode getSource() {
+	public GraphModelNode<T> getSource() {
 		return source;
 	}
 
 	@Override
-	public GraphModelNode getTarget() {
+	public GraphModelNode<T> getTarget() {
 		return target;
 	}
 
@@ -27,7 +27,7 @@ public class SimpleGraphModelEdge implements GraphModelEdge {
 		if (obj == this) {
 			return true;
 		} else if (obj instanceof SimpleGraphModelEdge) {
-			SimpleGraphModelEdge that = (SimpleGraphModelEdge) obj;
+			var that = (SimpleGraphModelEdge<?>) obj;
 			return Objects.equals(this.source, that.source) && Objects.equals(this.target, that.target);
 		} else {
 			return false;

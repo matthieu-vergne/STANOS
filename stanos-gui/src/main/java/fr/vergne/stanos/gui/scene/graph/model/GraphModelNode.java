@@ -1,6 +1,6 @@
 package fr.vergne.stanos.gui.scene.graph.model;
 
-public interface GraphModelNode {
+public interface GraphModelNode<T> {
 	String getId();
-	Object getContent();
+	T getContent();
 }
