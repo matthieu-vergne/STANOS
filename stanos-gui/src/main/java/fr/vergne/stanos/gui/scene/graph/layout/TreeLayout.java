@@ -8,21 +8,16 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
-import fr.vergne.stanos.dependency.codeitem.CodeItem;
-import fr.vergne.stanos.dependency.codeitem.Constructor;
-import fr.vergne.stanos.dependency.codeitem.Lambda;
-import fr.vergne.stanos.dependency.codeitem.Method;
-import fr.vergne.stanos.dependency.codeitem.Package;
-import fr.vergne.stanos.dependency.codeitem.StaticBlock;
-import fr.vergne.stanos.dependency.codeitem.Type;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerNode;
@@ -33,11 +28,8 @@ import javafx.beans.binding.Bindings;
 import javafx.beans.binding.NumberExpression;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Node;
-import javafx.scene.control.Label;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.BorderStrokeStyle;
@@ -46,9 +38,8 @@ import javafx.scene.layout.CornerRadii;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
-//TODO Generalize by removing CodeItem dependencies
 //TODO Extract algorithm for easy testing (remove javaFX dependencies)
-public class TreeLayout implements GraphLayout<CodeItem> {
+public class TreeLayout<T> implements GraphLayout<T> {
 
 	private static final NumberExpression ZERO_EXPRESSION = DoubleProperty
 			.readOnlyDoubleProperty(new SimpleDoubleProperty(0));
@@ -121,6 +112,10 @@ public class TreeLayout implements GraphLayout<CodeItem> {
 	private final ExpressionAccessor spreading;
 	private final NumberExpression neighborsSpacing;
 	private final NumberExpression layersSpacing;
+	
+	private final CompositeNodeRenderer renderer;
+	private final Comparator<GraphModelBuilderNode<Object>> nodeComparator;
+	private final Function<Object, String> nodeIdentifier;
 
 	public TreeLayout(//
 			Direction direction, //
@@ -130,7 +125,10 @@ public class TreeLayout implements GraphLayout<CodeItem> {
 			NumberExpression depthSpacing, //
 			PropertyAccessor spreadCoordinate, //
 			ExpressionAccessor spreadSize, //
-			NumberExpression spreadSpacing) {
+			NumberExpression spreadSpacing, //
+			NodeRenderer nodeRenderer, //
+			Comparator<Object> nodeComparator, // TODO Object -> T
+			Function<Object, String> nodeIdentifier) {// TODO Object -> T
 		this.direction = direction;
 		this.layerAnchor = anchor;
 		this.nodeAnchor = direction.apply(anchor);// TODO why this one is directed?
@@ -142,19 +140,22 @@ public class TreeLayout implements GraphLayout<CodeItem> {
 		this.spreadCoordinate = spreadCoordinate;
 		this.spreading = spreadSize;
 		this.neighborsSpacing = spreadSpacing;
+
+		this.renderer = new CompositeNodeRenderer(nodeRenderer);
+		this.renderer.set(content -> content instanceof Intermediary, content -> new Group());
+		this.nodeComparator = comparing(node -> node.getContent(), nodeComparator);
+		this.nodeIdentifier = obj -> {
+			if (obj instanceof Intermediary) {
+				return ((Intermediary) obj).getId();
+			} else {
+				return nodeIdentifier.apply(obj);
+			}
+		};
 	}
 
 	@Override
-	public GraphLayer layout(GraphModel<CodeItem> model) {
-		GraphModelBuilder<Object> newModel = GraphModelBuilder.createFromModel(obj -> {
-			if (obj instanceof CodeItem) {
-				return ((CodeItem) obj).getId();
-			} else if (obj instanceof Intermediary) {
-				return ((Intermediary) obj).getId();
-			} else {
-				throw new RuntimeException("Unmanaged type of content: " + obj.getClass());
-			}
-		}, model);
+	public GraphLayer layout(GraphModel<T> model) {
+		GraphModelBuilder<Object> newModel = GraphModelBuilder.createFromModel(nodeIdentifier, model);
 
 		List<Collection<GraphModelBuilderNode<Object>>> modelLayers = distributeIntoLayers(newModel);
 		addIntermediaries(newModel, modelLayers);
@@ -547,38 +548,45 @@ public class TreeLayout implements GraphLayout<CodeItem> {
 		return guiLayers;
 	}
 
-	private GraphLayerNode createLayerNode(GraphModelBuilderNode<Object> modelNode) {
-		Object content = modelNode.getContent();
+	public static interface NodeRenderer {
+		Node render(Object nodeContent);
+	}
 
-		Node layerNodeContent;
-		if (content instanceof Intermediary) {
-			layerNodeContent = new Group();
-		} else if (content instanceof CodeItem) {
-			CodeItem item = (CodeItem) content;
-			// TODO use proper graphics
-			String name = item.getId()//
-					.replaceAll("\\.?[^()]+\\.", "")// Remove packages
-					.replaceAll(".+\\$([^0-9])", "$1")// Remove declaring class
-					.replaceAll("\\(.+\\)", "(...)")// Reduce arguments types
-					.replaceAll("\\).+", ")");// Remove return type
-			char prefix = item instanceof Package ? 'P'//
-					: item instanceof Type ? 'T'// TODO 'C' & 'I'
-							: item instanceof Method ? 'M'//
-									: item instanceof Constructor ? 'Z'//
-											: item instanceof Lambda ? 'L'//
-													: item instanceof StaticBlock ? 'S'//
-															: '?';
-			Label label = new Label(String.format("[%s] %s", prefix, name));
-			label.setAlignment(Pos.CENTER_LEFT);
-			// TODO remove border
-			label.setBorder(new Border(
-					new BorderStroke(Color.RED, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
-			label.setTooltip(new Tooltip(item.getId()));
-			layerNodeContent = label;
-		} else {
-			throw new IllegalStateException("Unmanaged case: " + content.getClass());
+	class CompositeNodeRenderer implements NodeRenderer {
+
+		// Linked to keep order as priority for predicate overlaps
+		private final Map<Predicate<Object>, NodeRenderer> renderers = new LinkedHashMap<>();
+		private final NodeRenderer defaultRenderer;
+
+		public CompositeNodeRenderer() {
+			this(content -> {
+				throw new IllegalArgumentException("No renderer for " + content);
+			});
 		}
 
+		public CompositeNodeRenderer(NodeRenderer defaultRenderer) {
+			this.defaultRenderer = defaultRenderer;
+		}
+
+		public void set(Predicate<Object> predicate, NodeRenderer renderer) {
+			renderers.put(predicate, renderer);
+		}
+
+		@Override
+		public Node render(Object nodeContent) {
+			return renderers.entrySet().stream()//
+					.filter(entry -> entry.getKey().test(nodeContent))//
+					.map(entry -> entry.getValue())//
+					.findFirst()//
+					.orElse(defaultRenderer)//
+					.render(nodeContent);
+		}
+
+	}
+
+	private GraphLayerNode createLayerNode(GraphModelBuilderNode<Object> modelNode) {
+		Object content = modelNode.getContent();
+		Node layerNodeContent = renderer.render(content);
 		GraphLayerNode layerNode = new GraphLayerNode(modelNode.getModel(), layerNodeContent);
 		// TODO remove border
 		layerNode.setBorder(new Border(
@@ -675,31 +683,24 @@ public class TreeLayout implements GraphLayout<CodeItem> {
 	}
 
 	private void insertBiggerScopesInNextLayer(Collection<GraphModelBuilderNode<Object>> currentLayer,
-			Collection<GraphModelBuilderNode<Object>> aboveLayer) {
-		List<GraphModelBuilderNode<Object>> methods = new LinkedList<>();
-		List<GraphModelBuilderNode<Object>> types = new LinkedList<>();
-		List<GraphModelBuilderNode<Object>> packages = new LinkedList<>();
+			Collection<GraphModelBuilderNode<Object>> nextLayer) {
+		List<GraphModelBuilderNode<Object>> lowest = new LinkedList<>();
 		currentLayer.forEach(node -> {
-			CodeItem item = (CodeItem) node.getContent();
-			if (item instanceof Method || item instanceof Constructor || item instanceof StaticBlock
-					|| item instanceof Lambda) {
-				methods.add(node);
-			} else if (item instanceof Type) {
-				types.add(node);
-			} else if (item instanceof Package) {
-				packages.add(node);
+			if (lowest.isEmpty()) {
+				lowest.add(node);
 			} else {
-				throw new RuntimeException("Unmanaged item: " + item.getClass());
+				int comparison = nodeComparator.compare(lowest.get(0), node);
+				if (comparison < 0) {
+					nextLayer.add(node);
+				} else if (comparison > 0) {
+					nextLayer.addAll(lowest);
+					lowest.clear();
+					lowest.add(node);
+				} else {
+					lowest.add(node);
+				}
 			}
 		});
-		if (!methods.isEmpty()) {
-			aboveLayer.addAll(types);
-			aboveLayer.addAll(packages);
-		} else if (!types.isEmpty()) {
-			aboveLayer.addAll(packages);
-		} else {
-			// Already package level, nothing above
-		}
 	}
 
 }
