@@ -128,8 +128,8 @@ public class TreeLayout<T> implements GraphLayout<T> {
 			ExpressionAccessor spreadSize, //
 			NumberExpression spreadSpacing, //
 			NodeRenderer nodeRenderer, //
-			Comparator<T> nodeComparator, // TODO Object -> T
-			Function<Object, String> nodeIdentifier) {// TODO Object -> T
+			Comparator<T> nodeComparator, //
+			Function<T, String> nodeIdentifier) {
 		this.direction = direction;
 		this.layerAnchor = anchor;
 		this.nodeAnchor = direction.apply(anchor);// TODO why this one is directed?
@@ -149,7 +149,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 			if (obj instanceof Intermediary) {
 				return ((Intermediary) obj).getId();
 			} else {
-				return nodeIdentifier.apply(obj);
+				return nodeIdentifier.apply((T) obj);
 			}
 		};
 	}

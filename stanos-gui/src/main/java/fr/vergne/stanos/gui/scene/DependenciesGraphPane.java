@@ -116,7 +116,7 @@ public class DependenciesGraphPane extends BorderPane {
 		
 		NodeRenderer nodeRenderer = this::renderNode;
 		Comparator<CodeItem> nodeContentComparator = createNodeComparator();
-		Function<Object, String> nodeIdentifier = this::identifyNode;
+		Function<CodeItem, String> nodeIdentifier = CodeItem::getId;
 		
 		return FXCollections.observableArrayList(Arrays.asList(//
 				new TreeLayout<CodeItem>(//
@@ -228,14 +228,6 @@ public class DependenciesGraphPane extends BorderPane {
 						return "↑↑";
 					}
 				}));
-	}
-
-	private String identifyNode(Object obj) {
-		if (obj instanceof CodeItem) {
-			return ((CodeItem) obj).getId();
-		} else {
-			throw new RuntimeException("Unmanaged type of content: " + obj.getClass());
-		}
 	}
 
 	private Comparator<CodeItem> createNodeComparator() {
