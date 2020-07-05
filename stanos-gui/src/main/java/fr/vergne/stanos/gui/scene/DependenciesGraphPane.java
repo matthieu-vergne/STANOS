@@ -115,7 +115,7 @@ public class DependenciesGraphPane extends BorderPane {
 		ExpressionAccessor nodeHeight = GraphLayerNode::heightProperty;
 		
 		NodeRenderer nodeRenderer = this::renderNode;
-		Comparator<Object> nodeContentComparator = createNodeComparator();
+		Comparator<CodeItem> nodeContentComparator = createNodeComparator();
 		Function<Object, String> nodeIdentifier = this::identifyNode;
 		
 		return FXCollections.observableArrayList(Arrays.asList(//
@@ -238,21 +238,20 @@ public class DependenciesGraphPane extends BorderPane {
 		}
 	}
 
-	private Comparator<Object> createNodeComparator() {
+	private Comparator<CodeItem> createNodeComparator() {
 		Map<Class<?>, Integer> scores = new HashMap<>();
 		Stream.of(Method.class, Constructor.class, StaticBlock.class, Lambda.class)//
-				.forEach(c -> scores.put(c, 0));
+				.forEach(clazz -> scores.put(clazz, 0));
 		Stream.of(Type.class)//
-				.forEach(c -> scores.put(c, 1));
+				.forEach(clazz -> scores.put(clazz, 1));
 		Stream.of(Package.class)//
-				.forEach(c -> scores.put(c, 2));
+				.forEach(clazz -> scores.put(clazz, 2));
 
-		Comparator<Object> nodeContentComparator = comparing(obj -> {
-			return scores.computeIfAbsent(obj.getClass(), c -> {
-				throw new RuntimeException("Unmanaged item: " + c);
-			});
-		});
-		return nodeContentComparator;
+		Function<Class<?>, Integer> unknownCase = clazz -> {
+			throw new RuntimeException("Unmanaged item: " + clazz);
+		};
+		
+		return comparing(obj -> scores.computeIfAbsent(obj.getClass(), unknownCase));
 	}
 
 	private Node renderNode(Object content) {

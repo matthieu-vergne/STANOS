@@ -117,6 +117,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 	private final Comparator<GraphModelBuilderNode<Object>> nodeComparator;
 	private final Function<Object, String> nodeIdentifier;
 
+	@SuppressWarnings("unchecked")
 	public TreeLayout(//
 			Direction direction, //
 			Anchor anchor, //
@@ -127,7 +128,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 			ExpressionAccessor spreadSize, //
 			NumberExpression spreadSpacing, //
 			NodeRenderer nodeRenderer, //
-			Comparator<Object> nodeComparator, // TODO Object -> T
+			Comparator<T> nodeComparator, // TODO Object -> T
 			Function<Object, String> nodeIdentifier) {// TODO Object -> T
 		this.direction = direction;
 		this.layerAnchor = anchor;
@@ -143,7 +144,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 
 		this.renderer = new CompositeNodeRenderer(nodeRenderer);
 		this.renderer.set(content -> content instanceof Intermediary, content -> new Group());
-		this.nodeComparator = comparing(node -> node.getContent(), nodeComparator);
+		this.nodeComparator = comparing(node -> (T) node.getContent(), nodeComparator);
 		this.nodeIdentifier = obj -> {
 			if (obj instanceof Intermediary) {
 				return ((Intermediary) obj).getId();
