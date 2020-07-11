@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,9 @@ import java.util.stream.Stream;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -40,6 +43,7 @@ import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.DependencyAnalyser;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.dependency.codeitem.Constructor;
+import fr.vergne.stanos.dependency.codeitem.Field;
 import fr.vergne.stanos.dependency.codeitem.Callable;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Method;
@@ -112,6 +116,18 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 				classType = Type.fromClassPath(classPath);
 				Type rootType = declareClassHierarchy(classType);
 				declarePackageHierarchy(rootType);
+			}
+
+			@Override
+			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+				CodeItem declarator = isStatic(access) ? staticBlock(classType) : classType;
+				Field field = Field.field(declarator, extractType(descriptor), name);
+				dependencies.add(new Dependency(declarator, DECLARES, field));
+				return super.visitField(access, name, descriptor, signature, value);
+			}
+
+			private boolean isStatic(int opcode) {
+				return (opcode & Opcodes.ACC_STATIC) != 0;
 			}
 
 			private Type declareClassHierarchy(Type type) {
@@ -187,6 +203,28 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 							System.err.println("[WARN] Unmanaged handle: " + handle);
 						}
 					}
+
+					@Override
+					public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+						if (opcode == Opcodes.GETFIELD || opcode == Opcodes.GETSTATIC) {
+							 Field field = Field.field(Type.fromClassPath(owner), extractType(descriptor), name);
+							 dependencies.add(new Dependency(caller, CALLS, field));
+						}
+						super.visitFieldInsn(opcode, owner, name, descriptor);
+					}
+
+					@Override
+					public void visitLocalVariable(String name, String descriptor, String signature, Label start,
+							Label end, int index) {
+						if ("this".equals(name)) {
+							// Ignore class instance stored as "this" variable
+							return;
+						}
+
+						Field field = Field.field(caller, extractType(descriptor), name);
+						dependencies.add(new Dependency(caller, DECLARES, field));
+						super.visitLocalVariable(name, descriptor, signature, start, end, index);
+					}
 				};
 			}
 
@@ -210,6 +248,11 @@ public class ASMByteCodeAnalyser implements DependencyAnalyser {
 
 			private Type extractReturnType(String descriptor) {
 				org.objectweb.asm.Type asmType = org.objectweb.asm.Type.getReturnType(descriptor);
+				return Type.fromClassName(asmType.getClassName());
+			}
+
+			private Type extractType(String descriptor) {
+				org.objectweb.asm.Type asmType = org.objectweb.asm.Type.getType(descriptor);
 				return Type.fromClassName(asmType.getClassName());
 			}
 		};

@@ -1,19 +1,19 @@
 package fr.vergne.stanos.dependency;
 
-import static fr.vergne.stanos.dependency.Action.CALLS;
-import static fr.vergne.stanos.dependency.Action.DECLARES;
-import static fr.vergne.stanos.dependency.codeitem.Constructor.constructor;
-import static fr.vergne.stanos.dependency.codeitem.Method.method;
-import static fr.vergne.stanos.dependency.codeitem.StaticBlock.staticBlock;
-import static fr.vergne.stanos.dependency.codeitem.Type.type;
-import static fr.vergne.stanos.dependency.util.Formatter.removeClassPrefixes;
+import static fr.vergne.stanos.dependency.Action.*;
+import static fr.vergne.stanos.dependency.codeitem.Constructor.*;
+import static fr.vergne.stanos.dependency.codeitem.Method.*;
+import static fr.vergne.stanos.dependency.codeitem.StaticBlock.*;
+import static fr.vergne.stanos.dependency.codeitem.Type.*;
+import static fr.vergne.stanos.dependency.util.Formatter.*;
 
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.dependency.codeitem.Callable;
+import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Type;
 
@@ -39,6 +39,12 @@ class DependencyTestCasesBuilder {
 		return lastAnalysedClass;
 	}
 
+	private CodeItem lastTestedItem = null;
+
+	public CodeItem getLastTestedItem() {
+		return lastTestedItem;
+	}
+
 	public Tester analyse(Class<?> analysedClass) {
 		lastAnalysedClass = analysedClass;
 		return new Tester(analysedClass);
@@ -56,6 +62,7 @@ class DependencyTestCasesBuilder {
 		}
 
 		public <S extends CodeItem> Targeter<S> test(S source) {
+			lastTestedItem = source;
 			return new Targeter<>(analysedClass, source);
 		}
 	}
@@ -137,19 +144,23 @@ class DependencyTestCasesBuilder {
 		return analyse(clazz).test(type(clazz));
 	}
 
-	public Targeter<Callable> testConstructor(Class<?> clazz) {
-		return analyse(clazz).test(constructor(clazz));
+	public Targeter<Callable> testConstructor(Class<?> clazz, Class<?>... argsClass) {
+		return analyse(clazz).test(constructor(clazz, argsClass));
 	}
 
 	public Targeter<Callable> testStaticBlock(Class<?> clazz) {
 		return analyse(clazz).test(staticBlock(clazz));
 	}
 
-	public Targeter<Callable> testMethod(Class<?> clazz, String name) {
-		return analyse(clazz).test(method(clazz, void.class, name));
+	public Targeter<Callable> testMethod(Class<?> clazz, String name, Class<?>... argsClass) {
+		return analyse(clazz).test(method(clazz, void.class, name, argsClass));
 	}
 
 	public Targeter<Lambda> testLambda(Class<?> clazz, Lambda lambda) {
 		return analyse(clazz).test(lambda);
+	}
+
+	public Targeter<Lambda> testLambda(Class<?> clazz, Supplier<Lambda> lambda) {
+		return analyse(clazz).test(lambda.get());
 	}
 }
