@@ -13,6 +13,7 @@ import fr.vergne.stanos.dependency.Action;
 import fr.vergne.stanos.dependency.Dependency;
 import fr.vergne.stanos.dependency.codeitem.CodeItem;
 import fr.vergne.stanos.dependency.codeitem.Constructor;
+import fr.vergne.stanos.dependency.codeitem.Field;
 import fr.vergne.stanos.dependency.codeitem.Lambda;
 import fr.vergne.stanos.dependency.codeitem.Method;
 import fr.vergne.stanos.dependency.codeitem.Package;
@@ -113,11 +114,11 @@ public class DependenciesGraphPane extends BorderPane {
 		PropertyAccessor nodeY = GraphLayerNode::layoutYProperty;
 		ExpressionAccessor nodeWidth = GraphLayerNode::widthProperty;
 		ExpressionAccessor nodeHeight = GraphLayerNode::heightProperty;
-		
+
 		NodeRenderer nodeRenderer = this::renderNode;
 		Comparator<CodeItem> nodeContentComparator = createNodeComparator();
 		Function<CodeItem, String> nodeIdentifier = CodeItem::getId;
-		
+
 		return FXCollections.observableArrayList(Arrays.asList(//
 				new TreeLayout<CodeItem>(//
 						Direction.NORMAL, Anchor.SURFACE, //
@@ -232,17 +233,19 @@ public class DependenciesGraphPane extends BorderPane {
 
 	private Comparator<CodeItem> createNodeComparator() {
 		Map<Class<?>, Integer> scores = new HashMap<>();
-		Stream.of(Method.class, Constructor.class, StaticBlock.class, Lambda.class)//
+		Stream.of(Field.class)//
 				.forEach(clazz -> scores.put(clazz, 0));
-		Stream.of(Type.class)//
+		Stream.of(Method.class, Constructor.class, StaticBlock.class, Lambda.class)//
 				.forEach(clazz -> scores.put(clazz, 1));
-		Stream.of(Package.class)//
+		Stream.of(Type.class)//
 				.forEach(clazz -> scores.put(clazz, 2));
+		Stream.of(Package.class)//
+				.forEach(clazz -> scores.put(clazz, 3));
 
 		Function<Class<?>, Integer> unknownCase = clazz -> {
 			throw new RuntimeException("Unmanaged item: " + clazz);
 		};
-		
+
 		return comparing(obj -> scores.computeIfAbsent(obj.getClass(), unknownCase));
 	}
 
@@ -250,6 +253,7 @@ public class DependenciesGraphPane extends BorderPane {
 		CodeItem item = (CodeItem) content;
 		// TODO use proper graphics
 		String name = item.getId()//
+				.replaceAll(".*\\.([^.]+):.*", "$1")// Isolate field names
 				.replaceAll("\\.?[^()]+\\.", "")// Remove packages
 				.replaceAll(".+\\$([^0-9])", "$1")// Remove declaring class
 				.replaceAll("\\(.+\\)", "(...)")// Reduce arguments types
@@ -257,10 +261,11 @@ public class DependenciesGraphPane extends BorderPane {
 		char prefix = item instanceof Package ? 'P'//
 				: item instanceof Type ? 'T'// TODO 'C' & 'I'
 						: item instanceof Method ? 'M'//
-								: item instanceof Constructor ? 'Z'//
-										: item instanceof Lambda ? 'L'//
-												: item instanceof StaticBlock ? 'S'//
-														: '?';
+								: item instanceof Field ? 'F'//
+										: item instanceof Constructor ? 'Z'//
+												: item instanceof Lambda ? 'L'//
+														: item instanceof StaticBlock ? 'S'//
+																: '?';
 		Label label = new Label(String.format("[%s] %s", prefix, name));
 		label.setAlignment(Pos.CENTER_LEFT);
 		// TODO remove border

@@ -112,7 +112,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 	private final ExpressionAccessor spreading;
 	private final NumberExpression neighborsSpacing;
 	private final NumberExpression layersSpacing;
-	
+
 	private final CompositeNodeRenderer renderer;
 	private final Comparator<GraphModelBuilderNode<Object>> nodeComparator;
 	private final Function<Object, String> nodeIdentifier;
@@ -144,10 +144,13 @@ public class TreeLayout<T> implements GraphLayout<T> {
 
 		this.renderer = new CompositeNodeRenderer(nodeRenderer);
 		this.renderer.set(content -> content instanceof Intermediary, content -> new Group());
+		this.renderer.set(content -> content instanceof FakeChild, content -> new Group());
 		this.nodeComparator = comparing(node -> (T) node.getContent(), nodeComparator);
 		this.nodeIdentifier = obj -> {
 			if (obj instanceof Intermediary) {
 				return ((Intermediary) obj).getId();
+			} else if (obj instanceof FakeChild) {
+				return ((FakeChild) obj).getId();
 			} else {
 				return nodeIdentifier.apply((T) obj);
 			}
@@ -159,6 +162,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 		GraphModelBuilder<Object> newModel = GraphModelBuilder.createFromModel(nodeIdentifier, model);
 
 		List<Collection<GraphModelBuilderNode<Object>>> modelLayers = distributeIntoLayers(newModel);
+		addFakeChildren(newModel, modelLayers);
 		addIntermediaries(newModel, modelLayers);
 		sort(newModel, modelLayers);
 
@@ -287,6 +291,7 @@ public class TreeLayout<T> implements GraphLayout<T> {
 			spreadLeaves(guiLayers);
 			centerParentsOnChildren(guiLayers);
 			// FIXME parents overlap due to small children
+			// FIXME Don't show edges to FakeChild instances
 		}
 	}
 
@@ -646,6 +651,34 @@ public class TreeLayout<T> implements GraphLayout<T> {
 
 		public Intermediary(GraphModelBuilderNode<Object> parent, GraphModelBuilderNode<Object> child) {
 			this.id = parent.getId() + "@" + child.getId();
+		}
+
+		public String getId() {
+			return id;
+		}
+	}
+
+	private void addFakeChildren(GraphModelBuilder<Object> model,
+			List<Collection<GraphModelBuilderNode<Object>>> layers) {
+		if (layers.size() > 1) {
+			Collection<GraphModelBuilderNode<Object>> leaves = layers.get(layers.size() - 1);
+			for (int i = 0; i < layers.size() - 1; i++) {
+				for (GraphModelBuilderNode<Object> parent : layers.get(i)) {
+					if (parent.getChildren().isEmpty()) {
+						FakeChild fakeChild = new FakeChild(parent);
+						leaves.add(model.addNode(fakeChild));
+						model.addEdge(parent.getContent(), fakeChild);
+					}
+				}
+			}
+		}
+	}
+
+	private static class FakeChild {
+		private final String id;
+
+		public FakeChild(GraphModelBuilderNode<Object> parent) {
+			this.id = parent.getId() + "@FakeChild";
 		}
 
 		public String getId() {
