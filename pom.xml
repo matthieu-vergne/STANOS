@@ -14,6 +14,7 @@
 	<modules>
 		<module>stanos-core</module>
 		<module>stanos-gui</module>
+		<module>stanos-sample</module>
 	</modules>
 
 	<scm>
@@ -92,6 +93,9 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<version>3.2.0</version>
+				<configuration>
+					<javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
+				</configuration>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>

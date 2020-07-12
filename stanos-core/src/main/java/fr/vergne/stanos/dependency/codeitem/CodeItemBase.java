@@ -7,7 +7,7 @@ class CodeItemBase implements CodeItem {
 	private final String id;
 
 	public CodeItemBase(String id) {
-		this.id = id;
+		this.id = Objects.requireNonNull(id, "No ID provided");
 	}
 
 	@Override

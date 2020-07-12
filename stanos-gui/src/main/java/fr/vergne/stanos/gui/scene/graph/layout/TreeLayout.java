@@ -4,6 +4,7 @@ import static java.util.Comparator.*;
 import static java.util.stream.Collectors.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -17,6 +18,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayer;
 import fr.vergne.stanos.gui.scene.graph.layer.GraphLayerEdge;
@@ -187,6 +189,39 @@ public class TreeLayout<T> implements GraphLayout<T> {
 
 	private void addBackgrounds(GraphLayer graphLayer, List<List<GraphLayerNode>> guiLayers,
 			Collection<GraphLayerNode> layerNodes) {
+		if (layerNodes.isEmpty()) {
+			return;
+		}
+
+		List<Rectangle> backgrounds = new LinkedList<>();
+
+		NodesSelector nodesSelector = (nodeLetters) -> {
+			return layerNodes.stream()//
+					.filter(Stream.of(nodeLetters)//
+							.map(nodeLetter -> "[" + nodeLetter + "]")//
+							.map(nodePrefix -> (Predicate<GraphLayerNode>) node -> node.toString().contains(nodePrefix))//
+							.reduce(node -> false, (f1, f2) -> f1.or(f2)))//
+					.collect(Collectors.toList());
+		};
+		int margin = 5;
+		backgrounds.addAll(Arrays.asList(//
+				createRectangle(margin, Color.RED, nodesSelector.apply("P")), // Packages
+				createRectangle(margin, Color.GREEN, nodesSelector.apply("T")), // Types
+				createRectangle(margin, Color.BLUE, nodesSelector.apply("M", "Z", "L", "S")), // Methods
+				createRectangle(margin, Color.BLACK, nodesSelector.apply("F"))));// Fields
+
+		guiLayers.forEach(layer -> {
+			backgrounds.add(createRectangle(0, Color.CYAN, layer)); // Layers
+		});
+
+		graphLayer.getChildren().addAll(0, backgrounds);
+	}
+
+	private interface NodesSelector {
+		List<GraphLayerNode> apply(String... letters);
+	}
+
+	private Rectangle createRectangle(int margin, Color color, Collection<GraphLayerNode> nodes) {
 		Function<GraphLayerNode, NumberExpression> x1 = node -> node.layoutXProperty();
 		Function<GraphLayerNode, NumberExpression> y1 = node -> node.layoutYProperty();
 		Function<GraphLayerNode, NumberExpression> x2 = node -> node.layoutXProperty().add(node.widthProperty());
@@ -194,89 +229,19 @@ public class TreeLayout<T> implements GraphLayout<T> {
 		BinaryOperator<NumberExpression> min = (e1, e2) -> Bindings.min(e1, e2);
 		BinaryOperator<NumberExpression> max = (e1, e2) -> Bindings.max(e1, e2);
 
-		// Layers
-		for (List<GraphLayerNode> layer : guiLayers) {
-			NumberExpression startX = reduceCoordinates(layer, x1, min);
-			NumberExpression startY = reduceCoordinates(layer, y1, min);
-			NumberExpression endX = reduceCoordinates(layer, x2, max);
-			NumberExpression endY = reduceCoordinates(layer, y2, max);
+		NumberExpression startX = reduceCoordinates(nodes, x1, min);
+		NumberExpression startY = reduceCoordinates(nodes, y1, min);
+		NumberExpression endX = reduceCoordinates(nodes, x2, max);
+		NumberExpression endY = reduceCoordinates(nodes, y2, max);
 
-			Rectangle rectangle = new Rectangle();
-			rectangle.setFill(Color.CYAN);
-			rectangle.layoutXProperty().bind(startX);
-			rectangle.layoutYProperty().bind(startY);
-			rectangle.widthProperty().bind(endX.subtract(startX));
-			rectangle.heightProperty().bind(endY.subtract(startY));
+		Rectangle rectangle = new Rectangle();
+		rectangle.setFill(color);
+		rectangle.layoutXProperty().bind(startX.subtract(margin));
+		rectangle.layoutYProperty().bind(startY.subtract(margin));
+		rectangle.widthProperty().bind(endX.subtract(startX).add(2 * margin));
+		rectangle.heightProperty().bind(endY.subtract(startY).add(2 * margin));
 
-			graphLayer.getChildren().add(0, rectangle);
-		}
-
-		// Packages
-		int extraSize = 3;
-		{
-			Collection<GraphLayerNode> layer = layerNodes.stream()//
-					.filter(node -> node.toString().contains("[P]"))//
-					.collect(Collectors.toList());
-
-			NumberExpression startX = reduceCoordinates(layer, x1, min);
-			NumberExpression startY = reduceCoordinates(layer, y1, min);
-			NumberExpression endX = reduceCoordinates(layer, x2, max);
-			NumberExpression endY = reduceCoordinates(layer, y2, max);
-
-			Rectangle rectangle = new Rectangle();
-			rectangle.setFill(Color.RED);
-			rectangle.layoutXProperty().bind(startX.subtract(extraSize));
-			rectangle.layoutYProperty().bind(startY.subtract(extraSize));
-			rectangle.widthProperty().bind(endX.subtract(startX).add(2 * extraSize));
-			rectangle.heightProperty().bind(endY.subtract(startY).add(2 * extraSize));
-
-			graphLayer.getChildren().add(0, rectangle);
-		}
-
-		// Types
-		{
-			Collection<GraphLayerNode> layer = layerNodes.stream()//
-					.filter(node -> node.toString().contains("[T]"))//
-					.collect(Collectors.toList());
-
-			NumberExpression startX = reduceCoordinates(layer, x1, min);
-			NumberExpression startY = reduceCoordinates(layer, y1, min);
-			NumberExpression endX = reduceCoordinates(layer, x2, max);
-			NumberExpression endY = reduceCoordinates(layer, y2, max);
-
-			Rectangle rectangle = new Rectangle();
-			rectangle.setFill(Color.GREEN);
-			rectangle.layoutXProperty().bind(startX.subtract(extraSize));
-			rectangle.layoutYProperty().bind(startY.subtract(extraSize));
-			rectangle.widthProperty().bind(endX.subtract(startX).add(2 * extraSize));
-			rectangle.heightProperty().bind(endY.subtract(startY).add(2 * extraSize));
-
-			graphLayer.getChildren().add(0, rectangle);
-		}
-
-		// Methods
-		{
-			Collection<GraphLayerNode> layer = layerNodes.stream()//
-					.filter(node -> node.toString().contains("[M]")//
-							|| node.toString().contains("[Z]")//
-							|| node.toString().contains("[L]")//
-							|| node.toString().contains("[S]"))//
-					.collect(Collectors.toList());
-
-			NumberExpression startX = reduceCoordinates(layer, x1, min);
-			NumberExpression startY = reduceCoordinates(layer, y1, min);
-			NumberExpression endX = reduceCoordinates(layer, x2, max);
-			NumberExpression endY = reduceCoordinates(layer, y2, max);
-
-			Rectangle rectangle = new Rectangle();
-			rectangle.setFill(Color.BLUE);
-			rectangle.layoutXProperty().bind(startX.subtract(extraSize));
-			rectangle.layoutYProperty().bind(startY.subtract(extraSize));
-			rectangle.widthProperty().bind(endX.subtract(startX).add(extraSize));
-			rectangle.heightProperty().bind(endY.subtract(startY).add(extraSize));
-
-			graphLayer.getChildren().add(0, rectangle);
-		}
+		return rectangle;
 	}
 
 	private NumberExpression reduceCoordinates(Collection<GraphLayerNode> nodes,

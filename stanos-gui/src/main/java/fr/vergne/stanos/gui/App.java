@@ -32,7 +32,7 @@ public class App extends Application {
 		ensureWorkspaceIsSet(configuration);
 
 		ObservableList<Path> paths = FXCollections.observableList(new LinkedList<Path>());
-		paths.add(Path.of("target/classes/fr/vergne/stanos/gui/scene/graph/layout"));
+		paths.add(Path.of("../stanos-sample/target/classes"));
 		ObservableList<Dependency> dependencies = FXCollections.observableList(new LinkedList<>());
 		DependencyAnalyser dependencyAnalyser = new ASMByteCodeAnalyser();
 
