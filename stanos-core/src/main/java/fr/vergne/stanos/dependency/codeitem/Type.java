@@ -2,6 +2,7 @@ package fr.vergne.stanos.dependency.codeitem;
 
 import java.util.Objects;
 
+// TODO split into Classes & Interfaces
 public class Type extends CodeItemBase {
 
 	private Type(String id) {
