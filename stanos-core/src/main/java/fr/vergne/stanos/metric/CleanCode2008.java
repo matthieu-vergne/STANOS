@@ -10,5 +10,11 @@ package fr.vergne.stanos.metric;
  * and Practices"
  */
 public class CleanCode2008 {
+	static class Naming {
+		public Runnable N5 = this::theLengthOfANameShouldCorrespondToTheSizeOfItsScope;
 
+		public void theLengthOfANameShouldCorrespondToTheSizeOfItsScope() {
+			// TODO
+		}
+	}
 }
