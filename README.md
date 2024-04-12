@@ -23,7 +23,7 @@ Yeah, I know it lacks in creativity, but STAN stands for STructure ANalysis, so 
 I don't plan to reverse engineer STAN, although not only because of legal issues.
 It is also more interesting, fulfilling, and teaching to search for my own way to do stuff.
 I also think that it makes no sense to inspire from some old code when a lot of new stuff is coming in the Java world.
-So the  whole point is to see what STAN provides, identify the interesting bits, and try to do something even better here, all in open source.
+So the whole point is to see what STAN provides, identify the interesting bits, and try to do something even better here, all in open source.
 
 # How does it Work?
 
