@@ -14,35 +14,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class RefactorerTest {
 
-	static Stream<SuccessCase> testCodeRefactoringSuccess() {
-		return Stream.of(//
-				new SuccessCase(//
-						"class MyClass{}", //
-						name("rename class", refactorer -> refactorer.locateClass("MyClass").rename("Foo")), //
-						"class Foo{}"//
-				), //
-				new SuccessCase(//
-						"class MyClass{String myField;}", //
-						name("rename field", refactorer -> refactorer.locateField("MyClass.myField").rename("foo")), //
-						"class MyClass{String foo;}"//
-				), //
-				new SuccessCase(//
-						"class MyClass{void myMethod(){}}", //
-						name("rename method", refactorer -> refactorer.locateMethod("MyClass.myMethod").rename("foo")), //
-						"class MyClass{void foo(){}}"//
-				), //
-				new SuccessCase(//
-						"class MyClass{void myMethod(){String myVar = null;}}", //
-						name("rename variable", refactorer -> refactorer.locateVariable("MyClass.myMethod.myVar").rename("foo")), //
-						"class MyClass{void myMethod(){String foo = null;}}"//
-				)//
-		);
-	}
-
 	record SuccessCase(String code, Consumer<Refactorer.ForCode> refactoring, String expectedCode) {
 		@Override
 		public String toString() {
-			return code + " > " + refactoring.toString() + " > " + expectedCode;
+			return code + " > " + stringOf(refactoring) + " > " + expectedCode;
 		}
 	}
 
@@ -63,40 +38,73 @@ class RefactorerTest {
 		assertThat(refactorer.code(), is(expectedCode));
 	}
 
-	static Stream<FailureCase> testCodeRefactoringFailure() {
+	static Stream<SuccessCase> testCodeRefactoringSuccess() {
 		return Stream.of(//
-				new FailureCase(//
-						"class Foo{}", //
-						name("locate class X", refactorer -> refactorer.locateClass("X")), //
-						new NoSuchElementException("No class X")//
-				), //
-				new FailureCase(//
-						"interface Foo{}", //
-						name("locate class", refactorer -> refactorer.locateClass("Foo")), //
-						new NoSuchElementException("No class Foo")//
-				), //
-				new FailureCase(//
-						"record Foo(){}", //
-						name("locate class", refactorer -> refactorer.locateClass("Foo")), //
-						new NoSuchElementException("No class Foo")//
-				), //
+				testCodeRefactoringSuccess_Class(), //
+				testCodeRefactoringSuccess_Interface(), //
+				testCodeRefactoringSuccess_Record(), //
+				testCodeRefactoringSuccess_Field(), //
+				testCodeRefactoringSuccess_Method(), //
+				testCodeRefactoringSuccess_Variable()//
+		).flatMap(stream -> stream);
+	}
 
-				new FailureCase(//
-						"class MyClass{String myField;}", //
-						name("locate field", refactorer -> refactorer.locateField("MyClass.X")), //
-						new NoSuchElementException("No field MyClass.X")//
-				), //
-
-				new FailureCase(//
-						"class MyClass{void myMethod(){}}", //
-						name("locate method", refactorer -> refactorer.locateMethod("MyClass.x")), //
-						new NoSuchElementException("No method MyClass.x")//
-				), //
-
-				new FailureCase(//
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Variable() {
+		return Stream.of(//
+				new SuccessCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						name("locate variable", refactorer -> refactorer.locateVariable("MyClass.myMethod.x")), //
-						new NoSuchElementException("No variable MyClass.myMethod.x")//
+						refactorer -> refactorer.locateVariable("MyClass.myMethod.myVar").rename("foo"), //
+						"class MyClass{void myMethod(){String foo = null;}}"//
+				)//
+		);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Method() {
+		return Stream.of(//
+				new SuccessCase(//
+						"class MyClass{void myMethod(){}}", //
+						refactorer -> refactorer.locateMethod("MyClass.myMethod").rename("foo"), //
+						"class MyClass{void foo(){}}"//
+				)//
+		);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Field() {
+		return Stream.of(//
+				new SuccessCase(//
+						"class MyClass{String myField;}", //
+						refactorer -> refactorer.locateField("MyClass.myField").rename("foo"), //
+						"class MyClass{String foo;}"//
+				)//
+		);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Record() {
+		return Stream.of(//
+				new SuccessCase(//
+						"record MyRecord(){}", //
+						refactorer -> refactorer.locateRecord("MyRecord").rename("Foo"), //
+						"record Foo(){}"//
+				)//
+		);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Interface() {
+		return Stream.of(//
+				new SuccessCase(//
+						"interface MyInt{}", //
+						refactorer -> refactorer.locateInterface("MyInt").rename("Foo"), //
+						"interface Foo{}"//
+				)//
+		);
+	}
+
+	static Stream<SuccessCase> testCodeRefactoringSuccess_Class() {
+		return Stream.of(//
+				new SuccessCase(//
+						"class MyClass{}", //
+						refactorer -> refactorer.locateClass("MyClass").rename("Foo"), //
+						"class Foo{}"//
 				)//
 		);
 	}
@@ -104,7 +112,7 @@ class RefactorerTest {
 	record FailureCase(String code, Consumer<Refactorer.ForCode> refactoring, Exception expectedException) {
 		@Override
 		public String toString() {
-			return code + " > " + refactoring.toString() + " > " + expectedException;
+			return code + " > " + stringOf(refactoring) + " > " + expectedException;
 		}
 	}
 
@@ -126,17 +134,194 @@ class RefactorerTest {
 		assertThat(except.getMessage(), is(expectedException.getMessage()));
 	}
 
-	private static <T> Consumer<T> name(String name, Consumer<T> consumer) {
-		return new Consumer<T>() {
+	static Stream<FailureCase> testCodeRefactoringFailure() {
+		return Stream.of(//
+				testCodeRefactoringFailure_Class(), //
+				testCodeRefactoringFailure_Interface(), //
+				testCodeRefactoringFailure_Record(), //
+				testCodeRefactoringFailure_Field(), //
+				testCodeRefactoringFailure_Method(), //
+				testCodeRefactoringFailure_Variable()//
+		).flatMap(stream -> stream);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Variable() {
+		return Stream.of(//
+				new FailureCase(//
+						"class MyClass{void myMethod(){String myVar = null;}}", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod.x"), //
+						new NoSuchElementException("No variable MyClass.myMethod.x")//
+				)//
+		);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Method() {
+		return Stream.of(//
+				new FailureCase(//
+						"class MyClass{void myMethod(){}}", //
+						refactorer -> refactorer.locateMethod("MyClass.x"), //
+						new NoSuchElementException("No method MyClass.x")//
+				) //
+		);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Field() {
+		return Stream.of(//
+				new FailureCase(//
+						"class MyClass{String myField;}", //
+						refactorer -> refactorer.locateField("MyClass.X"), //
+						new NoSuchElementException("No field MyClass.X")//
+				) //
+		);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Record() {
+		return Stream.of(//
+				new FailureCase(//
+						"class Foo{}", //
+						refactorer -> refactorer.locateRecord("Foo"), //
+						new NoSuchElementException("No record Foo")//
+				), //
+				new FailureCase(//
+						"interface Foo{}", //
+						refactorer -> refactorer.locateRecord("Foo"), //
+						new NoSuchElementException("No record Foo")//
+				), //
+				new FailureCase(//
+						"record Foo(){}", //
+						refactorer -> refactorer.locateRecord("X"), //
+						new NoSuchElementException("No record X")//
+				)//
+		);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Interface() {
+		return Stream.of(//
+				new FailureCase(//
+						"class Foo{}", //
+						refactorer -> refactorer.locateInterface("Foo"), //
+						new NoSuchElementException("No interface Foo")//
+				), //
+				new FailureCase(//
+						"interface Foo{}", //
+						refactorer -> refactorer.locateInterface("X"), //
+						new NoSuchElementException("No interface X")//
+				), //
+				new FailureCase(//
+						"record Foo(){}", //
+						refactorer -> refactorer.locateInterface("Foo"), //
+						new NoSuchElementException("No interface Foo")//
+				)//
+		);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Class() {
+		return Stream.of(//
+				new FailureCase(//
+						"class Foo{}", //
+						refactorer -> refactorer.locateClass("X"), //
+						new NoSuchElementException("No class X")//
+				), //
+				new FailureCase(//
+						"interface Foo{}", //
+						refactorer -> refactorer.locateClass("Foo"), //
+						new NoSuchElementException("No class Foo")//
+				), //
+				new FailureCase(//
+						"record Foo(){}", //
+						refactorer -> refactorer.locateClass("Foo"), //
+						new NoSuchElementException("No class Foo")//
+				)//
+		);
+	}
+
+	private static String stringOf(Consumer<Refactorer.ForCode> refactoring) {
+		StringBuilder builder = new StringBuilder();
+		Consumer<Object> locatorDisplayer = arg -> builder.append(currentMethodName() + "(" + arg + ")");
+		Consumer<Object> refactorDisplayer = arg -> builder.append("." + currentMethodName() + "(" + arg + ")");
+
+		refactoring.accept(new Refactorer.ForCode() {
 			@Override
-			public void accept(T input) {
-				consumer.accept(input);
+			public String code() {
+				throw new UnsupportedOperationException("Not expected to be called");
 			}
 
 			@Override
-			public String toString() {
-				return name;
+			public Refactorer.ForClass locateClass(String classPath) {
+				locatorDisplayer.accept(classPath);
+				return new Refactorer.ForClass() {
+					@Override
+					public void rename(String newName) {
+						refactorDisplayer.accept(newName);
+					}
+				};
 			}
-		};
+
+			@Override
+			public Refactorer.ForInterface locateInterface(String interfacePath) {
+				locatorDisplayer.accept(interfacePath);
+				return new Refactorer.ForInterface() {
+					@Override
+					public void rename(String newName) {
+						refactorDisplayer.accept(newName);
+					}
+				};
+			}
+
+			@Override
+			public Refactorer.ForRecord locateRecord(String recordPath) {
+				locatorDisplayer.accept(recordPath);
+				return new Refactorer.ForRecord() {
+					@Override
+					public void rename(String newName) {
+						refactorDisplayer.accept(newName);
+					}
+				};
+			}
+
+			@Override
+			public Refactorer.ForMethod locateMethod(String methodPath) {
+				locatorDisplayer.accept(methodPath);
+				return new Refactorer.ForMethod() {
+					@Override
+					public void rename(String newName) {
+						refactorDisplayer.accept(newName);
+					}
+				};
+			}
+
+			@Override
+			public Refactorer.ForField locateField(String fieldPath) {
+				locatorDisplayer.accept(fieldPath);
+				return new Refactorer.ForField() {
+					@Override
+					public void rename(String newName) {
+						refactorDisplayer.accept(newName);
+					}
+				};
+			}
+
+			@Override
+			public Refactorer.ForVariable locateVariable(String variablePath) {
+				locatorDisplayer.accept(variablePath);
+				return new Refactorer.ForVariable() {
+					@Override
+					public void rename(String newName) {
+						refactorDisplayer.accept(newName);
+					}
+				};
+			}
+		});
+
+		return builder.toString();
+	}
+
+	private static String currentMethodName() {
+		// Get element at index 3 in stack trace:
+		// 0 - getStackTrace()
+		// 1 - the method we are in
+		// 2 - the lambda calling this method
+		// 3 - the method we are interested in
+		return Thread.currentThread().getStackTrace()[3].getMethodName();
 	}
 }

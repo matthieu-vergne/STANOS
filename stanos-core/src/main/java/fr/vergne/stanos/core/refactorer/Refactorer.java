@@ -18,6 +18,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.visitor.GenericVisitorAdapter;
 
@@ -51,6 +52,42 @@ public interface Refactorer {
 					@Override
 					public void rename(String newName) {
 						JavaToken nameToken = stream(tokensOf(locatedClass))//
+								.filter(is(Category.IDENTIFIER))//
+								.findFirst().orElseThrow();
+						CodeRange nameRange = CodeRange.fromTokenRange(nameToken.getRange().orElseThrow());
+
+						String before = refactoredCode.substring(0, nameRange.start() - 1);
+						String after = refactoredCode.substring(nameRange.end());
+						refactoredCode = before + newName + after;
+					}
+				};
+			}
+
+			@Override
+			public Refactorer.ForInterface locateInterface(String interfacePath) {
+				ClassOrInterfaceDeclaration locatedInterface = searchInterface(compilationUnit, interfacePath);
+				return new Refactorer.ForInterface() {
+					@Override
+					public void rename(String newName) {
+						JavaToken nameToken = stream(tokensOf(locatedInterface))//
+								.filter(is(Category.IDENTIFIER))//
+								.findFirst().orElseThrow();
+						CodeRange nameRange = CodeRange.fromTokenRange(nameToken.getRange().orElseThrow());
+
+						String before = refactoredCode.substring(0, nameRange.start() - 1);
+						String after = refactoredCode.substring(nameRange.end());
+						refactoredCode = before + newName + after;
+					}
+				};
+			}
+
+			@Override
+			public Refactorer.ForRecord locateRecord(String recordPath) {
+				RecordDeclaration locatedRecord = searchRecord(compilationUnit, recordPath);
+				return new Refactorer.ForRecord() {
+					@Override
+					public void rename(String newName) {
+						JavaToken nameToken = stream(tokensOf(locatedRecord))//
 								.filter(is(Category.IDENTIFIER))//
 								.findFirst().orElseThrow();
 						CodeRange nameRange = CodeRange.fromTokenRange(nameToken.getRange().orElseThrow());
@@ -125,6 +162,10 @@ public interface Refactorer {
 
 		Refactorer.ForClass locateClass(String classPath);
 
+		Refactorer.ForInterface locateInterface(String interfacePath);
+
+		Refactorer.ForRecord locateRecord(String recordPath);
+
 		Refactorer.ForField locateField(String fieldPath);
 
 		Refactorer.ForMethod locateMethod(String methodPath);
@@ -133,6 +174,12 @@ public interface Refactorer {
 	}
 
 	interface ForClass extends Refactorer, Renamable {
+	}
+
+	interface ForInterface extends Refactorer, Renamable {
+	}
+
+	interface ForRecord extends Refactorer, Renamable {
 	}
 
 	interface ForField extends Refactorer, Renamable {
@@ -170,6 +217,52 @@ public interface Refactorer {
 
 		if (declaration == null) {
 			throw new NoSuchElementException("No class " + classPath);
+		} else {
+			return declaration;
+		}
+	}
+	
+	private static ClassOrInterfaceDeclaration searchInterface(CompilationUnit compilationUnit, String interfacePath) {
+		ClassOrInterfaceDeclaration declaration = compilationUnit.accept(new GenericVisitorAdapter<ClassOrInterfaceDeclaration, Void>() {
+			@Override
+			public ClassOrInterfaceDeclaration visit(ClassOrInterfaceDeclaration decl, Void arg) {
+				if (interfacePath.equals(decl.getFullyQualifiedName().orElseThrow())) {
+					TokenRange tokenRange = decl.getTokenRange().orElseThrow();
+					boolean isClass = stream(tokenRange)//
+							.filter(is(Category.KEYWORD).and(textEquals("interface")))//
+							.findFirst().isPresent();
+					if (isClass) {
+						return decl;
+					} else {
+						return super.visit(decl, arg);
+					}
+				} else {
+					return super.visit(decl, arg);
+				}
+			}
+		}, null);
+
+		if (declaration == null) {
+			throw new NoSuchElementException("No interface " + interfacePath);
+		} else {
+			return declaration;
+		}
+	}
+	
+	private static RecordDeclaration searchRecord(CompilationUnit compilationUnit, String recordPath) {
+		RecordDeclaration declaration = compilationUnit.accept(new GenericVisitorAdapter<RecordDeclaration, Void>() {
+			@Override
+			public RecordDeclaration visit(RecordDeclaration decl, Void arg) {
+				if (recordPath.equals(decl.getFullyQualifiedName().orElseThrow())) {
+					return decl;
+				} else {
+					return super.visit(decl, arg);
+				}
+			}
+		}, null);
+
+		if (declaration == null) {
+			throw new NoSuchElementException("No record " + recordPath);
 		} else {
 			return declaration;
 		}
