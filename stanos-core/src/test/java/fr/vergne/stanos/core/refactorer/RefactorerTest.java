@@ -17,7 +17,12 @@ class RefactorerTest {
 	record SuccessCase(String code, Consumer<Refactorer.ForCode> refactoring, String expectedCode) {
 		@Override
 		public String toString() {
-			return code + " > " + stringOf(refactoring) + " > " + expectedCode;
+			// TODO Reduce code and expected code to parts relevant for diff if too long
+			return reduce(code) + " > " + stringOf(refactoring) + " > " + reduce(expectedCode);
+		}
+
+		private String reduce(String code) {
+			return code.length() < 100 ? code : code.substring(0, 100) + "[...]";
 		}
 	}
 
@@ -53,8 +58,310 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod.myVar").rename("foo"), //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
 						"class MyClass{void myMethod(){String foo = null;}}"//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass{
+									void myMethod(){
+										class myVar {}
+										myVar myVar = new myVar();
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						"""
+								class MyClass{
+									void myMethod(){
+										class myVar {}
+										myVar foo = new myVar();
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									class MyChildClass {
+										void myMethod() {
+											class MyInnerClass {
+												void myMethod() {
+													String myVar = null;
+												}
+											}
+										}
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.MyChildClass.myMethod().MyInnerClass.myMethod().myVar%").rename("foo"), //
+						"""
+								class MyClass {
+									class MyChildClass {
+										void myMethod() {
+											class MyInnerClass {
+												void myMethod() {
+													String foo = null;
+												}
+											}
+										}
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										class MyInnerClass {
+											String myMethod() {
+												return myVar;
+											}
+										}
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						"""
+								class MyClass {
+									void myMethod() {
+										String foo = null;
+										class MyInnerClass {
+											String myMethod() {
+												return foo;
+											}
+										}
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									String myMethod(boolean b) {
+										if (b) {
+											String myVar = "a";
+											return myVar;
+										} else {
+											String myVar = "b";
+											return myVar;
+										}
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod(boolean).myVar%0").rename("foo"), //
+						"""
+								class MyClass {
+									String myMethod(boolean b) {
+										if (b) {
+											String foo = "a";
+											return foo;
+										} else {
+											String myVar = "b";
+											return myVar;
+										}
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									String myMethod(boolean b) {
+										if (b) {
+											String myVar = "a";
+											return myVar;
+										} else {
+											String myVar = "b";
+											return myVar;
+										}
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod(boolean).myVar%1").rename("foo"), //
+						"""
+								class MyClass {
+									String myMethod(boolean b) {
+										if (b) {
+											String myVar = "a";
+											return myVar;
+										} else {
+											String foo = "b";
+											return foo;
+										}
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									interface MyInt {
+										String myMethod();
+									}
+									MyInt myMethod() {
+										MyInt myVar = new MyInt() {
+											@Override
+											public String myMethod() {
+												String myVar = "";
+												return myVar;
+											}
+										};
+										return myVar;
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						"""
+								class MyClass {
+									interface MyInt {
+										String myMethod();
+									}
+									MyInt myMethod() {
+										MyInt foo = new MyInt() {
+											@Override
+											public String myMethod() {
+												String myVar = "";
+												return myVar;
+											}
+										};
+										return foo;
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									interface MyInt {
+										String myMethod();
+									}
+									MyInt myMethod() {
+										MyInt myVar = new MyInt() {
+											@Override
+											public String myMethod() {
+												String myVar = "";
+												return myVar;
+											}
+										};
+										return myVar;
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%.myMethod().myVar%").rename("foo"), //
+						"""
+								class MyClass {
+									interface MyInt {
+										String myMethod();
+									}
+									MyInt myMethod() {
+										MyInt myVar = new MyInt() {
+											@Override
+											public String myMethod() {
+												String foo = "";
+												return foo;
+											}
+										};
+										return myVar;
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									String myMethod() {
+										String myVar = "abc";
+										myVar = "";
+										String x = myVar;
+										x = "<" + myVar + ">";
+										myVar = myMethod(myVar);
+										return myVar;
+									}
+
+									String myMethod(String s) {
+										return null;
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						"""
+								class MyClass {
+									String myMethod() {
+										String foo = "abc";
+										foo = "";
+										String x = foo;
+										x = "<" + foo + ">";
+										foo = myMethod(foo);
+										return foo;
+									}
+
+									String myMethod(String s) {
+										return null;
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								import java.util.function.Supplier;
+
+								class MyClass {
+									void myMethod() {
+										String myVar = "abc";
+										Supplier<String> sup = () -> myVar;
+										Supplier<Supplier<String>> sup2 = () -> () -> myVar;
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						"""
+								import java.util.function.Supplier;
+
+								class MyClass {
+									void myMethod() {
+										String foo = "abc";
+										Supplier<String> sup = () -> foo;
+										Supplier<Supplier<String>> sup2 = () -> () -> foo;
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass{
+									void myMethod(boolean b){
+										String myVar = null;
+									}
+									void myMethod(String s){
+										String myVar = null;
+									}
+									void myMethod(boolean b, String s){
+										String myVar = null;
+									}
+									void myMethod(){
+										String myVar = null;
+									}
+								}
+								""", //
+						refactorer -> refactorer.locateVariable("MyClass.myMethod(boolean).myVar%").rename("foo"), //
+						"""
+								class MyClass{
+									void myMethod(boolean b){
+										String foo = null;
+									}
+									void myMethod(String s){
+										String myVar = null;
+									}
+									void myMethod(boolean b, String s){
+										String myVar = null;
+									}
+									void myMethod(){
+										String myVar = null;
+									}
+								}
+								"""//
 				)//
 		);
 	}
@@ -149,8 +456,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod.x"), //
-						new NoSuchElementException("No variable MyClass.myMethod.x")//
+						refactorer -> refactorer.locateVariable("MyClass.myMethod().x%"), //
+						new NoSuchElementException("No variable MyClass.myMethod().x%")//
 				)//
 		);
 	}
