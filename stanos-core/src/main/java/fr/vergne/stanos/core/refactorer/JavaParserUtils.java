@@ -2,9 +2,11 @@ package fr.vergne.stanos.core.refactorer;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -31,6 +33,7 @@ import com.github.javaparser.ast.visitor.GenericVisitorAdapter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
 import fr.vergne.stanos.core.refactorer.Refactorer.CodeRange;
+import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class JavaParserUtils {
 
@@ -226,7 +229,7 @@ class JavaParserUtils {
 	record VarContext(Code.VariableDeclaration declaration, SearchContext context) {
 	}
 
-	public static VarContext searchVariable(CompilationUnit compilationUnit, String variablePath) {
+	public static Optional<Variable> searchVariable(String code, String variablePath, StringBuilder refactoringCode2, CompilationUnit compilationUnit) {
 		List<Signature> signatures = new LinkedList<>();
 		feedSignatures(variablePath, signatures);
 		String variableName = ((VariableSignature) signatures.get(signatures.size() - 1)).name();
@@ -306,6 +309,7 @@ class JavaParserUtils {
 			}
 		}, context);
 
+		Optional<Variable> variableOpt;
 		if (variablePath.equals("MyClass.myMethod(boolean).myVar%0")) {
 			Code.Source source = new DefaultSource();
 			X x = new X(source, null);
@@ -319,17 +323,62 @@ class JavaParserUtils {
 			Code.ClassDeclaration classDecl = source.getClassDeclaration("MyClass");
 			Code.MethodDeclaration methodDecl = classDecl.getMethodDeclaration("myMethod", "boolean");
 			Stream<Code.VariableDeclaration> variables = methodDecl.variables();
-			Code.VariableDeclaration variable = variables//
+			Code.VariableDeclaration variableDeclaration = variables//
 					.filter(decl -> decl.declarator().name().equals("myVar"))//
 					.findFirst().orElseThrow();
-			return new VarContext(variable, context);
-		}
+			Y.Variable variable = new Y.Variable() {
+				@Override
+				public String name() {
+					// TODO Replace by declaration token directly
+					return variableDeclaration.declarator().name();
+				}
 
-		if (context.nameTokens.isEmpty()) {
+				@Override
+				public void rename(String newName) {
+					context.nameTokens.stream()//
+							.map(JavaToken::getRange)//
+							.map(Optional<Range>::orElseThrow)//
+							// FIXME code and refactoringCode uncorrelated after 1 operation
+							// TODO Retrieve the ranges at parsing then update them
+							.map(range -> tokenRangeToCodeRange(code, range))//
+							// Process from last to first, so the ranges are not shifted
+							.sorted(Comparator.comparing(CodeRange::start).reversed())//
+							.collect(() -> refactoringCode2, (builder, nameRange) -> {
+								builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+							}, (b1, b2) -> {
+								throw new UnsupportedOperationException("Combiner not supported");
+							});
+				}
+			};
+			variableOpt = Optional.of(variable);
+		} else if (context.nameTokens.isEmpty()) {
 			throw new NoSuchElementException("No variable " + variablePath);
 		} else {
-			return new VarContext(null, context);
+			variableOpt = Optional.of(new Y.Variable() {
+				@Override
+				public String name() {
+					throw new UnsupportedOperationException("Not implemented here");
+				}
+
+				@Override
+				public void rename(String newName) {
+					context.nameTokens.stream()//
+							.map(JavaToken::getRange)//
+							.map(Optional<Range>::orElseThrow)//
+							// FIXME code and refactoringCode uncorrelated after 1 operation
+							// TODO Retrieve the ranges at parsing then update them
+							.map(range -> tokenRangeToCodeRange(code, range))//
+							// Process from last to first, so the ranges are not shifted
+							.sorted(Comparator.comparing(CodeRange::start).reversed())//
+							.collect(() -> refactoringCode2, (builder, nameRange) -> {
+								builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+							}, (b1, b2) -> {
+								throw new UnsupportedOperationException("Combiner not supported");
+							});
+				}
+			});
 		}
+		return variableOpt;
 	}
 
 	private static void feedSignatures(String path, List<Signature> signatures) {

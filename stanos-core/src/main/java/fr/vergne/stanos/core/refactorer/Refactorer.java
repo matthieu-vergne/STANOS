@@ -18,26 +18,16 @@ import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.Range;
 import com.github.javaparser.ast.CompilationUnit;
 
-import fr.vergne.stanos.core.refactorer.Code.VariableDeclaration;
 import fr.vergne.stanos.core.refactorer.JavaParserUtils.SearchContext;
-import fr.vergne.stanos.core.refactorer.JavaParserUtils.VarContext;
+import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 public interface Refactorer {
 
 	static Refactorer.ForCode forCode(String code) {
-		JavaParser parser = new JavaParser();
-		parser.getParserConfiguration().setLanguageLevel(LanguageLevel.JAVA_17);
-		ParseResult<CompilationUnit> parseResult = parser.parse(code);
-		if (!parseResult.isSuccessful()) {
-			// TODO Test this part
-			var exception = new IllegalArgumentException("Invalid code");
-			parseResult.getProblems().forEach(problem -> {
-				exception.addSuppressed(problem.getCause().orElseThrow());
-			});
-			throw exception;
-		}
-		CompilationUnit compilationUnit = parseResult.getResult().orElseThrow();
 		return new Refactorer.ForCode() {
+			// TODO Expose language version
+			CompilationUnit compilationUnit = parse(LanguageLevel.JAVA_17, code);
+
 			private final StringBuilder refactoringCode = new StringBuilder(code);
 
 			@Override
@@ -102,20 +92,11 @@ public interface Refactorer {
 
 			@Override
 			public ForVariable locateVariable(String variablePath) {
-				VarContext varCtx = searchVariable(compilationUnit, variablePath);
-				Code.VariableDeclaration variableDeclaration = varCtx.declaration();
-				SearchContext locatedVariable = varCtx.context();
+				Optional<Variable> variableOpt = searchVariable(code, variablePath, refactoringCode, compilationUnit);
 				return new Refactorer.ForVariable() {
 					@Override
 					public void rename(String newName) {
-						if (variableDeclaration!=null) {
-							// TODO Rename from variable
-							//variableDeclaration.declarator().rename(newName);
-							// TODO Apply to code
-							applyRenaming(code, locatedVariable, newName);
-						} else {
-							applyRenaming(code, locatedVariable, newName);
-						}
+						variableOpt.get().rename(newName);
 					}
 
 				};
@@ -135,6 +116,21 @@ public interface Refactorer {
 						});
 			}
 		};
+	}
+
+	private static CompilationUnit parse(LanguageLevel languageLevel, String code) {
+		JavaParser parser = new JavaParser();
+		parser.getParserConfiguration().setLanguageLevel(languageLevel);
+		ParseResult<CompilationUnit> parseResult = parser.parse(code);
+		if (!parseResult.isSuccessful()) {
+			// TODO Test this part
+			var exception = new IllegalArgumentException("Invalid code");
+			parseResult.getProblems().forEach(problem -> {
+				exception.addSuppressed(problem.getCause().orElseThrow());
+			});
+			throw exception;
+		}
+		return parseResult.getResult().orElseThrow();
 	}
 
 	interface ForCode extends Refactorer {
