@@ -10,6 +10,7 @@ interface Code {
 	List<Code> subCodes();
 
 	interface Source extends Code, PackageDeclarationContainer, ImportDeclarationContainer, ClassDeclarationContainer, InterfaceDeclarationContainer {
+		Y.Package defaultPackage();
 	}
 
 	interface PackageDeclarationContainer extends Code {
@@ -27,13 +28,15 @@ interface Code {
 	}
 
 	interface ClassDeclarationContainer extends Code {
-		ClassDeclaration createClassDeclaration();
+		ClassDeclaration createClassDeclaration(int codeIndex);
+
 		Code.ClassDeclaration getClassDeclaration(String name);
 	}
 
 	interface ClassDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer {
 		String name();
 
+		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface LocalClassDeclarationContainer extends Code {
@@ -44,11 +47,13 @@ interface Code {
 	}
 
 	interface InterfaceDeclarationContainer extends Code {
-		InterfaceDeclaration createInterfaceDeclaration();
+		InterfaceDeclaration createInterfaceDeclaration(int codeIndex);
 	}
 
 	interface InterfaceDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer {
 		String name();
+
+		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface TypeContainer extends Code {
@@ -57,6 +62,7 @@ interface Code {
 
 	interface Type extends Code, SimpleNameContainer, TypeContainer {
 		Stream<String> genericTypes();
+
 		String name();
 	}
 
@@ -92,14 +98,19 @@ interface Code {
 	}
 
 	interface MethodDeclarationContainer extends Code {
-		MethodDeclaration createMethodDeclaration();
+		MethodDeclaration createMethodDeclaration(int codeIndex);
+
 		MethodDeclaration getMethodDeclaration(String name, String... parameterTypes);
 	}
 
 	interface MethodDeclaration extends Code, TypeContainer, SimpleNameContainer, ClassDeclarationContainer, ObjectCreationContainer, BlockContainer, ModifierContainer, VoidContainer, ParameterContainer, MarkerAnnotationContainer {
 		Optional<String> returnType();
+
 		String name();
+
 		Stream<Parameter> parameters();
+
+		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface MethodCallContainer extends Code {
@@ -120,6 +131,7 @@ interface Code {
 
 	interface BlockContainer extends Code {
 		Block createBlock();
+
 		Stream<VariableDeclaration> variables();
 	}
 
@@ -135,6 +147,7 @@ interface Code {
 
 	interface VariableDeclarationContainer extends Code {
 		VariableDeclaration createVariableDeclaration();
+
 		Optional<VariableDeclaration> variable();
 	}
 
@@ -148,8 +161,11 @@ interface Code {
 
 	interface VariableDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer {
 		String type();
+
 		String name();
+
 		Code value();
+
 		int codeIndex();// TODO Generalize to Code
 	}
 
@@ -236,6 +252,7 @@ interface Code {
 
 	interface Parameter extends Code, SimpleNameContainer, PrimitiveTypeContainer, TypeContainer {
 		String type();
+
 		String name();
 	}
 

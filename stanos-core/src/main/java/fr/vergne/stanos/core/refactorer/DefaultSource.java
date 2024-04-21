@@ -11,6 +11,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import fr.vergne.stanos.core.refactorer.Y.Package;
+
 class DefaultSource implements Code.Source {
 	Supplier<Code.PackageDeclaration> packageFactory = () -> new Code.PackageDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
@@ -26,8 +28,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration() {
-			ClassDeclaration subcode = classFactory.get();
+		public ClassDeclaration createClassDeclaration(int codeIndex) {
+			ClassDeclaration subcode = classFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -43,8 +45,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration() {
-			InterfaceDeclaration subcode = interfaceFactory.get();
+		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -69,7 +71,7 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
-	Supplier<Code.ClassDeclaration> classFactory = () -> new Code.ClassDeclaration() {
+	Function<Integer, Code.ClassDeclaration> classFactory = (codeIndex) -> new Code.ClassDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -83,8 +85,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration() {
-			ClassDeclaration subcode = classFactory.get();
+		public ClassDeclaration createClassDeclaration(int codeIndex) {
+			ClassDeclaration subcode = classFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -100,15 +102,15 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration() {
-			InterfaceDeclaration subcode = interfaceFactory.get();
+		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
 
 		@Override
-		public MethodDeclaration createMethodDeclaration() {
-			MethodDeclaration subcode = methodFactory.get();
+		public MethodDeclaration createMethodDeclaration(int codeIndex) {
+			MethodDeclaration subcode = methodFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -140,9 +142,14 @@ class DefaultSource implements Code.Source {
 				}
 			}
 			throw new IllegalStateException("No name");
+		}
+
+		@Override
+		public int codeIndex() {
+			return codeIndex;
 		}
 	};
-	Supplier<Code.InterfaceDeclaration> interfaceFactory = () -> new Code.InterfaceDeclaration() {
+	Function<Integer, Code.InterfaceDeclaration> interfaceFactory = (codeIndex) -> new Code.InterfaceDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -156,8 +163,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration() {
-			ClassDeclaration subcode = classFactory.get();
+		public ClassDeclaration createClassDeclaration(int codeIndex) {
+			ClassDeclaration subcode = classFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -173,15 +180,15 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration() {
-			InterfaceDeclaration subcode = interfaceFactory.get();
+		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
 
 		@Override
-		public MethodDeclaration createMethodDeclaration() {
-			MethodDeclaration subcode = methodFactory.get();
+		public MethodDeclaration createMethodDeclaration(int codeIndex) {
+			MethodDeclaration subcode = methodFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -213,6 +220,11 @@ class DefaultSource implements Code.Source {
 				}
 			}
 			throw new IllegalStateException("No name");
+		}
+
+		@Override
+		public int codeIndex() {
+			return codeIndex;
 		}
 	};
 	Function<Code.ModifierContainer.Keyword, Code.Modifier> modifierFactory = (keyword) -> new Code.Modifier() {
@@ -360,7 +372,7 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
-	Supplier<Code.MethodDeclaration> methodFactory = () -> new Code.MethodDeclaration() {
+	Function<Integer, Code.MethodDeclaration> methodFactory = (codeIndex) -> new Code.MethodDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -374,8 +386,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration() {
-			ClassDeclaration subcode = classFactory.get();
+		public ClassDeclaration createClassDeclaration(int codeIndex) {
+			ClassDeclaration subcode = classFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -478,6 +490,11 @@ class DefaultSource implements Code.Source {
 			return subcodes.stream()//
 					.filter(subcode -> subcode instanceof Block)//
 					.flatMap(subcode -> ((Block) subcode).variables());
+		}
+
+		@Override
+		public int codeIndex() {
+			return codeIndex;
 		}
 	};
 	Function<String, Code.SimpleName> simpleNameFactory = (identifier) -> new Code.SimpleName() {
@@ -616,8 +633,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration() {
-			ClassDeclaration subcode = classFactory.get();
+		public ClassDeclaration createClassDeclaration(int codeIndex) {
+			ClassDeclaration subcode = classFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -633,8 +650,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration() {
-			InterfaceDeclaration subcode = interfaceFactory.get();
+		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -1094,8 +1111,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public MethodDeclaration createMethodDeclaration() {
-			MethodDeclaration subcode = methodFactory.get();
+		public MethodDeclaration createMethodDeclaration(int codeIndex) {
+			MethodDeclaration subcode = methodFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -1130,7 +1147,12 @@ class DefaultSource implements Code.Source {
 		}
 	};
 
-	List<Code> subcodes = new LinkedList<>();
+	private final List<Code> subcodes = new LinkedList<>();
+	private final Package defaultPackage;
+
+	DefaultSource(Y.Package defaultPackage) {
+		this.defaultPackage = defaultPackage;
+	}
 
 	@Override
 	public List<Code> subCodes() {
@@ -1150,8 +1172,8 @@ class DefaultSource implements Code.Source {
 	}
 
 	@Override
-	public ClassDeclaration createClassDeclaration() {
-		ClassDeclaration subcode = classFactory.get();
+	public ClassDeclaration createClassDeclaration(int codeIndex) {
+		ClassDeclaration subcode = classFactory.apply(codeIndex);
 		subcodes.add(subcode);
 		return subcode;
 	}
@@ -1167,8 +1189,8 @@ class DefaultSource implements Code.Source {
 	}
 
 	@Override
-	public InterfaceDeclaration createInterfaceDeclaration() {
-		InterfaceDeclaration subcode = interfaceFactory.get();
+	public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+		InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
 		subcodes.add(subcode);
 		return subcode;
 	}
@@ -1199,5 +1221,35 @@ class DefaultSource implements Code.Source {
 
 	private String typeStringOf(Code code) {
 		return Stream.of(code.getClass().getInterfaces()).map(Class::getSimpleName).toList().toString();
+	}
+
+	@Override
+	public Y.Package defaultPackage() {
+		return defaultPackage;
+	}
+
+	public static Package createDefaultPackage(List<Y.Class> defaultPackageClasses, List<Y.Interface> defaultPackageInterfaces) {
+		return new Y.Package() {
+
+			@Override
+			public String name() {
+				throw new NoSuchElementException("No name for default package");
+			}
+
+			@Override
+			public void rename(String newName) {
+				throw new UnsupportedOperationException("No name for default package");
+			}
+
+			@Override
+			public Stream<Y.Class> classes() {
+				return defaultPackageClasses.stream();
+			}
+
+			@Override
+			public Stream<Y.Interface> interfaces() {
+				return defaultPackageInterfaces.stream();
+			}
+		};
 	}
 }

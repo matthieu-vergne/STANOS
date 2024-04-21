@@ -4,6 +4,7 @@ import static fr.vergne.stanos.core.refactorer.JavaParserUtils.is;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.stream;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.textEquals;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.tokenRangeToCodeRange;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;
@@ -11,9 +12,11 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.github.javaparser.JavaToken;
 import com.github.javaparser.JavaToken.Category;
+import com.github.javaparser.Position;
 import com.github.javaparser.Range;
 import com.github.javaparser.ast.ArrayCreationLevel;
 import com.github.javaparser.ast.CompilationUnit;
@@ -261,8 +264,39 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(ClassOrInterfaceDeclaration n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
-		super.visit(n, isClassDeclaration(n) ? x.derive(Code.ClassDeclarationContainer::createClassDeclaration) : x.derive(Code.InterfaceDeclarationContainer::createInterfaceDeclaration));
-		x.underive();
+		List<JavaToken> nameTokens = new LinkedList<>();
+		// Don't add because will be added upon visit call after
+		// nameTokens.add(nameToken);
+		X derive;
+		if (isClassDeclaration(n)) {
+			derive = x.<Code.ClassDeclarationContainer, Code.ClassDeclaration>derive(c -> c.createClassDeclaration(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
+			Code.ClassDeclaration declarator = (Code.ClassDeclaration) derive.code();
+			Collection<Y.Method> methods = new LinkedList<>();
+			Collection<Y.Class> classes = new LinkedList<>();
+			Collection<Y.Interface> interfaces = new LinkedList<>();
+			Y.Class clazz = new Class(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods, classes, interfaces);
+			Context scopeCtx = x.scopeCtx();
+			Scope parentScope = scopeCtx.getCurrent();
+			Scope scope = parentScope.createClass(clazz, methods::add, classes::add, interfaces::add);
+			scopeCtx.setCurrent(scope);
+			super.visit(n, derive);
+			x.underive();
+			scopeCtx.setCurrent(parentScope);
+		} else {
+			derive = x.<Code.InterfaceDeclarationContainer, Code.InterfaceDeclaration>derive(c -> c.createInterfaceDeclaration(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
+			Code.InterfaceDeclaration declarator = (Code.InterfaceDeclaration) derive.code();
+			Collection<Y.Method> methods = new LinkedList<>();
+			Collection<Y.Class> classes = new LinkedList<>();
+			Collection<Y.Interface> interfaces = new LinkedList<>();
+			Y.Interface interf = new Interface(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods, classes, interfaces);
+			Context scopeCtx = x.scopeCtx();
+			Scope parentScope = scopeCtx.getCurrent();
+			Scope scope = parentScope.createInterface(interf, methods::add, classes::add, interfaces::add);
+			scopeCtx.setCurrent(scope);
+			super.visit(n, derive);
+			x.underive();
+			scopeCtx.setCurrent(parentScope);
+		}
 	}
 
 	private boolean isClassDeclaration(ClassOrInterfaceDeclaration decl) {
@@ -474,7 +508,21 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(MethodDeclaration n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
-		super.visit(n, x.derive(Code.MethodDeclarationContainer::createMethodDeclaration));
+		List<JavaToken> nameTokens = new LinkedList<>();
+		// Don't add because will be added upon visit call after
+		// nameTokens.add(nameToken);
+		X derive = x.<Code.MethodDeclarationContainer, Code.MethodDeclaration>derive(c -> c.createMethodDeclaration(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
+		Code.MethodDeclaration declarator = (Code.MethodDeclaration) derive.code();
+		List<String> parameterTypes = n.getParameters().stream().map(p -> p.getTypeAsString()).toList();
+		Collection<Y.Variable> variables = new LinkedList<>();
+		Collection<Y.Class> classes = new LinkedList<>();
+		Collection<Y.Interface> interfaces = new LinkedList<>();
+		Y.Method method = new Method(n.getNameAsString(), parameterTypes, declarator, nameTokens, code, refactoringCode, variables, classes, interfaces);
+		Context scopeCtx = x.scopeCtx();
+		Scope parentScope = scopeCtx.getCurrent();
+		Scope scope = parentScope.createMethod(method, variables::add, classes::add, interfaces::add);
+		scopeCtx.setCurrent(scope);
+		super.visit(n, derive);
 		x.underive();
 	}
 
@@ -668,10 +716,11 @@ class Visitor extends VoidVisitorAdapter<X> {
 		// nameTokens.add(nameToken);
 		X derive = x.<Code.VariableDeclaratorContainer, Code.VariableDeclarator>derive(c -> c.createVariableDeclarator(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
 		Code.VariableDeclarator declarator = (Code.VariableDeclarator) derive.code();
-		Y.Variable variable = new Variable(n.getNameAsString(), declarator, nameTokens, code, refactoringCode);
+		Collection<Y.Method> methods = new LinkedList<>();
+		Y.Variable variable = new Variable(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods);
 		Context scopeCtx = x.scopeCtx();
 		Scope parentScope = scopeCtx.getCurrent();
-		Scope scope = parentScope.createVariable(variable);
+		Scope scope = parentScope.createVariable(variable, methods::add);
 		scopeCtx.setCurrent(scope);
 		super.visit(n, derive);
 		x.underive();
@@ -802,19 +851,271 @@ class Visitor extends VoidVisitorAdapter<X> {
 		};
 	}
 
+	static class Method implements Y.Method {
+		private final String name;
+		private final Collection<JavaToken> nameTokens;
+		private final String code;
+		private final StringBuilder refactoringCode;
+		private final Code.MethodDeclaration declaration;
+		private final List<String> parameterTypes;
+		private final Collection<Y.Variable> variables;
+		private final Collection<Y.Class> classes;
+		private final Collection<Y.Interface> interfaces;
+
+		public Method(String name, List<String> parameterTypes, Code.MethodDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Variable> variables, Collection<Y.Class> classes, Collection<Y.Interface> interfaces) {
+			this.name = name;
+			this.parameterTypes = parameterTypes;
+			this.declaration = declaration;
+			this.nameTokens = requireNonNull(nameTokens);
+			this.code = code;
+			this.refactoringCode = refactoringCode;
+			this.variables = variables;
+			this.classes = classes;
+			this.interfaces = interfaces;
+		}
+
+		@Override
+		public String name() {
+			return name;
+		}
+
+		@Override
+		public List<String> parameterTypes() {
+			return parameterTypes;
+		}
+
+		public Collection<JavaToken> nameTokens() {
+			return nameTokens;
+		}
+
+		@Override
+		public void rename(String newName) {
+			nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> tokenRangeToCodeRange(code, range))//
+					// Process from last to first, so the ranges are not shifted
+					.sorted(Comparator.comparing(CodeRange::start).reversed())//
+					.collect(() -> refactoringCode, (builder, nameRange) -> {
+						builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+					}, (b1, b2) -> {
+						throw new UnsupportedOperationException("Combiner not supported");
+					});
+		}
+
+		public Code.MethodDeclaration declaration() {
+			return declaration;
+		}
+
+		@Override
+		public Stream<Y.Variable> variables() {
+			Comparator<Variable> variableComparator = comparing(Variable::declaration, comparing(Code.VariableDeclarator::codeIndex));
+			return variables.stream().map(v -> (Variable) v).sorted(variableComparator).map(v -> (Y.Variable) v);
+		}
+
+		@Override
+		public String toString() {
+			String name = name();
+			Position position = nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> range.begin).sorted()//
+					.findFirst().orElseThrow();
+			int line = position.line;
+			int column = position.column;
+			return "Method " + name + parameterTypes + " at (" + line + "," + column + ")";
+		}
+
+		@Override
+		public Stream<Y.Class> classes() {
+			Comparator<Class> classComparator = comparing(Class::declaration, comparing(Code.ClassDeclaration::codeIndex));
+			return classes.stream().map(v -> (Class) v).sorted(classComparator).map(v -> (Y.Class) v);
+		}
+
+		@Override
+		public Stream<Y.Interface> interfaces() {
+			Comparator<Interface> interfacesComparator = comparing(Interface::declaration, comparing(Code.InterfaceDeclaration::codeIndex));
+			return interfaces.stream().map(v -> (Interface) v).sorted(interfacesComparator).map(v -> (Y.Interface) v);
+		}
+	}
+
+	static class Class implements Y.Class {
+		private final String name;
+		private final Collection<JavaToken> nameTokens;
+		private final String code;
+		private final StringBuilder refactoringCode;
+		private final Code.ClassDeclaration declaration;
+		private final Collection<Y.Method> methods;
+		private final Collection<Y.Class> classes;
+		private final Collection<Y.Interface> interfaces;
+
+		public Class(String name, Code.ClassDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Method> methods, Collection<Y.Class> classes, Collection<Y.Interface> interfaces) {
+			this.name = name;
+			this.declaration = declaration;
+			this.nameTokens = requireNonNull(nameTokens);
+			this.code = code;
+			this.refactoringCode = refactoringCode;
+			this.methods = methods;
+			this.classes = classes;
+			this.interfaces = interfaces;
+		}
+
+		@Override
+		public String name() {
+			return name;
+		}
+
+		public Collection<JavaToken> nameTokens() {
+			return nameTokens;
+		}
+
+		@Override
+		public void rename(String newName) {
+			nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> tokenRangeToCodeRange(code, range))//
+					// Process from last to first, so the ranges are not shifted
+					.sorted(Comparator.comparing(CodeRange::start).reversed())//
+					.collect(() -> refactoringCode, (builder, nameRange) -> {
+						builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+					}, (b1, b2) -> {
+						throw new UnsupportedOperationException("Combiner not supported");
+					});
+		}
+
+		public Code.ClassDeclaration declaration() {
+			return declaration;
+		}
+
+		@Override
+		public Stream<Y.Method> methods() {
+			Comparator<Method> methodComparator = comparing(Method::declaration, comparing(Code.MethodDeclaration::codeIndex));
+			return methods.stream().map(v -> (Method) v).sorted(methodComparator).map(v -> (Y.Method) v);
+		}
+
+		@Override
+		public Stream<Y.Class> classes() {
+			Comparator<Class> classComparator = comparing(Class::declaration, comparing(Code.ClassDeclaration::codeIndex));
+			return classes.stream().map(v -> (Class) v).sorted(classComparator).map(v -> (Y.Class) v);
+		}
+
+		@Override
+		public Stream<Y.Interface> interfaces() {
+			Comparator<Interface> interfacesComparator = comparing(Interface::declaration, comparing(Code.InterfaceDeclaration::codeIndex));
+			return interfaces.stream().map(v -> (Interface) v).sorted(interfacesComparator).map(v -> (Y.Interface) v);
+		}
+
+		@Override
+		public String toString() {
+			String name = name();
+			Position position = nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> range.begin).sorted()//
+					.findFirst().orElseThrow();
+			int line = position.line;
+			int column = position.column;
+			return "Class " + name + " at (" + line + "," + column + ")";
+		}
+	}
+
+	static class Interface implements Y.Interface {
+		private final String name;
+		private final Collection<JavaToken> nameTokens;
+		private final String code;
+		private final StringBuilder refactoringCode;
+		private final Code.InterfaceDeclaration declaration;
+		private final Collection<Y.Method> methods;
+		private final Collection<Y.Class> classes;
+		private final Collection<Y.Interface> interfaces;
+
+		public Interface(String name, Code.InterfaceDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Method> methods, Collection<Y.Class> classes, Collection<Y.Interface> interfaces) {
+			this.name = name;
+			this.declaration = declaration;
+			this.nameTokens = requireNonNull(nameTokens);
+			this.code = code;
+			this.refactoringCode = refactoringCode;
+			this.methods = methods;
+			this.classes = classes;
+			this.interfaces = interfaces;
+		}
+
+		@Override
+		public String name() {
+			return name;
+		}
+
+		public Collection<JavaToken> nameTokens() {
+			return nameTokens;
+		}
+
+		@Override
+		public void rename(String newName) {
+			nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> tokenRangeToCodeRange(code, range))//
+					// Process from last to first, so the ranges are not shifted
+					.sorted(Comparator.comparing(CodeRange::start).reversed())//
+					.collect(() -> refactoringCode, (builder, nameRange) -> {
+						builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+					}, (b1, b2) -> {
+						throw new UnsupportedOperationException("Combiner not supported");
+					});
+		}
+
+		public Code.InterfaceDeclaration declaration() {
+			return declaration;
+		}
+
+		@Override
+		public Stream<Y.Method> methods() {
+			Comparator<Method> methodComparator = comparing(Method::declaration, comparing(Code.MethodDeclaration::codeIndex));
+			return methods.stream().map(v -> (Method) v).sorted(methodComparator).map(v -> (Y.Method) v);
+		}
+
+		@Override
+		public Stream<Y.Class> classes() {
+			Comparator<Class> classComparator = comparing(Class::declaration, comparing(Code.ClassDeclaration::codeIndex));
+			return classes.stream().map(v -> (Class) v).sorted(classComparator).map(v -> (Y.Class) v);
+		}
+
+		@Override
+		public Stream<Y.Interface> interfaces() {
+			Comparator<Interface> interfacesComparator = comparing(Interface::declaration, comparing(Code.InterfaceDeclaration::codeIndex));
+			return interfaces.stream().map(v -> (Interface) v).sorted(interfacesComparator).map(v -> (Y.Interface) v);
+		}
+
+		@Override
+		public String toString() {
+			String name = name();
+			Position position = nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> range.begin).sorted()//
+					.findFirst().orElseThrow();
+			int line = position.line;
+			int column = position.column;
+			return "Interface " + name + " at (" + line + "," + column + ")";
+		}
+	}
+
 	static class Variable implements Y.Variable {
 		private final String name;
 		private final Collection<JavaToken> nameTokens;
 		private final String code;
 		private final StringBuilder refactoringCode;
 		private final Code.VariableDeclarator declaration;
+		private final Collection<Y.Method> methods;
 
-		public Variable(String name, Code.VariableDeclarator declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode) {
+		public Variable(String name, Code.VariableDeclarator declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Method> methods) {
 			this.name = name;
 			this.declaration = declaration;
 			this.nameTokens = requireNonNull(nameTokens);
 			this.code = code;
 			this.refactoringCode = refactoringCode;
+			this.methods = methods;
 		}
 
 		@Override
@@ -843,6 +1144,25 @@ class Visitor extends VoidVisitorAdapter<X> {
 
 		public Code.VariableDeclarator declaration() {
 			return declaration;
+		}
+
+		@Override
+		public Stream<Y.Method> methods() {
+			Comparator<Visitor.Method> methodComparator = comparing(Visitor.Method::declaration, comparing(Code.MethodDeclaration::codeIndex));
+			return methods.stream().map(v -> (Visitor.Method) v).sorted(methodComparator).map(v -> (Y.Method) v);
+		}
+
+		@Override
+		public String toString() {
+			String name = name();
+			Position position = nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> range.begin).sorted()//
+					.findFirst().orElseThrow();
+			int line = position.line;
+			int column = position.column;
+			return "Variable " + name + " at (" + line + "," + column + ")";
 		}
 	}
 }
