@@ -92,7 +92,7 @@ public interface Refactorer {
 
 			@Override
 			public ForVariable locateVariable(String variablePath) {
-				Optional<Variable> variableOpt = searchVariable(code, variablePath, refactoringCode, compilationUnit);
+				Optional<Y.Variable> variableOpt = searchVariable(code, variablePath, refactoringCode, compilationUnit);
 				return new Refactorer.ForVariable() {
 					@Override
 					public void rename(String newName) {

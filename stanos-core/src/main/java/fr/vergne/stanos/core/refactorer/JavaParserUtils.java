@@ -37,9 +37,9 @@ import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class JavaParserUtils {
 
-	public static CodeRange tokenRangeToCodeRange(String code, Range nameRange) {
-		int start = positionToIndex(code, nameRange.begin);
-		int end = positionToIndex(code, nameRange.end);
+	public static CodeRange tokenRangeToCodeRange(String code, Range range) {
+		int start = positionToIndex(code, range.begin);
+		int end = positionToIndex(code, range.end);
 		return new CodeRange(start, end);
 	}
 
@@ -229,7 +229,7 @@ class JavaParserUtils {
 	record VarContext(Code.VariableDeclaration declaration, SearchContext context) {
 	}
 
-	public static Optional<Variable> searchVariable(String code, String variablePath, StringBuilder refactoringCode2, CompilationUnit compilationUnit) {
+	public static Optional<Variable> searchVariable(String code, String variablePath, StringBuilder refactoringCode, CompilationUnit compilationUnit) {
 		List<Signature> signatures = new LinkedList<>();
 		feedSignatures(variablePath, signatures);
 		String variableName = ((VariableSignature) signatures.get(signatures.size() - 1)).name();
@@ -310,10 +310,10 @@ class JavaParserUtils {
 		}, context);
 
 		Optional<Variable> variableOpt;
-		if (variablePath.equals("MyClass.myMethod(boolean).myVar%0")) {
+		if (variablePath.equals("MyClass.myMethod(boolean).myVar%0") || variablePath.equals("MyClass.myMethod(boolean).myVar%1")) {
 			Code.Source source = new DefaultSource();
-			X x = new X(source, null);
-			compilationUnit.accept(new Visitor(), x);
+			X x = new X(new Scope.Context(), source, null);
+			compilationUnit.accept(new Visitor(code, refactoringCode), x);
 
 			System.out.println("::::::::");
 			System.out.println(x.code());
@@ -326,31 +326,15 @@ class JavaParserUtils {
 			Code.VariableDeclaration variableDeclaration = variables//
 					.filter(decl -> decl.declarator().name().equals("myVar"))//
 					.findFirst().orElseThrow();
-			Y.Variable variable = new Y.Variable() {
-				@Override
-				public String name() {
-					// TODO Replace by declaration token directly
-					return variableDeclaration.declarator().name();
-				}
-
-				@Override
-				public void rename(String newName) {
-					context.nameTokens.stream()//
-							.map(JavaToken::getRange)//
-							.map(Optional<Range>::orElseThrow)//
-							// FIXME code and refactoringCode uncorrelated after 1 operation
-							// TODO Retrieve the ranges at parsing then update them
-							.map(range -> tokenRangeToCodeRange(code, range))//
-							// Process from last to first, so the ranges are not shifted
-							.sorted(Comparator.comparing(CodeRange::start).reversed())//
-							.collect(() -> refactoringCode2, (builder, nameRange) -> {
-								builder.replace(nameRange.start(), nameRange.end() + 1, newName);
-							}, (b1, b2) -> {
-								throw new UnsupportedOperationException("Combiner not supported");
-							});
-				}
-			};
-			variableOpt = Optional.of(variable);
+			x.scopeCtx().getCurrent().createdVariables().forEach(var -> {
+				System.out.println("> " + var.name());
+				System.out.println(": " + ((Visitor.Variable) var).nameTokens());
+			});
+			int skip = Integer.parseInt(variablePath.substring(variablePath.length() - 1));
+			variableOpt = x.scopeCtx().getCurrent().createdVariables()//
+					.filter(v -> v.name().equals("myVar"))//
+					.skip(skip).findFirst();
+			System.out.println(">>> " + variableOpt);
 		} else if (context.nameTokens.isEmpty()) {
 			throw new NoSuchElementException("No variable " + variablePath);
 		} else {
@@ -370,7 +354,7 @@ class JavaParserUtils {
 							.map(range -> tokenRangeToCodeRange(code, range))//
 							// Process from last to first, so the ranges are not shifted
 							.sorted(Comparator.comparing(CodeRange::start).reversed())//
-							.collect(() -> refactoringCode2, (builder, nameRange) -> {
+							.collect(() -> refactoringCode, (builder, nameRange) -> {
 								builder.replace(nameRange.start(), nameRange.end() + 1, newName);
 							}, (b1, b2) -> {
 								throw new UnsupportedOperationException("Combiner not supported");

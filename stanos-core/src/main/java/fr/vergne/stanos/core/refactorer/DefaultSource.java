@@ -923,8 +923,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public VariableDeclarator createVariableDeclarator() {
-			VariableDeclarator subcode = variableDeclaratorFactory.get();
+		public VariableDeclarator createVariableDeclarator(int codeIndex) {
+			VariableDeclarator subcode = variableDeclaratorFactory.apply(codeIndex);
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -981,7 +981,7 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
-	Supplier<Code.VariableDeclarator> variableDeclaratorFactory = () -> new Code.VariableDeclarator() {
+	Function<Integer, Code.VariableDeclarator> variableDeclaratorFactory = (codeIndex) -> new Code.VariableDeclarator() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -1073,6 +1073,11 @@ class DefaultSource implements Code.Source {
 				}
 			}
 			throw new IllegalStateException("No value");
+		}
+
+		@Override
+		public int codeIndex() {
+			return codeIndex;
 		}
 	};
 	Supplier<Code.ObjectCreation> objectCreationFactory = () -> new Code.ObjectCreation() {

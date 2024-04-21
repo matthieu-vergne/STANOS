@@ -143,13 +143,14 @@ interface Code {
 	}
 
 	interface VariableDeclaratorContainer extends Code {
-		VariableDeclarator createVariableDeclarator();
+		VariableDeclarator createVariableDeclarator(int codeIndex);
 	}
 
 	interface VariableDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer {
 		String type();
 		String name();
 		Code value();
+		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface StringLiteralContainer extends Code {

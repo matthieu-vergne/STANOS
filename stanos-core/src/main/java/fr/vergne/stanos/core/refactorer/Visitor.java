@@ -3,8 +3,18 @@ package fr.vergne.stanos.core.refactorer;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.is;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.stream;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.textEquals;
+import static fr.vergne.stanos.core.refactorer.JavaParserUtils.tokenRangeToCodeRange;
+import static java.util.Objects.requireNonNull;
 
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+
+import com.github.javaparser.JavaToken;
 import com.github.javaparser.JavaToken.Category;
+import com.github.javaparser.Range;
 import com.github.javaparser.ast.ArrayCreationLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
@@ -107,7 +117,18 @@ import com.github.javaparser.ast.type.VoidType;
 import com.github.javaparser.ast.type.WildcardType;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
+import fr.vergne.stanos.core.refactorer.Refactorer.CodeRange;
+import fr.vergne.stanos.core.refactorer.Scope.Context;
+
 class Visitor extends VoidVisitorAdapter<X> {
+	private final String code;
+	private final StringBuilder refactoringCode;
+
+	public Visitor(String code, StringBuilder refactoringCode) {
+		this.code = code;
+		this.refactoringCode = refactoringCode;
+	}
+
 	@Override
 	public void visit(CompilationUnit n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
@@ -192,8 +213,13 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(BlockStmt n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
+		Scope.Context scopeCtx = x.scopeCtx();
+		Scope parentScope = scopeCtx.getCurrent();
+		Scope newScope = parentScope.createNewScope();
+		scopeCtx.setCurrent(newScope);
 		super.visit(n, x.derive(Code.BlockContainer::createBlock));
 		x.underive();
+		scopeCtx.setCurrent(parentScope);
 	}
 
 	@Override
@@ -534,6 +560,10 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(SimpleName n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ":" + n.getIdentifier() + ">");
+		Scope scope = x.scopeCtx().getCurrent();
+		scope.accessibleVariables().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresent(variable -> {
+			((Variable) variable).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+		});
 		super.visit(n, x.<Code.SimpleNameContainer, Code.SimpleName>derive(code -> code.createSimpleName(n.getIdentifier())));
 		x.underive();
 	}
@@ -633,7 +663,17 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(VariableDeclarator n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
-		super.visit(n, x.derive(Code.VariableDeclaratorContainer::createVariableDeclarator));
+		List<JavaToken> nameTokens = new LinkedList<>();
+		// Don't add because will be added upon visit call after
+		// nameTokens.add(nameToken);
+		X derive = x.<Code.VariableDeclaratorContainer, Code.VariableDeclarator>derive(c -> c.createVariableDeclarator(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
+		Code.VariableDeclarator declarator = (Code.VariableDeclarator) derive.code();
+		Y.Variable variable = new Variable(n.getNameAsString(), declarator, nameTokens, code, refactoringCode);
+		Context scopeCtx = x.scopeCtx();
+		Scope parentScope = scopeCtx.getCurrent();
+		Scope scope = parentScope.createVariable(variable);
+		scopeCtx.setCurrent(scope);
+		super.visit(n, derive);
 		x.underive();
 	}
 
@@ -760,5 +800,49 @@ class Visitor extends VoidVisitorAdapter<X> {
 		case NON_SEALED -> Code.ModifierContainer.Keyword.NON_SEALED;
 		default -> throw new IllegalArgumentException("Not supported: " + keyword);
 		};
+	}
+
+	static class Variable implements Y.Variable {
+		private final String name;
+		private final Collection<JavaToken> nameTokens;
+		private final String code;
+		private final StringBuilder refactoringCode;
+		private final Code.VariableDeclarator declaration;
+
+		public Variable(String name, Code.VariableDeclarator declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode) {
+			this.name = name;
+			this.declaration = declaration;
+			this.nameTokens = requireNonNull(nameTokens);
+			this.code = code;
+			this.refactoringCode = refactoringCode;
+		}
+
+		@Override
+		public String name() {
+			return name;
+		}
+
+		public Collection<JavaToken> nameTokens() {
+			return nameTokens;
+		}
+
+		@Override
+		public void rename(String newName) {
+			nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> tokenRangeToCodeRange(code, range))//
+					// Process from last to first, so the ranges are not shifted
+					.sorted(Comparator.comparing(CodeRange::start).reversed())//
+					.collect(() -> refactoringCode, (builder, nameRange) -> {
+						builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+					}, (b1, b2) -> {
+						throw new UnsupportedOperationException("Combiner not supported");
+					});
+		}
+
+		public Code.VariableDeclarator declaration() {
+			return declaration;
+		}
 	}
 }
