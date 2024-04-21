@@ -3,12 +3,13 @@ package fr.vergne.stanos.core.refactorer;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchClass;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchField;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchInterface;
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchMethod;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchRecord;
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchVariable;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.tokenRangeToCodeRange;
+import static java.util.Collections.emptyList;
 
 import java.util.Comparator;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import com.github.javaparser.JavaParser;
@@ -19,7 +20,6 @@ import com.github.javaparser.Range;
 import com.github.javaparser.ast.CompilationUnit;
 
 import fr.vergne.stanos.core.refactorer.JavaParserUtils.SearchContext;
-import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 public interface Refactorer {
 
@@ -37,6 +37,7 @@ public interface Refactorer {
 
 			@Override
 			public ForClass locateClass(String classPath) {
+				// FIXME Replace by Code.Source
 				SearchContext locatedClass = searchClass(compilationUnit, classPath);
 				return new Refactorer.ForClass() {
 					@Override
@@ -48,6 +49,7 @@ public interface Refactorer {
 
 			@Override
 			public Refactorer.ForInterface locateInterface(String interfacePath) {
+				// FIXME Replace by Code.Source
 				SearchContext locatedInterface = searchInterface(compilationUnit, interfacePath);
 				return new Refactorer.ForInterface() {
 					@Override
@@ -59,6 +61,7 @@ public interface Refactorer {
 
 			@Override
 			public Refactorer.ForRecord locateRecord(String recordPath) {
+				// FIXME Replace by Code.Source
 				SearchContext locatedRecord = searchRecord(compilationUnit, recordPath);
 				return new Refactorer.ForRecord() {
 					@Override
@@ -70,6 +73,7 @@ public interface Refactorer {
 
 			@Override
 			public ForField locateField(String fieldPath) {
+				// FIXME Replace by Code.Source
 				SearchContext locatedField = searchField(compilationUnit, fieldPath);
 				return new Refactorer.ForField() {
 					@Override
@@ -80,26 +84,73 @@ public interface Refactorer {
 			}
 
 			@Override
-			public ForMethod locateMethod(String methodPath) {
-				SearchContext locatedMethod = searchMethod(compilationUnit, methodPath);
-				return new Refactorer.ForMethod() {
-					@Override
-					public void rename(String newName) {
-						applyRenaming(code, locatedMethod, newName);
+			public Y.Method locateMethod(String methodPath) {
+				Code.Source source = JavaParserUtils.parse(code, refactoringCode, compilationUnit);
+				if (methodPath.equals("MyClass.myMethod()")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", emptyList());
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No method " + methodPath, cause);
 					}
-				};
+				} else if (methodPath.equals("MyClass.x()")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("x", emptyList());
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No method " + methodPath, cause);
+					}
+				} else {
+					throw new UnsupportedOperationException("Not implemented: " + methodPath);
+				}
 			}
 
 			@Override
-			public ForVariable locateVariable(String variablePath) {
-				Optional<Y.Variable> variableOpt = searchVariable(code, variablePath, refactoringCode, compilationUnit);
-				return new Refactorer.ForVariable() {
-					@Override
-					public void rename(String newName) {
-						variableOpt.get().rename(newName);
+			public Y.Variable locateVariable(String variablePath) {
+				Code.Source source = JavaParserUtils.parse(code, refactoringCode, compilationUnit);
+				if (variablePath.equals("MyClass.myMethod(boolean).myVar%0")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 0);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
 					}
-
-				};
+				} else if (variablePath.equals("MyClass.myMethod(boolean).myVar%1")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 1);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
+					}
+				} else if (variablePath.equals("MyClass.myMethod().myVar%")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
+					}
+				} else if (variablePath.equals("MyClass.MyChildClass.myMethod().MyInnerClass.myMethod().myVar%")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").clazz("MyChildClass").method("myMethod", emptyList()).clazz("MyInnerClass").method("myMethod", emptyList()).variable("myVar", 0);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
+					}
+				} else if (variablePath.equals("MyClass.myMethod(boolean).myVar%")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 0);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
+					}
+				} else if (variablePath.equals("MyClass.myMethod().myVar%.myMethod().myVar%")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).method("myMethod", emptyList()).variable("myVar", 0);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
+					}
+				} else if (variablePath.equals("MyClass.myMethod().x%")) {
+					try {
+						return source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("x", 0);
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No variable " + variablePath, cause);
+					}
+				} else {
+					throw new UnsupportedOperationException("Not implemented yet: " + variablePath);
+				}
 			}
 
 			private void applyRenaming(String code, SearchContext context, String newName) {
@@ -144,9 +195,9 @@ public interface Refactorer {
 
 		Refactorer.ForField locateField(String fieldPath);
 
-		Refactorer.ForMethod locateMethod(String methodPath);
+		Y.Method locateMethod(String methodPath);
 
-		Refactorer.ForVariable locateVariable(String variablePath);
+		Y.Variable locateVariable(String variablePath);
 	}
 
 	interface ForClass extends Refactorer, Renamable {
@@ -162,9 +213,6 @@ public interface Refactorer {
 	}
 
 	interface ForMethod extends Refactorer, Renamable {
-	}
-
-	interface ForVariable extends Refactorer, Renamable {
 	}
 
 	interface Renamable {

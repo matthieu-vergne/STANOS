@@ -22,6 +22,7 @@ import com.github.javaparser.ast.ArrayCreationLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Modifier;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.AnnotationDeclaration;
@@ -112,6 +113,7 @@ import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.IntersectionType;
 import com.github.javaparser.ast.type.PrimitiveType;
+import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.type.UnionType;
 import com.github.javaparser.ast.type.UnknownType;
@@ -609,9 +611,26 @@ class Visitor extends VoidVisitorAdapter<X> {
 	public void visit(SimpleName n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ":" + n.getIdentifier() + ">");
 		Scope scope = x.scopeCtx().getCurrent();
-		scope.accessibleVariables().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresent(variable -> {
-			((Variable) variable).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
-		});
+		Node parentNode = n.getParentNode().orElseThrow();
+		if (parentNode instanceof Type || parentNode instanceof ClassOrInterfaceDeclaration) {
+			scope.accessibleClasses().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresentOrElse(clazz -> {
+				((Class) clazz).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+			}, () -> {
+				scope.accessibleInterfaces().filter(interf -> interf.name().equals(n.getIdentifier())).findFirst().ifPresent(interf -> {
+					((Interface) interf).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+				});
+			});
+		} else if (parentNode instanceof MethodDeclaration || parentNode instanceof MethodCallExpr) {
+			scope.accessibleMethods().filter(m -> m.name().equals(n.getIdentifier())).findFirst().ifPresent(method -> {
+				((Method) method).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+			});
+		} else if (parentNode instanceof VariableDeclarator || parentNode instanceof Parameter || parentNode instanceof NameExpr) {
+			scope.accessibleVariables().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresent(variable -> {
+				((Variable) variable).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+			});
+		} else {
+			throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass());
+		}
 		super.visit(n, x.<Code.SimpleNameContainer, Code.SimpleName>derive(code -> code.createSimpleName(n.getIdentifier())));
 		x.underive();
 	}

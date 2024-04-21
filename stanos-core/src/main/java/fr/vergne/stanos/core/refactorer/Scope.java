@@ -197,7 +197,7 @@ public interface Scope {
 
 		@Override
 		public Stream<Y.Variable> accessibleVariables() {
-			return Stream.concat(super.accessibleVariables(), Stream.of(variable));
+			return Stream.concat(Stream.of(variable), super.accessibleVariables());
 		}
 	}
 
@@ -212,7 +212,7 @@ public interface Scope {
 
 		@Override
 		public Stream<Y.Method> accessibleMethods() {
-			return Stream.concat(super.accessibleMethods(), Stream.of(method));
+			return Stream.concat(Stream.of(method), super.accessibleMethods());
 		}
 	}
 
@@ -227,7 +227,7 @@ public interface Scope {
 
 		@Override
 		public Stream<Y.Class> accessibleClasses() {
-			return Stream.concat(super.accessibleClasses(), Stream.of(clazz));
+			return Stream.concat(Stream.of(clazz), super.accessibleClasses());
 		}
 
 		@Override
@@ -247,7 +247,7 @@ public interface Scope {
 
 		@Override
 		public Stream<Y.Interface> accessibleInterfaces() {
-			return Stream.concat(super.accessibleInterfaces(), Stream.of(Interf));
+			return Stream.concat(Stream.of(Interf), super.accessibleInterfaces());
 		}
 
 		@Override

@@ -4,6 +4,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -11,6 +12,10 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import fr.vergne.stanos.core.refactorer.Y.Class;
+import fr.vergne.stanos.core.refactorer.Y.Interface;
+import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class RefactorerTest {
 
@@ -370,7 +375,7 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){}}", //
-						refactorer -> refactorer.locateMethod("MyClass.myMethod").rename("foo"), //
+						refactorer -> refactorer.locateMethod("MyClass.myMethod()").rename("foo"), //
 						"class MyClass{void foo(){}}"//
 				)//
 		);
@@ -466,8 +471,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{void myMethod(){}}", //
-						refactorer -> refactorer.locateMethod("MyClass.x"), //
-						new NoSuchElementException("No method MyClass.x")//
+						refactorer -> refactorer.locateMethod("MyClass.x()"), //
+						new NoSuchElementException("No method MyClass.x()")//
 				) //
 		);
 	}
@@ -587,12 +592,37 @@ class RefactorerTest {
 			}
 
 			@Override
-			public Refactorer.ForMethod locateMethod(String methodPath) {
+			public Y.Method locateMethod(String methodPath) {
 				locatorDisplayer.accept(methodPath);
-				return new Refactorer.ForMethod() {
+				return new Y.Method() {
 					@Override
 					public void rename(String newName) {
 						refactorDisplayer.accept(newName);
+					}
+
+					@Override
+					public String name() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public List<String> parameterTypes() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Variable> variables() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Class> classes() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Interface> interfaces() {
+						throw new UnsupportedOperationException("Not implemented yet");
 					}
 				};
 			}
@@ -609,12 +639,22 @@ class RefactorerTest {
 			}
 
 			@Override
-			public Refactorer.ForVariable locateVariable(String variablePath) {
+			public Y.Variable locateVariable(String variablePath) {
 				locatorDisplayer.accept(variablePath);
-				return new Refactorer.ForVariable() {
+				return new Y.Variable() {
 					@Override
 					public void rename(String newName) {
 						refactorDisplayer.accept(newName);
+					}
+
+					@Override
+					public String name() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Method> methods() {
+						throw new UnsupportedOperationException("Not implemented yet");
 					}
 				};
 			}
