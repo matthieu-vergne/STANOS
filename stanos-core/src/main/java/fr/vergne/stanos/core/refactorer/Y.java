@@ -30,6 +30,16 @@ public interface Y {
 						throw new NoSuchElementException("No interface " + name);
 					});
 		}
+
+		Stream<Record> records();
+
+		default Record record(String name) {
+			return this.records()//
+					.filter(c -> c.name().equals(name))//
+					.findFirst().orElseThrow(() -> {
+						throw new NoSuchElementException("No record " + name);
+					});
+		}
 	}
 
 	public interface Interface {
@@ -66,6 +76,12 @@ public interface Y {
 						throw new NoSuchElementException("No interface " + name);
 					});
 		}
+	}
+
+	public interface Record {
+		String name();
+
+		void rename(String newName);
 	}
 
 	public interface Class {

@@ -71,6 +71,85 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
+	Function<Integer, Code.RecordDeclaration> recordFactory = (codeIndex) -> new Code.RecordDeclaration() {
+		List<Code> subcodes = new LinkedList<>();
+
+		@Override
+		public List<Code> subCodes() {
+			return subcodes;
+		}
+
+		@Override
+		public String toString() {
+			return stringOf(this, name());
+		}
+
+//		@Override
+//		public ClassDeclaration createClassDeclaration(int codeIndex) {
+//			ClassDeclaration subcode = classFactory.apply(codeIndex);
+//			subcodes.add(subcode);
+//			return subcode;
+//		}
+//
+//		@Override
+//		public Code.ClassDeclaration getClassDeclaration(String name) {
+//			for (Code subcode : subcodes) {
+//				if (subcode instanceof Code.ClassDeclaration decl && decl.name().equals(name)) {
+//					return decl;
+//				}
+//			}
+//			throw new NoSuchElementException("No class declaration: " + name);
+//		}
+//
+//		@Override
+//		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+//			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
+//			subcodes.add(subcode);
+//			return subcode;
+//		}
+//
+//		@Override
+//		public MethodDeclaration createMethodDeclaration(int codeIndex) {
+//			MethodDeclaration subcode = methodFactory.apply(codeIndex);
+//			subcodes.add(subcode);
+//			return subcode;
+//		}
+//
+//		@Override
+//		public Code.MethodDeclaration getMethodDeclaration(String name, String... parameterTypes) {
+//			for (Code subcode : subcodes) {
+//				if (subcode instanceof Code.MethodDeclaration decl //
+//						&& decl.name().equals(name)//
+//						&& decl.parameters().map(Parameter::type).toList().equals(Arrays.asList(parameterTypes))) {
+//					return decl;
+//				}
+//			}
+//			throw new NoSuchElementException("No method declaration: " + name + Arrays.toString(parameterTypes));
+//		}
+
+		@Override
+		public SimpleName createSimpleName(String identifier) {
+			SimpleName subcode = simpleNameFactory.apply(identifier);
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public String name() {
+			for (Code subcode : subcodes) {
+				if (subcode instanceof SimpleName name) {
+					return name.identifier();
+				}
+			}
+			throw new IllegalStateException("No name");
+		}
+
+		@Override
+		public int codeIndex() {
+			return codeIndex;
+		}
+	};
+
 	Function<Integer, Code.ClassDeclaration> classFactory = (codeIndex) -> new Code.ClassDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
@@ -1172,6 +1251,23 @@ class DefaultSource implements Code.Source {
 	}
 
 	@Override
+	public RecordDeclaration createRecordDeclaration(int codeIndex) {
+		RecordDeclaration subcode = recordFactory.apply(codeIndex);
+		subcodes.add(subcode);
+		return subcode;
+	}
+
+	@Override
+	public Code.RecordDeclaration getRecordDeclaration(String name) {
+		for (Code subcode : subcodes) {
+			if (subcode instanceof Code.RecordDeclaration decl && decl.name().equals(name)) {
+				return decl;
+			}
+		}
+		throw new NoSuchElementException("No class declaration: " + name);
+	}
+
+	@Override
 	public ClassDeclaration createClassDeclaration(int codeIndex) {
 		ClassDeclaration subcode = classFactory.apply(codeIndex);
 		subcodes.add(subcode);
@@ -1228,7 +1324,7 @@ class DefaultSource implements Code.Source {
 		return defaultPackage;
 	}
 
-	public static Package createDefaultPackage(List<Y.Class> defaultPackageClasses, List<Y.Interface> defaultPackageInterfaces) {
+	public static Package createDefaultPackage(List<Y.Class> defaultPackageClasses, List<Y.Interface> defaultPackageInterfaces, List<Y.Record> defaultPackageRecords) {
 		return new Y.Package() {
 
 			@Override
@@ -1249,6 +1345,11 @@ class DefaultSource implements Code.Source {
 			@Override
 			public Stream<Y.Interface> interfaces() {
 				return defaultPackageInterfaces.stream();
+			}
+
+			@Override
+			public Stream<Y.Record> records() {
+				return defaultPackageRecords.stream();
 			}
 		};
 	}

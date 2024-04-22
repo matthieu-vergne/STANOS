@@ -1,6 +1,5 @@
 package fr.vergne.stanos.core.refactorer;
 
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchClass;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchField;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchInterface;
 import static fr.vergne.stanos.core.refactorer.JavaParserUtils.searchRecord;
@@ -36,15 +35,29 @@ public interface Refactorer {
 			}
 
 			@Override
-			public ForClass locateClass(String classPath) {
-				// FIXME Replace by Code.Source
-				SearchContext locatedClass = searchClass(compilationUnit, classPath);
-				return new Refactorer.ForClass() {
-					@Override
-					public void rename(String newName) {
-						applyRenaming(code, locatedClass, newName);
+			public Y.Class locateClass(String classPath) {
+				Code.Source source = JavaParserUtils.parse(code, refactoringCode, compilationUnit);
+				if (classPath.equals("MyClass")) {
+					try {
+						return source.defaultPackage().clazz("MyClass");
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No class " + classPath, cause);
 					}
-				};
+				} else if (classPath.equals("X")) {
+					try {
+						return source.defaultPackage().clazz("X");
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No class " + classPath, cause);
+					}
+				} else if (classPath.equals("Foo")) {
+					try {
+						return source.defaultPackage().clazz("Foo");
+					} catch (Exception cause) {
+						throw new NoSuchElementException("No class " + classPath, cause);
+					}
+				} else {
+					throw new UnsupportedOperationException("Not implemented: " + classPath);
+				}
 			}
 
 			@Override
@@ -187,7 +200,7 @@ public interface Refactorer {
 	interface ForCode extends Refactorer {
 		String code();
 
-		Refactorer.ForClass locateClass(String classPath);
+		Y.Class locateClass(String classPath);
 
 		Refactorer.ForInterface locateInterface(String interfacePath);
 

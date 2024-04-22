@@ -4,7 +4,6 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -24,7 +23,6 @@ import com.github.javaparser.ast.visitor.GenericVisitorAdapter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
 import fr.vergne.stanos.core.refactorer.Refactorer.CodeRange;
-import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class JavaParserUtils {
 
@@ -223,9 +221,10 @@ class JavaParserUtils {
 	public static Code.Source parse(String code, StringBuilder refactoringCode, CompilationUnit compilationUnit) {
 		List<Y.Class> defaultPackageClasses = new LinkedList<>();
 		List<Y.Interface> defaultPackageInterfaces = new LinkedList<>();
-		Y.Package defaultPackage = DefaultSource.createDefaultPackage(defaultPackageClasses, defaultPackageInterfaces);
+		List<Y.Record> defaultPackageRecords = new LinkedList<>();
+		Y.Package defaultPackage = DefaultSource.createDefaultPackage(defaultPackageClasses, defaultPackageInterfaces, defaultPackageRecords);
 		Code.Source source = new DefaultSource(defaultPackage);
-		X x = new X(new Scope.Context(Scope.root(defaultPackageClasses::add, defaultPackageInterfaces::add)), source, null);
+		X x = new X(new Scope.Context(Scope.root(defaultPackageClasses::add, defaultPackageInterfaces::add, defaultPackageRecords::add)), source, null);
 		compilationUnit.accept(new Visitor(code, refactoringCode), x);
 		return source;
 	}

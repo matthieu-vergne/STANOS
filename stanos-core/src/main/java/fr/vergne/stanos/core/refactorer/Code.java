@@ -9,7 +9,7 @@ interface Code {
 	@Deprecated
 	List<Code> subCodes();
 
-	interface Source extends Code, PackageDeclarationContainer, ImportDeclarationContainer, ClassDeclarationContainer, InterfaceDeclarationContainer {
+	interface Source extends Code, PackageDeclarationContainer, ImportDeclarationContainer, ClassDeclarationContainer, InterfaceDeclarationContainer, RecordDeclarationContainer {
 		Y.Package defaultPackage();
 	}
 
@@ -34,6 +34,18 @@ interface Code {
 	}
 
 	interface ClassDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer {
+		String name();
+
+		int codeIndex();// TODO Generalize to Code
+	}
+
+	interface RecordDeclarationContainer extends Code {
+		RecordDeclaration createRecordDeclaration(int codeIndex);
+
+		Code.RecordDeclaration getRecordDeclaration(String name);
+	}
+
+	interface RecordDeclaration extends Code, SimpleNameContainer {
 		String name();
 
 		int codeIndex();// TODO Generalize to Code

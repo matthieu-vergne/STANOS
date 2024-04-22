@@ -28,6 +28,12 @@ public interface Scope {
 
 	Stream<Y.Method> accessibleMethods();
 
+	Scope createRecord(Y.Record clazz/* , Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder */);
+
+	Stream<Y.Record> accessibleRecords();
+
+	Stream<Y.Record> createdRecords();
+
 	Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder);
 
 	Stream<Y.Class> accessibleClasses();
@@ -47,6 +53,7 @@ public interface Scope {
 		private final Consumer<Y.Variable> variableFeeder;
 		private final Consumer<Y.Method> methodFeeder;
 		private final Consumer<Y.Class> classFeeder;
+		private final Consumer<Y.Record> recordFeeder;
 		private final Consumer<Y.Interface> interfaceFeeder;
 
 		public Base(Scope parent, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
@@ -55,6 +62,7 @@ public interface Scope {
 			this.methodFeeder = ((Base) parent).methodFeeder;
 			this.classFeeder = classFeeder;
 			this.interfaceFeeder = interfaceFeeder;
+			this.recordFeeder = ((Base) parent).recordFeeder;
 		}
 
 		public Base(Consumer<Y.Method> methodFeeder, Scope parent, Consumer<Class> classFeeder, Consumer<Interface> interfaceFeeder) {
@@ -63,6 +71,7 @@ public interface Scope {
 			this.methodFeeder = methodFeeder;
 			this.classFeeder = classFeeder;
 			this.interfaceFeeder = interfaceFeeder;
+			this.recordFeeder = ((Base) parent).recordFeeder;
 		}
 
 		public Base(Scope parent, Consumer<Y.Method> methodFeeder) {
@@ -71,6 +80,7 @@ public interface Scope {
 			this.methodFeeder = methodFeeder;
 			this.classFeeder = ((Base) parent).classFeeder;
 			this.interfaceFeeder = ((Base) parent).interfaceFeeder;
+			this.recordFeeder = ((Base) parent).recordFeeder;
 		}
 
 		public Base(Scope parent) {
@@ -79,9 +89,10 @@ public interface Scope {
 			this.methodFeeder = ((Base) parent).methodFeeder;
 			this.classFeeder = ((Base) parent).classFeeder;
 			this.interfaceFeeder = ((Base) parent).interfaceFeeder;
+			this.recordFeeder = ((Base) parent).recordFeeder;
 		}
 
-		public Base(Consumer<Class> defaultPackageClassFeeder, Consumer<Interface> defaultPackageInterfaceFeeder) {
+		public Base(Consumer<Y.Class> defaultPackageClassFeeder, Consumer<Y.Interface> defaultPackageInterfaceFeeder, Consumer<Y.Record> defaultPackageRecordFeeder) {
 			this.parent = Optional.empty();
 			this.variableFeeder = variable -> {
 				throw new UnsupportedOperationException("Root node cannot have variable");
@@ -91,6 +102,7 @@ public interface Scope {
 			};
 			this.classFeeder = defaultPackageClassFeeder;
 			this.interfaceFeeder = defaultPackageInterfaceFeeder;
+			this.recordFeeder = defaultPackageRecordFeeder;
 		}
 
 		@Override
@@ -129,6 +141,30 @@ public interface Scope {
 		@Override
 		public Stream<Y.Method> accessibleMethods() {
 			return parent.map(Scope::accessibleMethods).orElse(Stream.empty());
+		}
+
+		@Override
+		public Scope createRecord(Y.Record record/* , Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder */) {
+			Scope subscope = new Scope.WithRecord(this, record/* , methodFeeder, classFeeder, interfaceFeeder */);
+			this.subscopes.add(subscope);
+			this.recordFeeder.accept(record);
+			return subscope;
+		}
+
+		@Override
+		public Stream<Y.Record> accessibleRecords() {
+			return parent.map(Scope::accessibleRecords).orElse(Stream.empty());
+		}
+
+		@Override
+		public Stream<Y.Record> createdRecords() {
+			// FIXME Remove dependency to Visitor Method
+			Comparator<Visitor.Record> recordComparator = comparing(Visitor.Record::declaration, comparing(Code.RecordDeclaration::codeIndex));
+			return subscopes.stream()
+
+					.peek(x -> System.out.println(":: " + x))
+
+					.flatMap(Scope::createdRecords).map(v -> (Visitor.Record) v).sorted(recordComparator).map(v -> (Y.Record) v);
 		}
 
 		@Override
@@ -216,6 +252,26 @@ public interface Scope {
 		}
 	}
 
+	class WithRecord extends Base {
+
+		private final Y.Record record;
+
+		public WithRecord(Scope parent, Y.Record record/* , Consumer<Y.Method> methodFeeder, Consumer<Class> classFeeder, Consumer<Interface> interfaceFeeder */) {
+			super(parent);
+			this.record = requireNonNull(record);
+		}
+
+		@Override
+		public Stream<Y.Record> accessibleRecords() {
+			return Stream.concat(Stream.of(record), super.accessibleRecords());
+		}
+
+		@Override
+		public Stream<Y.Record> createdRecords() {
+			return Stream.concat(Stream.of(record), super.createdRecords());
+		}
+	}
+
 	class WithClass extends Base {
 
 		private final Y.Class clazz;
@@ -272,8 +328,8 @@ public interface Scope {
 		}
 	}
 
-	static Scope root(Consumer<Y.Class> defaultPackageClassFeeder, Consumer<Y.Interface> defaultPackageInterfaceFeeder) {
-		return new Base(defaultPackageClassFeeder, defaultPackageInterfaceFeeder);
+	static Scope root(Consumer<Y.Class> defaultPackageClassFeeder, Consumer<Y.Interface> defaultPackageInterfaceFeeder, Consumer<Y.Record> defaultPackageRecordFeeder) {
+		return new Base(defaultPackageClassFeeder, defaultPackageInterfaceFeeder, defaultPackageRecordFeeder);
 	}
 
 }

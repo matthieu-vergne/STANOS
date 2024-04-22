@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import fr.vergne.stanos.core.refactorer.Y.Class;
 import fr.vergne.stanos.core.refactorer.Y.Interface;
+import fr.vergne.stanos.core.refactorer.Y.Method;
 import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class RefactorerTest {
@@ -559,12 +560,32 @@ class RefactorerTest {
 			}
 
 			@Override
-			public Refactorer.ForClass locateClass(String classPath) {
+			public Y.Class locateClass(String classPath) {
 				locatorDisplayer.accept(classPath);
-				return new Refactorer.ForClass() {
+				return new Y.Class() {
 					@Override
 					public void rename(String newName) {
 						refactorDisplayer.accept(newName);
+					}
+
+					@Override
+					public String name() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Method> methods() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Class> classes() {
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					@Override
+					public Stream<Interface> interfaces() {
+						throw new UnsupportedOperationException("Not implemented yet");
 					}
 				};
 			}
