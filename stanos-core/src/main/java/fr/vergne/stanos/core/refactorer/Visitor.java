@@ -1,9 +1,5 @@
 package fr.vergne.stanos.core.refactorer;
 
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.is;
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.stream;
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.textEquals;
-import static fr.vergne.stanos.core.refactorer.JavaParserUtils.tokenRangeToCodeRange;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -12,7 +8,9 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import com.github.javaparser.JavaToken;
 import com.github.javaparser.JavaToken.Category;
@@ -276,10 +274,11 @@ class Visitor extends VoidVisitorAdapter<X> {
 			Collection<Y.Method> methods = new LinkedList<>();
 			Collection<Y.Class> classes = new LinkedList<>();
 			Collection<Y.Interface> interfaces = new LinkedList<>();
-			Y.Class clazz = new Class(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods, classes, interfaces);
+			Collection<Y.Field> fields = new LinkedList<>();
+			Y.Class clazz = new Class(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods, classes, interfaces, fields);
 			Context scopeCtx = x.scopeCtx();
 			Scope parentScope = scopeCtx.getCurrent();
-			Scope scope = parentScope.createClass(clazz, methods::add, classes::add, interfaces::add);
+			Scope scope = parentScope.createClass(clazz, methods::add, classes::add, interfaces::add, fields::add);
 			scopeCtx.setCurrent(scope);
 			super.visit(n, derive);
 			x.underive();
@@ -302,8 +301,9 @@ class Visitor extends VoidVisitorAdapter<X> {
 	}
 
 	private boolean isClassDeclaration(ClassOrInterfaceDeclaration decl) {
-		return stream(decl.getTokenRange().orElseThrow())//
-				.filter(is(Category.KEYWORD).and(textEquals("class")))//
+		String text = "class";
+		return StreamSupport.stream(decl.getTokenRange().orElseThrow().spliterator(), false)//
+				.filter(is(Category.KEYWORD).and(textEquals(text)))//
 				.findFirst().isPresent();
 	}
 
@@ -390,7 +390,8 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(FieldDeclaration n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
-		throw new UnsupportedOperationException("Not implemented yet");
+		super.visit(n, x.derive(Code.FieldDeclarationContainer::createFieldDeclaration));
+		x.underive();
 	}
 
 	@Override
@@ -599,10 +600,10 @@ class Visitor extends VoidVisitorAdapter<X> {
 //		Collection<Y.Method> methods = new LinkedList<>();
 //		Collection<Y.Class> classes = new LinkedList<>();
 //		Collection<Y.Interface> interfaces = new LinkedList<>();
-		Y.Record record = new Record(n.getNameAsString(), declarator, nameTokens, code, refactoringCode/*, methods, classes, interfaces*/);
+		Y.Record record = new Record(n.getNameAsString(), declarator, nameTokens, code, refactoringCode/* , methods, classes, interfaces */);
 		Context scopeCtx = x.scopeCtx();
 		Scope parentScope = scopeCtx.getCurrent();
-		Scope scope = parentScope.createRecord(record/*, methods::add, classes::add, interfaces::add*/);
+		Scope scope = parentScope.createRecord(record/* , methods::add, classes::add, interfaces::add */);
 		scopeCtx.setCurrent(scope);
 		super.visit(n, derive);
 		x.underive();
@@ -643,7 +644,20 @@ class Visitor extends VoidVisitorAdapter<X> {
 			scope.accessibleMethods().filter(m -> m.name().equals(n.getIdentifier())).findFirst().ifPresent(method -> {
 				((Method) method).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
 			});
-		} else if (parentNode instanceof VariableDeclarator || parentNode instanceof Parameter || parentNode instanceof NameExpr) {
+		} else if (parentNode instanceof VariableDeclarator) {
+			Node grandParentNode = parentNode.getParentNode().orElseThrow();
+			if (grandParentNode instanceof VariableDeclarationExpr) {
+				scope.accessibleVariables().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresent(variable -> {
+					((Variable) variable).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+				});
+			} else if (grandParentNode instanceof FieldDeclaration) {
+				scope.accessibleFields().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresent(field -> {
+					((Field) field).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
+				});
+			} else {
+				throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass());
+			}
+		} else if (parentNode instanceof Parameter || parentNode instanceof NameExpr) {
 			// TODO Separate Parameter from Variable
 			scope.accessibleVariables().filter(v -> v.name().equals(n.getIdentifier())).findFirst().ifPresent(variable -> {
 				((Variable) variable).nameTokens().add(n.getTokenRange().orElseThrow().getBegin());
@@ -750,19 +764,38 @@ class Visitor extends VoidVisitorAdapter<X> {
 	@Override
 	public void visit(VariableDeclarator n, X x) {
 		System.out.println("<" + n.getClass().getSimpleName() + ">");
-		List<JavaToken> nameTokens = new LinkedList<>();
-		// Don't add because will be added upon visit call after
-		// nameTokens.add(nameToken);
-		X derive = x.<Code.VariableDeclaratorContainer, Code.VariableDeclarator>derive(c -> c.createVariableDeclarator(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
-		Code.VariableDeclarator declarator = (Code.VariableDeclarator) derive.code();
-		Collection<Y.Method> methods = new LinkedList<>();
-		Y.Variable variable = new Variable(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods);
-		Context scopeCtx = x.scopeCtx();
-		Scope parentScope = scopeCtx.getCurrent();
-		Scope scope = parentScope.createVariable(variable, methods::add);
-		scopeCtx.setCurrent(scope);
-		super.visit(n, derive);
-		x.underive();
+		Node parentNode = n.getParentNode().orElseThrow();
+		if (parentNode instanceof VariableDeclarationExpr) {
+			List<JavaToken> nameTokens = new LinkedList<>();
+			// Don't add because will be added upon visit call after
+			// nameTokens.add(nameToken);
+			X derive = x.<Code.VariableDeclaratorContainer, Code.VariableDeclarator>derive(c -> c.createVariableDeclarator(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
+			Code.VariableDeclarator declarator = (Code.VariableDeclarator) derive.code();
+			Collection<Y.Method> methods = new LinkedList<>();
+			Y.Variable variable = new Variable(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods);
+			Context scopeCtx = x.scopeCtx();
+			Scope parentScope = scopeCtx.getCurrent();
+			Scope scope = parentScope.createVariable(variable, methods::add);
+			scopeCtx.setCurrent(scope);
+			super.visit(n, derive);
+			x.underive();
+		} else if (parentNode instanceof FieldDeclaration) {
+			List<JavaToken> nameTokens = new LinkedList<>();
+			// Don't add because will be added upon visit call after
+			// nameTokens.add(nameToken);
+			X derive = x.<Code.FieldDeclaratorContainer, Code.FieldDeclarator>derive(c -> c.createFieldDeclarator(tokenRangeToCodeRange(code, n.getRange().orElseThrow()).start()));
+			Code.FieldDeclarator declarator = (Code.FieldDeclarator) derive.code();
+			Collection<Y.Method> methods = new LinkedList<>();
+			Y.Field field = new Field(n.getNameAsString(), declarator, nameTokens, code, refactoringCode, methods);
+			Context scopeCtx = x.scopeCtx();
+			Scope parentScope = scopeCtx.getCurrent();
+			Scope scope = parentScope.createField(field, methods::add);
+			scopeCtx.setCurrent(scope);
+			super.visit(n, derive);
+			x.underive();
+		} else {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
 	}
 
 	@Override
@@ -988,7 +1021,7 @@ class Visitor extends VoidVisitorAdapter<X> {
 //		private final Collection<Y.Class> classes;
 //		private final Collection<Y.Interface> interfaces;
 
-		public Record(String name, Code.RecordDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode/*, Collection<Y.Method> methods, Collection<Y.Class> classes, Collection<Y.Interface> interfaces*/) {
+		public Record(String name, Code.RecordDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode/* , Collection<Y.Method> methods, Collection<Y.Class> classes, Collection<Y.Interface> interfaces */) {
 			this.name = name;
 			this.declaration = declaration;
 			this.nameTokens = requireNonNull(nameTokens);
@@ -1058,7 +1091,7 @@ class Visitor extends VoidVisitorAdapter<X> {
 			return "Record " + name + " at (" + line + "," + column + ")";
 		}
 	}
-	
+
 	static class Class implements Y.Class {
 		private final String name;
 		private final Collection<JavaToken> nameTokens;
@@ -1068,8 +1101,9 @@ class Visitor extends VoidVisitorAdapter<X> {
 		private final Collection<Y.Method> methods;
 		private final Collection<Y.Class> classes;
 		private final Collection<Y.Interface> interfaces;
+		private final Collection<Y.Field> fields;
 
-		public Class(String name, Code.ClassDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Method> methods, Collection<Y.Class> classes, Collection<Y.Interface> interfaces) {
+		public Class(String name, Code.ClassDeclaration declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Method> methods, Collection<Y.Class> classes, Collection<Y.Interface> interfaces, Collection<Y.Field> fields) {
 			this.name = name;
 			this.declaration = declaration;
 			this.nameTokens = requireNonNull(nameTokens);
@@ -1078,6 +1112,7 @@ class Visitor extends VoidVisitorAdapter<X> {
 			this.methods = methods;
 			this.classes = classes;
 			this.interfaces = interfaces;
+			this.fields = fields;
 		}
 
 		@Override
@@ -1106,6 +1141,12 @@ class Visitor extends VoidVisitorAdapter<X> {
 
 		public Code.ClassDeclaration declaration() {
 			return declaration;
+		}
+
+		@Override
+		public Stream<Y.Field> fields() {
+			Comparator<Field> fieldComparator = comparing(Field::declaration, comparing(Code.FieldDeclarator::codeIndex));
+			return fields.stream().map(v -> (Field) v).sorted(fieldComparator).map(v -> (Y.Field) v);
 		}
 
 		@Override
@@ -1284,5 +1325,92 @@ class Visitor extends VoidVisitorAdapter<X> {
 			int column = position.column;
 			return "Variable " + name + " at (" + line + "," + column + ")";
 		}
+	}
+
+	static class Field implements Y.Field {
+		private final String name;
+		private final Collection<JavaToken> nameTokens;
+		private final String code;
+		private final StringBuilder refactoringCode;
+		private final Code.FieldDeclarator declaration;
+		private final Collection<Y.Method> methods;
+
+		public Field(String name, Code.FieldDeclarator declaration, Collection<JavaToken> nameTokens, String code, StringBuilder refactoringCode, Collection<Y.Method> methods) {
+			this.name = name;
+			this.declaration = declaration;
+			this.nameTokens = requireNonNull(nameTokens);
+			this.code = code;
+			this.refactoringCode = refactoringCode;
+			this.methods = methods;
+		}
+
+		@Override
+		public String name() {
+			return name;
+		}
+
+		public Collection<JavaToken> nameTokens() {
+			return nameTokens;
+		}
+
+		@Override
+		public void rename(String newName) {
+			nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> tokenRangeToCodeRange(code, range))//
+					// Process from last to first, so the ranges are not shifted
+					.sorted(Comparator.comparing(CodeRange::start).reversed())//
+					.collect(() -> refactoringCode, (builder, nameRange) -> {
+						builder.replace(nameRange.start(), nameRange.end() + 1, newName);
+					}, (b1, b2) -> {
+						throw new UnsupportedOperationException("Combiner not supported");
+					});
+		}
+
+		public Code.FieldDeclarator declaration() {
+			return declaration;
+		}
+
+		@Override
+		public Stream<Y.Method> methods() {
+			Comparator<Visitor.Method> methodComparator = comparing(Visitor.Method::declaration, comparing(Code.MethodDeclaration::codeIndex));
+			return methods.stream().map(v -> (Visitor.Method) v).sorted(methodComparator).map(v -> (Y.Method) v);
+		}
+
+		@Override
+		public String toString() {
+			String name = name();
+			Position position = nameTokens.stream()//
+					.map(JavaToken::getRange)//
+					.map(Optional<Range>::orElseThrow)//
+					.map(range -> range.begin).sorted()//
+					.findFirst().orElseThrow();
+			int line = position.line;
+			int column = position.column;
+			return "Variable " + name + " at (" + line + "," + column + ")";
+		}
+	}
+
+	private static Predicate<JavaToken> is(Category category) {
+		return token -> token.getCategory().equals(category);
+	}
+
+	private static Predicate<JavaToken> textEquals(String text) {
+		return token -> token.getText().equals(text);
+	}
+
+	private static CodeRange tokenRangeToCodeRange(String code, Range range) {
+		int start = positionToIndex(code, range.begin);
+		int end = positionToIndex(code, range.end);
+		return new CodeRange(start, end);
+	}
+
+	private static int positionToIndex(String code, Position position) {
+		int startOfLine = 0;
+		for (int i = 1; i < position.line; i++) {
+			startOfLine = code.indexOf("\n", startOfLine) + 1;
+		}
+		return startOfLine + position.column - 1;
 	}
 }

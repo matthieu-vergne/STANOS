@@ -2,6 +2,7 @@ package fr.vergne.stanos.core.refactorer;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public interface Y {
@@ -89,13 +90,24 @@ public interface Y {
 
 		void rename(String newName);
 
+		Stream<Field> fields();
+
+		default Field field(String name) {
+			return this.fields()//
+					.filter(m -> m.name().equals(name))//
+					.findFirst().orElseThrow(() -> {
+						throw new NoSuchElementException("No field " + name);
+					});
+		}
+
 		Stream<Method> methods();
 
 		default Method method(String name, List<String> parameterTypes) {
 			return this.methods()//
 					.filter(m -> m.name().equals(name) && m.parameterTypes().equals(parameterTypes))//
 					.findFirst().orElseThrow(() -> {
-						throw new NoSuchElementException("No method " + name + parameterTypes);
+						String args = parameterTypes.stream().collect(Collectors.joining(", ", "(", ")"));
+						throw new NoSuchElementException("No method " + name + args);
 					});
 		}
 
@@ -174,5 +186,28 @@ public interface Y {
 					});
 		}
 
+	}
+
+	public interface Field extends Y {
+		String name();
+
+		void rename(String newName);
+
+		Stream<Method> methods();
+
+		default Method method(String name, List<String> parameterTypes) {
+			return this.methods()//
+					.filter(m -> m.name().equals(name) && m.parameterTypes().equals(parameterTypes))//
+					.findFirst().orElseThrow(() -> {
+						throw new NoSuchElementException("No method " + name + parameterTypes);
+					});
+		}
+
+	}
+
+	public interface Parameter extends Y {
+		String name();
+
+		void rename(String newName);
 	}
 }

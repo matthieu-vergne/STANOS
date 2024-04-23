@@ -33,7 +33,7 @@ interface Code {
 		Code.ClassDeclaration getClassDeclaration(String name);
 	}
 
-	interface ClassDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer {
+	interface ClassDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer, FieldDeclarationContainer {
 		String name();
 
 		int codeIndex();// TODO Generalize to Code
@@ -171,7 +171,31 @@ interface Code {
 		VariableDeclarator createVariableDeclarator(int codeIndex);
 	}
 
-	interface VariableDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer {
+	interface VariableDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer, FieldDeclarationContainer {
+		String type();
+
+		String name();
+
+		Code value();
+
+		int codeIndex();// TODO Generalize to Code
+	}
+
+	interface FieldDeclarationContainer extends Code {
+		FieldDeclaration createFieldDeclaration();
+
+//		Optional<FieldDeclaration> field();
+	}
+
+	interface FieldDeclaration extends Code, FieldDeclaratorContainer {
+		FieldDeclarator declarator();
+	}
+
+	interface FieldDeclaratorContainer extends Code {
+		FieldDeclarator createFieldDeclarator(int codeIndex);
+	}
+
+	interface FieldDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer, FieldDeclarationContainer {
 		String type();
 
 		String name();

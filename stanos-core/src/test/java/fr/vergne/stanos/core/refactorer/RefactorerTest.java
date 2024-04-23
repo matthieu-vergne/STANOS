@@ -1,5 +1,6 @@
 package fr.vergne.stanos.core.refactorer;
 
+import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,21 +15,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import fr.vergne.stanos.core.refactorer.Y.Class;
+import fr.vergne.stanos.core.refactorer.Y.Field;
 import fr.vergne.stanos.core.refactorer.Y.Interface;
 import fr.vergne.stanos.core.refactorer.Y.Method;
+import fr.vergne.stanos.core.refactorer.Y.Package;
+import fr.vergne.stanos.core.refactorer.Y.Record;
 import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class RefactorerTest {
 
-	record SuccessCase(String code, Consumer<Refactorer.ForCode> refactoring, String expectedCode) {
+	record SuccessCase(String code, Consumer<Code.Source> refactoring, String expectedCode) {
 		@Override
 		public String toString() {
-			// TODO Reduce code and expected code to parts relevant for diff if too long
 			return reduce(code) + " > " + stringOf(refactoring) + " > " + reduce(expectedCode);
-		}
-
-		private String reduce(String code) {
-			return code.length() < 100 ? code : code.substring(0, 100) + "[...]";
 		}
 	}
 
@@ -43,7 +42,7 @@ class RefactorerTest {
 		Refactorer.ForCode refactorer = Refactorer.forCode(code);
 
 		// WHEN
-		refactorerExecutor.accept(refactorer);
+		refactorerExecutor.accept(refactorer.source());
 
 		// THEN
 		assertThat(refactorer.code(), is(expectedCode));
@@ -64,7 +63,7 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"class MyClass{void myMethod(){String foo = null;}}"//
 				), //
 				new SuccessCase(//
@@ -76,7 +75,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass{
 									void myMethod(){
@@ -100,7 +99,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.MyChildClass.myMethod().MyInnerClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").clazz("MyChildClass").method("myMethod", emptyList()).clazz("MyInnerClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									class MyChildClass {
@@ -128,7 +127,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									void myMethod() {
@@ -156,7 +155,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod(boolean).myVar%0").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									String myMethod(boolean b) {
@@ -185,7 +184,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod(boolean).myVar%1").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 1).rename("foo"), //
 						"""
 								class MyClass {
 									String myMethod(boolean b) {
@@ -218,7 +217,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									interface MyInt {
@@ -255,7 +254,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									interface MyInt {
@@ -291,7 +290,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									String myMethod() {
@@ -321,7 +320,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
 						"""
 								import java.util.function.Supplier;
 
@@ -351,7 +350,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod(boolean).myVar%").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass{
 									void myMethod(boolean b){
@@ -376,7 +375,7 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){}}", //
-						refactorer -> refactorer.locateMethod("MyClass.myMethod()").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).rename("foo"), //
 						"class MyClass{void foo(){}}"//
 				)//
 		);
@@ -386,7 +385,7 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{String myField;}", //
-						refactorer -> refactorer.locateField("MyClass.myField").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").field("myField").rename("foo"), //
 						"class MyClass{String foo;}"//
 				)//
 		);
@@ -396,7 +395,7 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"record MyRecord(){}", //
-						refactorer -> refactorer.locateRecord("MyRecord").rename("Foo"), //
+						source -> source.defaultPackage().record("MyRecord").rename("Foo"), //
 						"record Foo(){}"//
 				)//
 		);
@@ -406,7 +405,7 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"interface MyInt{}", //
-						refactorer -> refactorer.locateInterface("MyInt").rename("Foo"), //
+						source -> source.defaultPackage().interf("MyInt").rename("Foo"), //
 						"interface Foo{}"//
 				)//
 		);
@@ -416,16 +415,16 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{}", //
-						refactorer -> refactorer.locateClass("MyClass").rename("Foo"), //
+						source -> source.defaultPackage().clazz("MyClass").rename("Foo"), //
 						"class Foo{}"//
 				)//
 		);
 	}
 
-	record FailureCase(String code, Consumer<Refactorer.ForCode> refactoring, Exception expectedException) {
+	record FailureCase(String code, Consumer<Code.Source> refactoring, Exception expectedException) {
 		@Override
 		public String toString() {
-			return code + " > " + stringOf(refactoring) + " > " + expectedException;
+			return reduce(code) + " > " + stringOf(refactoring) + " > " + expectedException;
 		}
 	}
 
@@ -440,7 +439,7 @@ class RefactorerTest {
 		Refactorer.ForCode refactorer = Refactorer.forCode(code);
 
 		// WHEN
-		Executable action = () -> refactorerExecutor.accept(refactorer);
+		Executable action = () -> refactorerExecutor.accept(refactorer.source());
 
 		// THEN
 		Exception except = assertThrows(expectedException.getClass(), action);
@@ -462,8 +461,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						refactorer -> refactorer.locateVariable("MyClass.myMethod().x%"), //
-						new NoSuchElementException("No variable MyClass.myMethod().x%")//
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("x", 0), //
+						new NoSuchElementException("No variable x #0")//
 				)//
 		);
 	}
@@ -472,8 +471,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{void myMethod(){}}", //
-						refactorer -> refactorer.locateMethod("MyClass.x()"), //
-						new NoSuchElementException("No method MyClass.x()")//
+						source -> source.defaultPackage().clazz("MyClass").method("x", emptyList()), //
+						new NoSuchElementException("No method x()")//
 				) //
 		);
 	}
@@ -482,8 +481,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{String myField;}", //
-						refactorer -> refactorer.locateField("MyClass.X"), //
-						new NoSuchElementException("No field MyClass.X")//
+						source -> source.defaultPackage().clazz("MyClass").field("x"), //
+						new NoSuchElementException("No field x")//
 				) //
 		);
 	}
@@ -492,17 +491,17 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class Foo{}", //
-						refactorer -> refactorer.locateRecord("Foo"), //
+						source -> source.defaultPackage().record("Foo"), //
 						new NoSuchElementException("No record Foo")//
 				), //
 				new FailureCase(//
 						"interface Foo{}", //
-						refactorer -> refactorer.locateRecord("Foo"), //
+						source -> source.defaultPackage().record("Foo"), //
 						new NoSuchElementException("No record Foo")//
 				), //
 				new FailureCase(//
 						"record Foo(){}", //
-						refactorer -> refactorer.locateRecord("X"), //
+						source -> source.defaultPackage().record("X"), //
 						new NoSuchElementException("No record X")//
 				)//
 		);
@@ -512,17 +511,17 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class Foo{}", //
-						refactorer -> refactorer.locateInterface("Foo"), //
+						source -> source.defaultPackage().interf("Foo"), //
 						new NoSuchElementException("No interface Foo")//
 				), //
 				new FailureCase(//
 						"interface Foo{}", //
-						refactorer -> refactorer.locateInterface("X"), //
+						source -> source.defaultPackage().interf("X"), //
 						new NoSuchElementException("No interface X")//
 				), //
 				new FailureCase(//
 						"record Foo(){}", //
-						refactorer -> refactorer.locateInterface("Foo"), //
+						source -> source.defaultPackage().interf("Foo"), //
 						new NoSuchElementException("No interface Foo")//
 				)//
 		);
@@ -532,150 +531,143 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class Foo{}", //
-						refactorer -> refactorer.locateClass("X"), //
+						source -> source.defaultPackage().clazz("X"), //
 						new NoSuchElementException("No class X")//
 				), //
 				new FailureCase(//
 						"interface Foo{}", //
-						refactorer -> refactorer.locateClass("Foo"), //
+						source -> source.defaultPackage().clazz("Foo"), //
 						new NoSuchElementException("No class Foo")//
 				), //
 				new FailureCase(//
 						"record Foo(){}", //
-						refactorer -> refactorer.locateClass("Foo"), //
+						source -> source.defaultPackage().clazz("Foo"), //
 						new NoSuchElementException("No class Foo")//
 				)//
 		);
 	}
 
-	private static String stringOf(Consumer<Refactorer.ForCode> refactoring) {
+	private static String stringOf(Consumer<Code.Source> refactoring) {
 		StringBuilder builder = new StringBuilder();
-		Consumer<Object> locatorDisplayer = arg -> builder.append(currentMethodName() + "(" + arg + ")");
-		Consumer<Object> refactorDisplayer = arg -> builder.append("." + currentMethodName() + "(" + arg + ")");
+		Runnable firstDisplayer = () -> builder.append(currentMethodName() + "()");
+		Consumer<Object> nextDisplayer = arg -> builder.append("." + currentMethodName() + "(" + arg + ")");
 
-		refactoring.accept(new Refactorer.ForCode() {
+		refactoring.accept(new UnimplementedSource() {
 			@Override
-			public String code() {
-				throw new UnsupportedOperationException("Not expected to be called");
-			}
-
-			@Override
-			public Y.Class locateClass(String classPath) {
-				locatorDisplayer.accept(classPath);
-				return new Y.Class() {
+			public Package defaultPackage() {
+				firstDisplayer.run();
+				return new UnimplementedPackage() {
 					@Override
 					public void rename(String newName) {
-						refactorDisplayer.accept(newName);
+						nextDisplayer.accept(newName);
 					}
 
 					@Override
-					public String name() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
+					public Record record(String name) {
+						nextDisplayer.accept(name);
+						return new UnimplementedRecord() {
+							@Override
+							public void rename(String newName) {
+								nextDisplayer.accept(name);
+							}
+						};
+					};
 
 					@Override
-					public Stream<Method> methods() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
+					public Interface interf(String name) {
+						nextDisplayer.accept(name);
+						return new UnimplementedInterface() {
+							@Override
+							public void rename(String newName) {
+								nextDisplayer.accept(newName);
+							}
+						};
+					};
 
 					@Override
-					public Stream<Class> classes() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
+					public Class clazz(String name) {
+						nextDisplayer.accept(name);
+						return new UnimplementedClass() {
+							@Override
+							public void rename(String newName) {
+								nextDisplayer.accept(newName);
+							}
 
-					@Override
-					public Stream<Interface> interfaces() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-				};
-			}
+							@Override
+							public Field field(String name) {
+								nextDisplayer.accept(name);
+								return new UnimplementedField() {
 
-			@Override
-			public Refactorer.ForInterface locateInterface(String interfacePath) {
-				locatorDisplayer.accept(interfacePath);
-				return new Refactorer.ForInterface() {
-					@Override
-					public void rename(String newName) {
-						refactorDisplayer.accept(newName);
-					}
-				};
-			}
+									@Override
+									public void rename(String newName) {
+										nextDisplayer.accept(newName);
+									}
+								};
+							}
 
-			@Override
-			public Refactorer.ForRecord locateRecord(String recordPath) {
-				locatorDisplayer.accept(recordPath);
-				return new Refactorer.ForRecord() {
-					@Override
-					public void rename(String newName) {
-						refactorDisplayer.accept(newName);
-					}
-				};
-			}
+							@Override
+							public Method method(String name, List<String> parameterTypes) {
+								nextDisplayer.accept(name + ", " + parameterTypes);
+								return new UnimplementedMethod() {
 
-			@Override
-			public Y.Method locateMethod(String methodPath) {
-				locatorDisplayer.accept(methodPath);
-				return new Y.Method() {
-					@Override
-					public void rename(String newName) {
-						refactorDisplayer.accept(newName);
-					}
+									@Override
+									public void rename(String newName) {
+										nextDisplayer.accept(name);
+									}
 
-					@Override
-					public String name() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
+									@Override
+									public Variable variable(String name, int index) {
+										nextDisplayer.accept(name + ", " + index);
+										return new UnimplementedVariable() {
+											@Override
+											public void rename(String newName) {
+												nextDisplayer.accept(newName);
+											}
+										};
+									};
+								};
+							}
 
-					@Override
-					public List<String> parameterTypes() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
+							@Override
+							public Class clazz(String name) {
+								nextDisplayer.accept(name);
+								return new UnimplementedClass() {
+									@Override
+									public void rename(String newName) {
+										nextDisplayer.accept(name);
+									}
 
-					@Override
-					public Stream<Variable> variables() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-
-					@Override
-					public Stream<Class> classes() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-
-					@Override
-					public Stream<Interface> interfaces() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-				};
-			}
-
-			@Override
-			public Refactorer.ForField locateField(String fieldPath) {
-				locatorDisplayer.accept(fieldPath);
-				return new Refactorer.ForField() {
-					@Override
-					public void rename(String newName) {
-						refactorDisplayer.accept(newName);
-					}
-				};
-			}
-
-			@Override
-			public Y.Variable locateVariable(String variablePath) {
-				locatorDisplayer.accept(variablePath);
-				return new Y.Variable() {
-					@Override
-					public void rename(String newName) {
-						refactorDisplayer.accept(newName);
-					}
-
-					@Override
-					public String name() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-
-					@Override
-					public Stream<Method> methods() {
-						throw new UnsupportedOperationException("Not implemented yet");
+									@Override
+									public Method method(String name, List<String> parameterTypes) {
+										nextDisplayer.accept(name + ", " + parameterTypes);
+										return new UnimplementedMethod() {
+											@Override
+											public Class clazz(String name) {
+												nextDisplayer.accept(name);
+												return new UnimplementedClass() {
+													@Override
+													public Method method(String name, List<String> parameterTypes) {
+														nextDisplayer.accept(name + ", " + parameterTypes);
+														return new UnimplementedMethod() {
+															@Override
+															public Variable variable(String name, int index) {
+																nextDisplayer.accept(name + ", " + index);
+																return new UnimplementedVariable() {
+																	@Override
+																	public void rename(String newName) {
+																		nextDisplayer.accept(name);
+																	}
+																};
+															}
+														};
+													}
+												};
+											}
+										};
+									}
+								};
+							}
+						};
 					}
 				};
 			}
@@ -691,5 +683,220 @@ class RefactorerTest {
 		// 2 - the lambda calling this method
 		// 3 - the method we are interested in
 		return Thread.currentThread().getStackTrace()[3].getMethodName();
+	}
+
+	private static String reduce(String code) {
+		return code.length() < 100 ? code : code.substring(0, 100) + "[...]";
+	}
+
+	private static class UnimplementedSource implements Code.Source {
+		@Override
+		public List<Code> subCodes() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public PackageDeclaration createPackageDeclaration() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public ImportDeclaration createImportDeclaration() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public ClassDeclaration createClassDeclaration(int codeIndex) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public ClassDeclaration getClassDeclaration(String name) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public RecordDeclaration createRecordDeclaration(int codeIndex) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public RecordDeclaration getRecordDeclaration(String name) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Package defaultPackage() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedClass implements Y.Class {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Field> fields() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Method> methods() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Class> classes() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Interface> interfaces() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedInterface implements Y.Interface {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Method> methods() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Class> classes() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Interface> interfaces() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedMethod implements Y.Method {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public List<String> parameterTypes() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Variable> variables() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Class> classes() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Interface> interfaces() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedField implements Y.Field {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Method> methods() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedVariable implements Y.Variable {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Method> methods() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedPackage implements Y.Package {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Class> classes() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Interface> interfaces() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public Stream<Record> records() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedRecord implements Y.Record {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
 	}
 }

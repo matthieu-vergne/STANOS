@@ -7,17 +7,13 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import fr.vergne.stanos.core.refactorer.JavaParserUtils.SearchContext;
-
 class X {
 	private final Code code;
-	private final SearchContext ctx;
 	private final Scope.Context scopeCtx;
 
-	public X(Scope.Context scopeCtx, Code code, SearchContext ctx) {
+	public X(Scope.Context scopeCtx, Code code) {
 		this.scopeCtx = scopeCtx;
 		this.code = code;
-		this.ctx = ctx;
 	}
 
 	public Scope.Context scopeCtx() {
@@ -26,10 +22,6 @@ class X {
 
 	public Code code() {
 		return code;
-	}
-
-	public SearchContext ctx() {
-		return ctx;
 	}
 
 	public <C1 extends Code, C2 extends Code> X derive(Function<C1, C2> f) {
@@ -46,7 +38,7 @@ class X {
 		System.out.print(codeClassOf(sourceCode) + " → ");
 		C2 derivedCode = f.apply(sourceCode);
 		System.out.println(codeClassOf(derivedCode));
-		return new X(scopeCtx, derivedCode, ctx);
+		return new X(scopeCtx, derivedCode);
 	}
 
 	public void underive() {

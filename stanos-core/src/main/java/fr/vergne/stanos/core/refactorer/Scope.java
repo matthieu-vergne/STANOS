@@ -24,6 +24,10 @@ public interface Scope {
 
 	Stream<Y.Variable> accessibleVariables();
 
+	Scope createField(Y.Field field, Consumer<Y.Method> methodFeeder);
+
+	Stream<Y.Field> accessibleFields();
+
 	Scope createMethod(Y.Method method, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder);
 
 	Stream<Y.Method> accessibleMethods();
@@ -34,7 +38,7 @@ public interface Scope {
 
 	Stream<Y.Record> createdRecords();
 
-	Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder);
+	Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldFeeder);
 
 	Stream<Y.Class> accessibleClasses();
 
@@ -51,6 +55,7 @@ public interface Scope {
 		private final Optional<Scope> parent;
 		private final List<Scope> subscopes = new LinkedList<>();
 		private final Consumer<Y.Variable> variableFeeder;
+		private final Consumer<Y.Field> fieldFeeder;
 		private final Consumer<Y.Method> methodFeeder;
 		private final Consumer<Y.Class> classFeeder;
 		private final Consumer<Y.Record> recordFeeder;
@@ -63,15 +68,27 @@ public interface Scope {
 			this.classFeeder = classFeeder;
 			this.interfaceFeeder = interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
+			this.fieldFeeder = ((Base) parent).fieldFeeder;
 		}
 
-		public Base(Consumer<Y.Method> methodFeeder, Scope parent, Consumer<Class> classFeeder, Consumer<Interface> interfaceFeeder) {
+		public Base(Consumer<Y.Method> methodFeeder, Scope parent, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
 			this.parent = Optional.of(requireNonNull(parent));
 			this.variableFeeder = ((Base) parent).variableFeeder;
 			this.methodFeeder = methodFeeder;
 			this.classFeeder = classFeeder;
 			this.interfaceFeeder = interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
+			this.fieldFeeder = ((Base) parent).fieldFeeder;
+		}
+
+		public Base(Consumer<Y.Method> methodFeeder, Scope parent, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldFeeder) {
+			this.parent = Optional.of(requireNonNull(parent));
+			this.variableFeeder = ((Base) parent).variableFeeder;
+			this.methodFeeder = methodFeeder;
+			this.classFeeder = classFeeder;
+			this.interfaceFeeder = interfaceFeeder;
+			this.recordFeeder = ((Base) parent).recordFeeder;
+			this.fieldFeeder = fieldFeeder;
 		}
 
 		public Base(Scope parent, Consumer<Y.Method> methodFeeder) {
@@ -81,6 +98,7 @@ public interface Scope {
 			this.classFeeder = ((Base) parent).classFeeder;
 			this.interfaceFeeder = ((Base) parent).interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
+			this.fieldFeeder = ((Base) parent).fieldFeeder;
 		}
 
 		public Base(Scope parent) {
@@ -90,11 +108,15 @@ public interface Scope {
 			this.classFeeder = ((Base) parent).classFeeder;
 			this.interfaceFeeder = ((Base) parent).interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
+			this.fieldFeeder = ((Base) parent).fieldFeeder;
 		}
 
 		public Base(Consumer<Y.Class> defaultPackageClassFeeder, Consumer<Y.Interface> defaultPackageInterfaceFeeder, Consumer<Y.Record> defaultPackageRecordFeeder) {
 			this.parent = Optional.empty();
 			this.variableFeeder = variable -> {
+				throw new UnsupportedOperationException("Root node cannot have variable");
+			};
+			this.fieldFeeder = field -> {
 				throw new UnsupportedOperationException("Root node cannot have variable");
 			};
 			this.methodFeeder = method -> {
@@ -128,6 +150,19 @@ public interface Scope {
 		@Override
 		public Stream<Y.Variable> accessibleVariables() {
 			return parent.map(Scope::accessibleVariables).orElse(Stream.empty());
+		}
+
+		@Override
+		public Scope createField(Y.Field field, Consumer<Y.Method> methodFeeder) {
+			Scope subscope = new Scope.WithField(this, field, methodFeeder);
+			this.subscopes.add(subscope);
+			this.fieldFeeder.accept(field);
+			return subscope;
+		}
+
+		@Override
+		public Stream<Y.Field> accessibleFields() {
+			return parent.map(Scope::accessibleFields).orElse(Stream.empty());
 		}
 
 		@Override
@@ -168,8 +203,8 @@ public interface Scope {
 		}
 
 		@Override
-		public Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
-			Scope subscope = new Scope.WithClass(this, clazz, methodFeeder, classFeeder, interfaceFeeder);
+		public Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldFeeder) {
+			Scope subscope = new Scope.WithClass(this, clazz, methodFeeder, classFeeder, interfaceFeeder, fieldFeeder);
 			this.subscopes.add(subscope);
 			this.classFeeder.accept(clazz);
 			return subscope;
@@ -237,6 +272,21 @@ public interface Scope {
 		}
 	}
 
+	class WithField extends Base {
+
+		private final Y.Field field;
+
+		public WithField(Scope parent, Y.Field field, Consumer<Method> methodFeeder) {
+			super(parent, methodFeeder);
+			this.field = requireNonNull(field);
+		}
+
+		@Override
+		public Stream<Y.Field> accessibleFields() {
+			return Stream.concat(Stream.of(field), super.accessibleFields());
+		}
+	}
+
 	class WithMethod extends Base {
 
 		private final Y.Method method;
@@ -276,8 +326,8 @@ public interface Scope {
 
 		private final Y.Class clazz;
 
-		public WithClass(Scope parent, Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Class> classFeeder, Consumer<Interface> interfaceFeeder) {
-			super(methodFeeder, parent, classFeeder, interfaceFeeder);
+		public WithClass(Scope parent, Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldsFeeder) {
+			super(methodFeeder, parent, classFeeder, interfaceFeeder, fieldsFeeder);
 			this.clazz = requireNonNull(clazz);
 		}
 

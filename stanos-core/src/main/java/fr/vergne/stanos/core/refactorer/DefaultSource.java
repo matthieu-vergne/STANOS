@@ -164,6 +164,23 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
+		public FieldDeclaration createFieldDeclaration() {
+			FieldDeclaration subcode = fieldDeclarationFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+//		@Override
+//		public Code.FieldDeclaration getFieldDeclaration(String name) {
+//			for (Code subcode : subcodes) {
+//				if (subcode instanceof Code.FieldDeclaration decl && decl.name().equals(name)) {
+//					return decl;
+//				}
+//			}
+//			throw new NoSuchElementException("No class declaration: " + name);
+//		}
+
+		@Override
 		public ClassDeclaration createClassDeclaration(int codeIndex) {
 			ClassDeclaration subcode = classFactory.apply(codeIndex);
 			subcodes.add(subcode);
@@ -1005,6 +1022,31 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
+	Supplier<Code.FieldDeclaration> fieldDeclarationFactory = () -> new Code.FieldDeclaration() {
+		List<Code> subcodes = new LinkedList<>();
+
+		@Override
+		public List<Code> subCodes() {
+			return subcodes;
+		}
+
+		@Override
+		public String toString() {
+			return stringOf(this);
+		}
+
+		@Override
+		public FieldDeclarator createFieldDeclarator(int codeIndex) {
+			FieldDeclarator subcode = fieldDeclaratorFactory.apply(codeIndex);
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public FieldDeclarator declarator() {
+			return (FieldDeclarator) subcodes.get(0);
+		}
+	};
 	Supplier<Code.VariableDeclaration> variableDeclarationFactory = () -> new Code.VariableDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
@@ -1088,6 +1130,119 @@ class DefaultSource implements Code.Source {
 		@Override
 		public String toString() {
 			return stringOf(this, type(), name(), typeStringOf(value()));
+		}
+
+		@Override
+		public FieldDeclaration createFieldDeclaration() {
+			FieldDeclaration subcode = fieldDeclarationFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public ObjectCreation createObjectCreation() {
+			ObjectCreation subcode = objectCreationFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public StringLiteral createStringLiteral(String value) {
+			StringLiteral subcode = stringLiteralFactory.apply(value);
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public SimpleName createSimpleName(String identifier) {
+			SimpleName subcode = simpleNameFactory.apply(identifier);
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public Type createType() {
+			Type subcode = typeFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public NullLiteral createNullLiteral() {
+			NullLiteral subcode = nullLiteralFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public NameExpr createNameExpr() {
+			NameExpr subcode = nameExpFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public LambdaExpr createLambdaExpr() {
+			LambdaExpr subcode = lambdaExprFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
+
+		@Override
+		public String name() {
+			for (Code subcode : subcodes) {
+				if (subcode instanceof SimpleName name) {
+					return name.identifier();
+				}
+			}
+			throw new IllegalStateException("No name");
+		}
+
+		@Override
+		public String type() {
+			for (Code subcode : subcodes) {
+				if (subcode instanceof Type type) {
+					return type.name();
+				}
+			}
+			throw new IllegalStateException("No type");
+		}
+
+		@Override
+		public Code value() {
+			for (Code subcode : subcodes) {
+				if (subcode instanceof SimpleName || subcode instanceof Type) {
+					continue;
+				} else {
+					return subcode;
+				}
+			}
+			throw new IllegalStateException("No value");
+		}
+
+		@Override
+		public int codeIndex() {
+			return codeIndex;
+		}
+	};
+	Function<Integer, Code.FieldDeclarator> fieldDeclaratorFactory = (codeIndex) -> new Code.FieldDeclarator() {
+		List<Code> subcodes = new LinkedList<>();
+
+		@Override
+		public List<Code> subCodes() {
+			return subcodes;
+		}
+
+		@Override
+		public String toString() {
+			return stringOf(this, type(), name(), typeStringOf(value()));
+		}
+
+		@Override
+		public FieldDeclaration createFieldDeclaration() {
+			FieldDeclaration subcode = fieldDeclarationFactory.get();
+			subcodes.add(subcode);
+			return subcode;
 		}
 
 		@Override
