@@ -19,6 +19,7 @@ import fr.vergne.stanos.core.refactorer.Y.Field;
 import fr.vergne.stanos.core.refactorer.Y.Interface;
 import fr.vergne.stanos.core.refactorer.Y.Method;
 import fr.vergne.stanos.core.refactorer.Y.Package;
+import fr.vergne.stanos.core.refactorer.Y.Parameter;
 import fr.vergne.stanos.core.refactorer.Y.Record;
 import fr.vergne.stanos.core.refactorer.Y.Variable;
 
@@ -55,8 +56,187 @@ class RefactorerTest {
 				testCodeRefactoringSuccess_Record(), //
 				testCodeRefactoringSuccess_Field(), //
 				testCodeRefactoringSuccess_Method(), //
+				testCodeRefactoringSuccess_Parameter(), //
 				testCodeRefactoringSuccess_Variable()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Parameter() {
+		return Stream.of(//
+				new SuccessCase(//
+						"class MyClass{void myMethod(String myParam){myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						"class MyClass{void myMethod(String foo){foo = null;}}"//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass{
+									class myParam {}
+									void myMethod(myParam myParam){
+										myParam = new myParam();
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						"""
+								class MyClass{
+									class myParam {}
+									void myMethod(myParam foo){
+										foo = new myParam();
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									class MyChildClass {
+										void myMethod() {
+											class MyInnerClass {
+												void myMethod(String myParam) {
+													myParam = null;
+												}
+											}
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").clazz("MyChildClass").method("myMethod", emptyList()).clazz("MyInnerClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						"""
+								class MyClass {
+									class MyChildClass {
+										void myMethod() {
+											class MyInnerClass {
+												void myMethod(String foo) {
+													foo = null;
+												}
+											}
+										}
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod(String myParam) {
+										class MyInnerClass {
+											String myMethod() {
+												return myParam;
+											}
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						"""
+								class MyClass {
+									void myMethod(String foo) {
+										class MyInnerClass {
+											String myMethod() {
+												return foo;
+											}
+										}
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									boolean myMethod(boolean myParam) {
+										return myParam;
+									}
+									String myMethod(String myParam) {
+										return myParam;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).parameter("myParam").rename("foo"), //
+						"""
+								class MyClass {
+									boolean myMethod(boolean foo) {
+										return foo;
+									}
+									String myMethod(String myParam) {
+										return myParam;
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									interface MyInt {
+										String myMethod();
+									}
+									MyInt myMethod(MyInt myParam) {
+										myParam = new MyInt() {
+											@Override
+											public String myMethod(String myParam) {
+												return myParam;
+											}
+										};
+										return myParam;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("MyInt")).parameter("myParam").rename("foo"), //
+						"""
+								class MyClass {
+									interface MyInt {
+										String myMethod();
+									}
+									MyInt myMethod(MyInt foo) {
+										foo = new MyInt() {
+											@Override
+											public String myMethod(String myParam) {
+												return myParam;
+											}
+										};
+										return foo;
+									}
+								}
+								"""//
+				// TODO Test anonymous class
+//				), //
+//				new SuccessCase(//
+//						"""
+//								class MyClass {
+//									interface MyInt {
+//										String myMethod();
+//									}
+//									MyInt myMethod(MyInt myParam) {
+//										myParam = new MyInt() {
+//											@Override
+//											public String myMethod(String myParam) {
+//												return myParam;
+//											}
+//										};
+//										return myParam;
+//									}
+//								}
+//								""", //
+//						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("MyInt")).anonymousClass("MyInt", 0).method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+//						"""
+//								class MyClass {
+//									interface MyInt {
+//										String myMethod();
+//									}
+//									MyInt myMethod(MyInt myParam) {
+//										myParam = new MyInt() {
+//											@Override
+//											public String myMethod(String foo) {
+//												return foo;
+//											}
+//										};
+//										return myParam;
+//									}
+//								}
+//								"""//
+				)//
+					// TODO Test lambda parameter
+		);
 	}
 
 	private static Stream<SuccessCase> testCodeRefactoringSuccess_Variable() {
@@ -453,8 +633,35 @@ class RefactorerTest {
 				testCodeRefactoringFailure_Record(), //
 				testCodeRefactoringFailure_Field(), //
 				testCodeRefactoringFailure_Method(), //
+				testCodeRefactoringFailure_Parameter(), //
 				testCodeRefactoringFailure_Variable()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Parameter() {
+		return Stream.of(//
+				new FailureCase(//
+						"interface MyInt{void myMethod();}", //
+						source -> source.defaultPackage().interf("MyInt").method("myMethod", emptyList()).parameter("x"), //
+						new NoSuchElementException("No parameter x")//
+				), //
+				new FailureCase(//
+						"interface MyInt{void myMethod(boolean myParam);}", //
+						source -> source.defaultPackage().interf("MyInt").method("myMethod", List.of("boolean")).parameter("x"), //
+						new NoSuchElementException("No parameter x")//
+				), //
+				new FailureCase(//
+						"class MyClass{void myMethod(){boolean myVar = true;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).parameter("x"), //
+						new NoSuchElementException("No parameter x")//
+				), //
+				new FailureCase(//
+						"class MyClass{void myMethod(boolean myParam){myParam = true;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).parameter("x"), //
+						new NoSuchElementException("No parameter x")//
+				)//
+					// TODO Lambda parameter
+		);
 	}
 
 	private static Stream<FailureCase> testCodeRefactoringFailure_Variable() {
@@ -581,6 +788,23 @@ class RefactorerTest {
 							public void rename(String newName) {
 								nextDisplayer.accept(newName);
 							}
+
+							@Override
+							public Method method(String name, List<String> parameterTypes) {
+								nextDisplayer.accept(name + ", " + parameterTypes);
+								return new UnimplementedMethod() {
+									@Override
+									public Y.Parameter parameter(String name) {
+										nextDisplayer.accept(name);
+										return new UnimplementedParameter() {
+											@Override
+											public void rename(String newName) {
+												nextDisplayer.accept(newName);
+											}
+										};
+									};
+								};
+							};
 						};
 					};
 
@@ -616,6 +840,17 @@ class RefactorerTest {
 									}
 
 									@Override
+									public Y.Parameter parameter(String name) {
+										nextDisplayer.accept(name);
+										return new UnimplementedParameter() {
+											@Override
+											public void rename(String newName) {
+												nextDisplayer.accept(newName);
+											}
+										};
+									};
+
+									@Override
 									public Variable variable(String name, int index) {
 										nextDisplayer.accept(name + ", " + index);
 										return new UnimplementedVariable() {
@@ -649,6 +884,17 @@ class RefactorerTest {
 													public Method method(String name, List<String> parameterTypes) {
 														nextDisplayer.accept(name + ", " + parameterTypes);
 														return new UnimplementedMethod() {
+															@Override
+															public Y.Parameter parameter(String name) {
+																nextDisplayer.accept(name);
+																return new UnimplementedParameter() {
+																	@Override
+																	public void rename(String newName) {
+																		nextDisplayer.accept(newName);
+																	}
+																};
+															};
+
 															@Override
 															public Variable variable(String name, int index) {
 																nextDisplayer.accept(name + ", " + index);
@@ -706,7 +952,7 @@ class RefactorerTest {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration(int codeIndex) {
+		public ClassDeclaration createClassDeclaration() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
 
@@ -716,12 +962,12 @@ class RefactorerTest {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
+		public InterfaceDeclaration createInterfaceDeclaration() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
 
 		@Override
-		public RecordDeclaration createRecordDeclaration(int codeIndex) {
+		public RecordDeclaration createRecordDeclaration() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
 
@@ -825,6 +1071,11 @@ class RefactorerTest {
 		public Stream<Interface> interfaces() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
+
+		@Override
+		public Stream<Parameter> parameters() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
 	}
 
 	private static class UnimplementedField implements Y.Field {
@@ -857,6 +1108,18 @@ class RefactorerTest {
 
 		@Override
 		public Stream<Method> methods() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+	}
+
+	private static class UnimplementedParameter implements Y.Parameter {
+		@Override
+		public String name() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void rename(String newName) {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
 	}

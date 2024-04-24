@@ -1,9 +1,7 @@
 package fr.vergne.stanos.core.refactorer;
 
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +11,7 @@ import java.util.stream.Stream;
 import fr.vergne.stanos.core.refactorer.Y.Class;
 import fr.vergne.stanos.core.refactorer.Y.Interface;
 import fr.vergne.stanos.core.refactorer.Y.Method;
+import fr.vergne.stanos.core.refactorer.Y.Parameter;
 import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 public interface Scope {
@@ -28,27 +27,25 @@ public interface Scope {
 
 	Stream<Y.Field> accessibleFields();
 
-	Scope createMethod(Y.Method method, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder);
+	Scope createMethod(Y.Method method, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Parameter> parameterFeeder);
 
 	Stream<Y.Method> accessibleMethods();
+
+	Scope createParameter(Parameter parameter);
+
+	Stream<Y.Parameter> accessibleParameters();
 
 	Scope createRecord(Y.Record clazz/* , Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder */);
 
 	Stream<Y.Record> accessibleRecords();
 
-	Stream<Y.Record> createdRecords();
-
 	Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldFeeder);
 
 	Stream<Y.Class> accessibleClasses();
 
-	Stream<Y.Class> createdClasses();
-
 	Scope createInterface(Y.Interface interf, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder);
 
 	Stream<Y.Interface> accessibleInterfaces();
-
-	Stream<Y.Interface> createdInterfaces();
 
 	class Base implements Scope {
 
@@ -60,8 +57,9 @@ public interface Scope {
 		private final Consumer<Y.Class> classFeeder;
 		private final Consumer<Y.Record> recordFeeder;
 		private final Consumer<Y.Interface> interfaceFeeder;
+		private final Consumer<Y.Parameter> parameterFeeder;
 
-		public Base(Scope parent, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
+		public Base(Scope parent, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Parameter> parameterFeeder) {
 			this.parent = Optional.of(requireNonNull(parent));
 			this.variableFeeder = variableFeeder;
 			this.methodFeeder = ((Base) parent).methodFeeder;
@@ -69,6 +67,7 @@ public interface Scope {
 			this.interfaceFeeder = interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
 			this.fieldFeeder = ((Base) parent).fieldFeeder;
+			this.parameterFeeder = parameterFeeder;
 		}
 
 		public Base(Consumer<Y.Method> methodFeeder, Scope parent, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
@@ -79,6 +78,7 @@ public interface Scope {
 			this.interfaceFeeder = interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
 			this.fieldFeeder = ((Base) parent).fieldFeeder;
+			this.parameterFeeder = ((Base) parent).parameterFeeder;
 		}
 
 		public Base(Consumer<Y.Method> methodFeeder, Scope parent, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldFeeder) {
@@ -89,6 +89,7 @@ public interface Scope {
 			this.interfaceFeeder = interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
 			this.fieldFeeder = fieldFeeder;
+			this.parameterFeeder = ((Base) parent).parameterFeeder;
 		}
 
 		public Base(Scope parent, Consumer<Y.Method> methodFeeder) {
@@ -99,6 +100,7 @@ public interface Scope {
 			this.interfaceFeeder = ((Base) parent).interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
 			this.fieldFeeder = ((Base) parent).fieldFeeder;
+			this.parameterFeeder = ((Base) parent).parameterFeeder;
 		}
 
 		public Base(Scope parent) {
@@ -109,6 +111,7 @@ public interface Scope {
 			this.interfaceFeeder = ((Base) parent).interfaceFeeder;
 			this.recordFeeder = ((Base) parent).recordFeeder;
 			this.fieldFeeder = ((Base) parent).fieldFeeder;
+			this.parameterFeeder = ((Base) parent).parameterFeeder;
 		}
 
 		public Base(Consumer<Y.Class> defaultPackageClassFeeder, Consumer<Y.Interface> defaultPackageInterfaceFeeder, Consumer<Y.Record> defaultPackageRecordFeeder) {
@@ -116,11 +119,14 @@ public interface Scope {
 			this.variableFeeder = variable -> {
 				throw new UnsupportedOperationException("Root node cannot have variable");
 			};
+			this.parameterFeeder = parameter -> {
+				throw new UnsupportedOperationException("Root node cannot have parameter");
+			};
 			this.fieldFeeder = field -> {
-				throw new UnsupportedOperationException("Root node cannot have variable");
+				throw new UnsupportedOperationException("Root node cannot have field");
 			};
 			this.methodFeeder = method -> {
-				throw new UnsupportedOperationException("Root node cannot have methods");
+				throw new UnsupportedOperationException("Root node cannot have method");
 			};
 			this.classFeeder = defaultPackageClassFeeder;
 			this.interfaceFeeder = defaultPackageInterfaceFeeder;
@@ -151,6 +157,19 @@ public interface Scope {
 		public Stream<Y.Variable> accessibleVariables() {
 			return parent.map(Scope::accessibleVariables).orElse(Stream.empty());
 		}
+		
+		@Override
+		public Scope createParameter(Y.Parameter parameter) {
+			Scope subscope = new Scope.WithParameter(this, parameter);
+			this.subscopes.add(subscope);
+			this.parameterFeeder.accept(parameter);
+			return subscope;
+		}
+
+		@Override
+		public Stream<Y.Parameter> accessibleParameters() {
+			return parent.map(Scope::accessibleParameters).orElse(Stream.empty());
+		}
 
 		@Override
 		public Scope createField(Y.Field field, Consumer<Y.Method> methodFeeder) {
@@ -166,8 +185,8 @@ public interface Scope {
 		}
 
 		@Override
-		public Scope createMethod(Y.Method method, Consumer<Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
-			Scope subscope = new Scope.WithMethod(this, method, variableFeeder, classFeeder, interfaceFeeder);
+		public Scope createMethod(Y.Method method, Consumer<Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Parameter> parameterFeeder) {
+			Scope subscope = new Scope.WithMethod(this, method, variableFeeder, classFeeder, interfaceFeeder, parameterFeeder);
 			this.subscopes.add(subscope);
 			this.methodFeeder.accept(method);
 			return subscope;
@@ -192,17 +211,6 @@ public interface Scope {
 		}
 
 		@Override
-		public Stream<Y.Record> createdRecords() {
-			// FIXME Remove dependency to Visitor Method
-			Comparator<Visitor.Record> recordComparator = comparing(Visitor.Record::declaration, comparing(Code.RecordDeclaration::codeIndex));
-			return subscopes.stream()
-
-					.peek(x -> System.out.println(":: " + x))
-
-					.flatMap(Scope::createdRecords).map(v -> (Visitor.Record) v).sorted(recordComparator).map(v -> (Y.Record) v);
-		}
-
-		@Override
 		public Scope createClass(Y.Class clazz, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Field> fieldFeeder) {
 			Scope subscope = new Scope.WithClass(this, clazz, methodFeeder, classFeeder, interfaceFeeder, fieldFeeder);
 			this.subscopes.add(subscope);
@@ -216,17 +224,6 @@ public interface Scope {
 		}
 
 		@Override
-		public Stream<Y.Class> createdClasses() {
-			// FIXME Remove dependency to Visitor Method
-			Comparator<fr.vergne.stanos.core.refactorer.Visitor.Class> classComparator = comparing(Visitor.Class::declaration, comparing(Code.ClassDeclaration::codeIndex));
-			return subscopes.stream()
-
-					.peek(x -> System.out.println(":: " + x))
-
-					.flatMap(Scope::createdClasses).map(v -> (Visitor.Class) v).sorted(classComparator).map(v -> (Y.Class) v);
-		}
-
-		@Override
 		public Scope createInterface(Y.Interface interf, Consumer<Y.Method> methodFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder) {
 			Scope subscope = new Scope.WithInterface(this, interf, methodFeeder, classFeeder, interfaceFeeder);
 			this.subscopes.add(subscope);
@@ -237,17 +234,6 @@ public interface Scope {
 		@Override
 		public Stream<Y.Interface> accessibleInterfaces() {
 			return parent.map(Scope::accessibleInterfaces).orElse(Stream.empty());
-		}
-
-		@Override
-		public Stream<Y.Interface> createdInterfaces() {
-			// FIXME Remove dependency to Visitor Method
-			Comparator<fr.vergne.stanos.core.refactorer.Visitor.Interface> interfaceComparator = comparing(Visitor.Interface::declaration, comparing(Code.InterfaceDeclaration::codeIndex));
-			return subscopes.stream()
-
-					.peek(x -> System.out.println(":: " + x))
-
-					.flatMap(Scope::createdInterfaces).map(v -> (Visitor.Interface) v).sorted(interfaceComparator).map(v -> (Y.Interface) v);
 		}
 	}
 
@@ -271,6 +257,21 @@ public interface Scope {
 			return Stream.concat(Stream.of(variable), super.accessibleVariables());
 		}
 	}
+	
+	class WithParameter extends Base {
+
+		private final Parameter parameter;
+
+		public WithParameter(Scope parent, Y.Parameter parameter) {
+			super(parent);
+			this.parameter = requireNonNull(parameter);
+		}
+
+		@Override
+		public Stream<Y.Parameter> accessibleParameters() {
+			return Stream.concat(Stream.of(parameter), super.accessibleParameters());
+		}
+	}
 
 	class WithField extends Base {
 
@@ -291,8 +292,8 @@ public interface Scope {
 
 		private final Y.Method method;
 
-		public WithMethod(Scope parent, Y.Method method, Consumer<Variable> variableFeeder, Consumer<Class> classFeeder, Consumer<Interface> interfaceFeeder) {
-			super(parent, variableFeeder, classFeeder, interfaceFeeder);
+		public WithMethod(Scope parent, Y.Method method, Consumer<Y.Variable> variableFeeder, Consumer<Y.Class> classFeeder, Consumer<Y.Interface> interfaceFeeder, Consumer<Y.Parameter> parameterFeeder) {
+			super(parent, variableFeeder, classFeeder, interfaceFeeder, parameterFeeder);
 			this.method = requireNonNull(method);
 		}
 
@@ -315,11 +316,6 @@ public interface Scope {
 		public Stream<Y.Record> accessibleRecords() {
 			return Stream.concat(Stream.of(record), super.accessibleRecords());
 		}
-
-		@Override
-		public Stream<Y.Record> createdRecords() {
-			return Stream.concat(Stream.of(record), super.createdRecords());
-		}
 	}
 
 	class WithClass extends Base {
@@ -335,11 +331,6 @@ public interface Scope {
 		public Stream<Y.Class> accessibleClasses() {
 			return Stream.concat(Stream.of(clazz), super.accessibleClasses());
 		}
-
-		@Override
-		public Stream<Y.Class> createdClasses() {
-			return Stream.concat(Stream.of(clazz), super.createdClasses());
-		}
 	}
 
 	class WithInterface extends Base {
@@ -354,11 +345,6 @@ public interface Scope {
 		@Override
 		public Stream<Y.Interface> accessibleInterfaces() {
 			return Stream.concat(Stream.of(Interf), super.accessibleInterfaces());
-		}
-
-		@Override
-		public Stream<Y.Interface> createdInterfaces() {
-			return Stream.concat(Stream.of(Interf), super.createdInterfaces());
 		}
 	}
 

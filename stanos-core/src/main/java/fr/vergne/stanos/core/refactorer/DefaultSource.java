@@ -28,8 +28,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration(int codeIndex) {
-			ClassDeclaration subcode = classFactory.apply(codeIndex);
+		public ClassDeclaration createClassDeclaration() {
+			ClassDeclaration subcode = classFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -45,8 +45,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
-			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
+		public InterfaceDeclaration createInterfaceDeclaration() {
+			InterfaceDeclaration subcode = interfaceFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -71,7 +71,7 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
-	Function<Integer, Code.RecordDeclaration> recordFactory = (codeIndex) -> new Code.RecordDeclaration() {
+	Supplier<Code.RecordDeclaration> recordFactory = () -> new Code.RecordDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -143,14 +143,9 @@ class DefaultSource implements Code.Source {
 			}
 			throw new IllegalStateException("No name");
 		}
-
-		@Override
-		public int codeIndex() {
-			return codeIndex;
-		}
 	};
 
-	Function<Integer, Code.ClassDeclaration> classFactory = (codeIndex) -> new Code.ClassDeclaration() {
+	Supplier<Code.ClassDeclaration> classFactory = () -> new Code.ClassDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -181,8 +176,8 @@ class DefaultSource implements Code.Source {
 //		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration(int codeIndex) {
-			ClassDeclaration subcode = classFactory.apply(codeIndex);
+		public ClassDeclaration createClassDeclaration() {
+			ClassDeclaration subcode = classFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -198,15 +193,15 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
-			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
+		public InterfaceDeclaration createInterfaceDeclaration() {
+			InterfaceDeclaration subcode = interfaceFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
 
 		@Override
-		public MethodDeclaration createMethodDeclaration(int codeIndex) {
-			MethodDeclaration subcode = methodFactory.apply(codeIndex);
+		public MethodDeclaration createMethodDeclaration() {
+			MethodDeclaration subcode = methodFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -239,13 +234,8 @@ class DefaultSource implements Code.Source {
 			}
 			throw new IllegalStateException("No name");
 		}
-
-		@Override
-		public int codeIndex() {
-			return codeIndex;
-		}
 	};
-	Function<Integer, Code.InterfaceDeclaration> interfaceFactory = (codeIndex) -> new Code.InterfaceDeclaration() {
+	Supplier<Code.InterfaceDeclaration> interfaceFactory = () -> new Code.InterfaceDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -259,8 +249,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration(int codeIndex) {
-			ClassDeclaration subcode = classFactory.apply(codeIndex);
+		public ClassDeclaration createClassDeclaration() {
+			ClassDeclaration subcode = classFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -276,15 +266,15 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
-			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
+		public InterfaceDeclaration createInterfaceDeclaration() {
+			InterfaceDeclaration subcode = interfaceFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
 
 		@Override
-		public MethodDeclaration createMethodDeclaration(int codeIndex) {
-			MethodDeclaration subcode = methodFactory.apply(codeIndex);
+		public MethodDeclaration createMethodDeclaration() {
+			MethodDeclaration subcode = methodFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -316,11 +306,6 @@ class DefaultSource implements Code.Source {
 				}
 			}
 			throw new IllegalStateException("No name");
-		}
-
-		@Override
-		public int codeIndex() {
-			return codeIndex;
 		}
 	};
 	Function<Code.ModifierContainer.Keyword, Code.Modifier> modifierFactory = (keyword) -> new Code.Modifier() {
@@ -468,7 +453,7 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
-	Function<Integer, Code.MethodDeclaration> methodFactory = (codeIndex) -> new Code.MethodDeclaration() {
+	Supplier<Code.MethodDeclaration> methodFactory = () -> new Code.MethodDeclaration() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -482,8 +467,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration(int codeIndex) {
-			ClassDeclaration subcode = classFactory.apply(codeIndex);
+		public ClassDeclaration createClassDeclaration() {
+			ClassDeclaration subcode = classFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -586,11 +571,6 @@ class DefaultSource implements Code.Source {
 			return subcodes.stream()//
 					.filter(subcode -> subcode instanceof Block)//
 					.flatMap(subcode -> ((Block) subcode).variables());
-		}
-
-		@Override
-		public int codeIndex() {
-			return codeIndex;
 		}
 	};
 	Function<String, Code.SimpleName> simpleNameFactory = (identifier) -> new Code.SimpleName() {
@@ -729,8 +709,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public ClassDeclaration createClassDeclaration(int codeIndex) {
-			ClassDeclaration subcode = classFactory.apply(codeIndex);
+		public ClassDeclaration createClassDeclaration() {
+			ClassDeclaration subcode = classFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -746,8 +726,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
-			InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
+		public InterfaceDeclaration createInterfaceDeclaration() {
+			InterfaceDeclaration subcode = interfaceFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -972,6 +952,13 @@ class DefaultSource implements Code.Source {
 			subcodes.add(subcode);
 			return subcode;
 		}
+
+		@Override
+		public NullLiteral createNullLiteral() {
+			NullLiteral subcode = nullLiteralFactory.get();
+			subcodes.add(subcode);
+			return subcode;
+		}
 	};
 	Supplier<Code.Expression> expressionFactory = () -> new Code.Expression() {
 		List<Code> subcodes = new LinkedList<>();
@@ -1036,8 +1023,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public FieldDeclarator createFieldDeclarator(int codeIndex) {
-			FieldDeclarator subcode = fieldDeclaratorFactory.apply(codeIndex);
+		public FieldDeclarator createFieldDeclarator() {
+			FieldDeclarator subcode = fieldDeclaratorFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -1061,8 +1048,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public VariableDeclarator createVariableDeclarator(int codeIndex) {
-			VariableDeclarator subcode = variableDeclaratorFactory.apply(codeIndex);
+		public VariableDeclarator createVariableDeclarator() {
+			VariableDeclarator subcode = variableDeclaratorFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -1119,7 +1106,7 @@ class DefaultSource implements Code.Source {
 			return subcode;
 		}
 	};
-	Function<Integer, Code.VariableDeclarator> variableDeclaratorFactory = (codeIndex) -> new Code.VariableDeclarator() {
+	Supplier<Code.VariableDeclarator> variableDeclaratorFactory = () -> new Code.VariableDeclarator() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -1218,14 +1205,9 @@ class DefaultSource implements Code.Source {
 				}
 			}
 			throw new IllegalStateException("No value");
-		}
-
-		@Override
-		public int codeIndex() {
-			return codeIndex;
 		}
 	};
-	Function<Integer, Code.FieldDeclarator> fieldDeclaratorFactory = (codeIndex) -> new Code.FieldDeclarator() {
+	Supplier<Code.FieldDeclarator> fieldDeclaratorFactory = () -> new Code.FieldDeclarator() {
 		List<Code> subcodes = new LinkedList<>();
 
 		@Override
@@ -1324,11 +1306,6 @@ class DefaultSource implements Code.Source {
 				}
 			}
 			throw new IllegalStateException("No value");
-		}
-
-		@Override
-		public int codeIndex() {
-			return codeIndex;
 		}
 	};
 	Supplier<Code.ObjectCreation> objectCreationFactory = () -> new Code.ObjectCreation() {
@@ -1345,8 +1322,8 @@ class DefaultSource implements Code.Source {
 		}
 
 		@Override
-		public MethodDeclaration createMethodDeclaration(int codeIndex) {
-			MethodDeclaration subcode = methodFactory.apply(codeIndex);
+		public MethodDeclaration createMethodDeclaration() {
+			MethodDeclaration subcode = methodFactory.get();
 			subcodes.add(subcode);
 			return subcode;
 		}
@@ -1406,8 +1383,8 @@ class DefaultSource implements Code.Source {
 	}
 
 	@Override
-	public RecordDeclaration createRecordDeclaration(int codeIndex) {
-		RecordDeclaration subcode = recordFactory.apply(codeIndex);
+	public RecordDeclaration createRecordDeclaration() {
+		RecordDeclaration subcode = recordFactory.get();
 		subcodes.add(subcode);
 		return subcode;
 	}
@@ -1423,8 +1400,8 @@ class DefaultSource implements Code.Source {
 	}
 
 	@Override
-	public ClassDeclaration createClassDeclaration(int codeIndex) {
-		ClassDeclaration subcode = classFactory.apply(codeIndex);
+	public ClassDeclaration createClassDeclaration() {
+		ClassDeclaration subcode = classFactory.get();
 		subcodes.add(subcode);
 		return subcode;
 	}
@@ -1440,8 +1417,8 @@ class DefaultSource implements Code.Source {
 	}
 
 	@Override
-	public InterfaceDeclaration createInterfaceDeclaration(int codeIndex) {
-		InterfaceDeclaration subcode = interfaceFactory.apply(codeIndex);
+	public InterfaceDeclaration createInterfaceDeclaration() {
+		InterfaceDeclaration subcode = interfaceFactory.get();
 		subcodes.add(subcode);
 		return subcode;
 	}

@@ -28,27 +28,23 @@ interface Code {
 	}
 
 	interface ClassDeclarationContainer extends Code {
-		ClassDeclaration createClassDeclaration(int codeIndex);
+		ClassDeclaration createClassDeclaration();
 
 		Code.ClassDeclaration getClassDeclaration(String name);
 	}
 
 	interface ClassDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer, FieldDeclarationContainer {
 		String name();
-
-		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface RecordDeclarationContainer extends Code {
-		RecordDeclaration createRecordDeclaration(int codeIndex);
+		RecordDeclaration createRecordDeclaration();
 
 		Code.RecordDeclaration getRecordDeclaration(String name);
 	}
 
 	interface RecordDeclaration extends Code, SimpleNameContainer {
 		String name();
-
-		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface LocalClassDeclarationContainer extends Code {
@@ -59,13 +55,11 @@ interface Code {
 	}
 
 	interface InterfaceDeclarationContainer extends Code {
-		InterfaceDeclaration createInterfaceDeclaration(int codeIndex);
+		InterfaceDeclaration createInterfaceDeclaration();
 	}
 
 	interface InterfaceDeclaration extends Code, ClassDeclarationContainer, InterfaceDeclarationContainer, MethodDeclarationContainer, SimpleNameContainer {
 		String name();
-
-		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface TypeContainer extends Code {
@@ -110,7 +104,7 @@ interface Code {
 	}
 
 	interface MethodDeclarationContainer extends Code {
-		MethodDeclaration createMethodDeclaration(int codeIndex);
+		MethodDeclaration createMethodDeclaration();
 
 		MethodDeclaration getMethodDeclaration(String name, String... parameterTypes);
 	}
@@ -121,8 +115,6 @@ interface Code {
 		String name();
 
 		Stream<Parameter> parameters();
-
-		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface MethodCallContainer extends Code {
@@ -168,7 +160,7 @@ interface Code {
 	}
 
 	interface VariableDeclaratorContainer extends Code {
-		VariableDeclarator createVariableDeclarator(int codeIndex);
+		VariableDeclarator createVariableDeclarator();
 	}
 
 	interface VariableDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer, FieldDeclarationContainer {
@@ -177,8 +169,16 @@ interface Code {
 		String name();
 
 		Code value();
+	}
 
-		int codeIndex();// TODO Generalize to Code
+	interface ParameterContainer extends Code {
+		Parameter createParameter();
+	}
+
+	interface Parameter extends Code, SimpleNameContainer, TypeContainer, PrimitiveTypeContainer {
+		String type();
+
+		String name();
 	}
 
 	interface FieldDeclarationContainer extends Code {
@@ -192,7 +192,7 @@ interface Code {
 	}
 
 	interface FieldDeclaratorContainer extends Code {
-		FieldDeclarator createFieldDeclarator(int codeIndex);
+		FieldDeclarator createFieldDeclarator();
 	}
 
 	interface FieldDeclarator extends Code, ObjectCreationContainer, StringLiteralContainer, SimpleNameContainer, TypeContainer, NullLiteralContainer, NameExprContainer, LambdaExprContainer, FieldDeclarationContainer {
@@ -201,8 +201,6 @@ interface Code {
 		String name();
 
 		Code value();
-
-		int codeIndex();// TODO Generalize to Code
 	}
 
 	interface StringLiteralContainer extends Code {
@@ -282,16 +280,6 @@ interface Code {
 	interface If extends Code, NameExprContainer, BlockContainer {
 	}
 
-	interface ParameterContainer extends Code {
-		Parameter createParameter();
-	}
-
-	interface Parameter extends Code, SimpleNameContainer, PrimitiveTypeContainer, TypeContainer {
-		String type();
-
-		String name();
-	}
-
 	interface MarkerAnnotationContainer extends Code {
 		MarkerAnnotation createMarkerAnnotation();
 	}
@@ -303,7 +291,7 @@ interface Code {
 		AssignExpr createAssignExpr();
 	}
 
-	interface AssignExpr extends Code, NameExprContainer, StringLiteralContainer, BinaryExprContainer, MethodCallContainer {
+	interface AssignExpr extends Code, NameExprContainer, StringLiteralContainer, NullLiteralContainer, BinaryExprContainer, MethodCallContainer {
 	}
 
 	interface LambdaExprContainer extends Code {

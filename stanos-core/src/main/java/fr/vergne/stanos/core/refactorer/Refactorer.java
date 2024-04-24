@@ -7,20 +7,21 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
-
-import fr.vergne.stanos.core.refactorer.Code.Source;
+import com.github.javaparser.ast.Node.TreeTraversal;
+import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
 
 public interface Refactorer {
 
 	static Refactorer.ForCode forCode(String code) {
+		// TODO Expose language version
+		CompilationUnit compilationUnit = parseWithJavaParser(code, LanguageLevel.JAVA_17);
+		Code.Source source = abstractFromJavaParser(compilationUnit);
 		return new Refactorer.ForCode() {
-			// TODO Expose language version
-			private final StringBuilder refactoringCode = new StringBuilder(code);
-			private final Code.Source source = parse(code, refactoringCode, LanguageLevel.JAVA_17);
 
 			@Override
 			public String code() {
-				return refactoringCode.toString();
+				LexicalPreservingPrinter.setup(compilationUnit);
+				return LexicalPreservingPrinter.print(compilationUnit);
 			}
 
 			@Override
@@ -30,7 +31,19 @@ public interface Refactorer {
 		};
 	}
 
-	private static Source parse(String code, StringBuilder refactoringCode, LanguageLevel languageLevel) {
+	static Code.Source abstractFromJavaParser(CompilationUnit compilationUnit) {
+		List<Y.Class> defaultPackageClasses = new LinkedList<>();
+		List<Y.Interface> defaultPackageInterfaces = new LinkedList<>();
+		List<Y.Record> defaultPackageRecords = new LinkedList<>();
+		Y.Package defaultPackage = DefaultSource.createDefaultPackage(defaultPackageClasses, defaultPackageInterfaces, defaultPackageRecords);
+		Code.Source source = new DefaultSource(defaultPackage);
+		Scope root = Scope.root(defaultPackageClasses::add, defaultPackageInterfaces::add, defaultPackageRecords::add);
+		X x = new X(new Scope.Context(root), source);
+		compilationUnit.accept(new Visitor(), x);
+		return source;
+	}
+
+	static CompilationUnit parseWithJavaParser(String code, LanguageLevel languageLevel) {
 		JavaParser parser = new JavaParser();
 		parser.getParserConfiguration().setLanguageLevel(languageLevel);
 		ParseResult<CompilationUnit> parseResult = parser.parse(code);
@@ -43,17 +56,18 @@ public interface Refactorer {
 			throw exception;
 		}
 		CompilationUnit compilationUnit = parseResult.getResult().orElseThrow();
-
-		List<Y.Class> defaultPackageClasses = new LinkedList<>();
-		List<Y.Interface> defaultPackageInterfaces = new LinkedList<>();
-		List<Y.Record> defaultPackageRecords = new LinkedList<>();
-		Y.Package defaultPackage = DefaultSource.createDefaultPackage(defaultPackageClasses, defaultPackageInterfaces, defaultPackageRecords);
-		Code.Source source = new DefaultSource(defaultPackage);
-		Scope root = Scope.root(defaultPackageClasses::add, defaultPackageInterfaces::add, defaultPackageRecords::add);
-		X x = new X(new Scope.Context(root), source);
-		compilationUnit.accept(new Visitor(code, refactoringCode), x);
-
-		return source;
+		System.out.println(":::::::::::::::");
+		compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN).forEach(node -> {
+			System.out.println(node.getClass().getSimpleName());
+			node.stream(TreeTraversal.DIRECT_CHILDREN).forEach(node2 -> {
+				System.out.println("  " + node2.getClass().getSimpleName());
+				node2.stream(TreeTraversal.DIRECT_CHILDREN).forEach(node3 -> {
+					System.out.println("    " + node3.getClass().getSimpleName());
+				});
+			});
+		});
+		System.out.println(":::::::::::::::");
+		return compilationUnit;
 	}
 
 	interface ForCode extends Refactorer {
@@ -81,6 +95,6 @@ public interface Refactorer {
 		void rename(String newName);
 	}
 
-	record CodeRange(int start, int end) {
+	record CodeRange(int start) {
 	}
 }

@@ -169,6 +169,16 @@ public interface Y {
 						throw new NoSuchElementException("No interface " + name);
 					});
 		}
+
+		Stream<Parameter> parameters();
+
+		default Parameter parameter(String name) {
+			return this.parameters()//
+					.filter(c -> c.name().equals(name))//
+					.findFirst().orElseThrow(() -> {
+						throw new NoSuchElementException("No parameter " + name);
+					});
+		}
 	}
 
 	public interface Variable extends Y {
@@ -193,6 +203,7 @@ public interface Y {
 
 		void rename(String newName);
 
+		// FIXME Move to anonymous class assigned to the variable
 		Stream<Method> methods();
 
 		default Method method(String name, List<String> parameterTypes) {
