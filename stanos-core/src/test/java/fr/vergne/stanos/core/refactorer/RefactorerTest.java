@@ -77,7 +77,7 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("myParam")).parameter("myParam").rename("foo"), //
 						"""
 								class MyClass{
 									class myParam {}
