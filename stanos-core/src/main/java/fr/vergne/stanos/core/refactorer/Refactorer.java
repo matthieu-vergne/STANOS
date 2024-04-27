@@ -20,7 +20,6 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.stmt.LocalClassDeclarationStmt;
 import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
-import com.github.javaparser.resolution.SymbolResolver;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 
@@ -146,12 +145,10 @@ public interface Refactorer {
 	}
 
 	static CompilationUnit parseWithJavaParser(String code, LanguageLevel languageLevel) {
-		SymbolResolver symbolSolver = new JavaSymbolSolver(new CombinedTypeSolver());
-
-		JavaParser parser = new JavaParser();
-		ParserConfiguration parserConf = parser.getParserConfiguration();
-		parserConf.setSymbolResolver(symbolSolver);// FIXME Resolver
+		ParserConfiguration parserConf = new ParserConfiguration();
 		parserConf.setLanguageLevel(languageLevel);
+		parserConf.setSymbolResolver(new JavaSymbolSolver(new CombinedTypeSolver()));
+		JavaParser parser = new JavaParser(parserConf);
 		ParseResult<CompilationUnit> parseResult = parser.parse(code);
 		if (!parseResult.isSuccessful()) {
 			// TODO Test this part
@@ -242,6 +239,7 @@ public interface Refactorer {
 				});
 	}
 
+	// FIXME Remove default map
 	private static Stream<Method> createMethodStream(ClassOrInterfaceDeclaration classDeclaration, Map<String, Y.Method> defaultMethods) {
 		return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
 				.flatMap(filterOnClass(com.github.javaparser.ast.body.MethodDeclaration.class))//
@@ -294,6 +292,7 @@ public interface Refactorer {
 				});
 	}
 
+	// FIXME Remove default map
 	private static Stream<Class> createClassStream(Node parentNode, Map<String, Y.Class> defaultClasses) {
 		return parentNode.stream(TreeTraversal.DIRECT_CHILDREN)//
 				.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
@@ -337,6 +336,7 @@ public interface Refactorer {
 				});
 	}
 
+	// FIXME Remove default map
 	private static Stream<Interface> createInterfaceStream(Node parentNode, Map<String, Y.Interface> defaultInterfaces) {
 		return parentNode.stream(TreeTraversal.DIRECT_CHILDREN)//
 				.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
@@ -373,6 +373,7 @@ public interface Refactorer {
 				});
 	}
 
+	// FIXME Remove default map
 	private static Stream<Record> createRecordStream(Node parentNode, Map<String, Y.Record> defaultRecords) {
 		return parentNode.stream(TreeTraversal.DIRECT_CHILDREN)//
 				.flatMap(filterOnClass(com.github.javaparser.ast.body.RecordDeclaration.class))//
@@ -394,8 +395,5 @@ public interface Refactorer {
 
 	private static <T> Function<? super Node, Stream<T>> filterOnClass(java.lang.Class<T> clazz) {
 		return node -> clazz.isInstance(node) ? Stream.of(clazz.cast(node)) : Stream.empty();
-	}
-
-	interface Scope2 {
 	}
 }
