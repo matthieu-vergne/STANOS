@@ -10,14 +10,19 @@ import java.util.stream.Stream;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.Node.TreeTraversal;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.stmt.LocalClassDeclarationStmt;
 import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
+import com.github.javaparser.resolution.SymbolResolver;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 
 import fr.vergne.stanos.core.refactorer.Y.Class;
 import fr.vergne.stanos.core.refactorer.Y.Field;
@@ -38,7 +43,6 @@ public interface Refactorer {
 
 			@Override
 			public String code() {
-				System.out.println("[print]");
 				return LexicalPreservingPrinter.print(compilationUnit);
 			}
 
@@ -142,8 +146,12 @@ public interface Refactorer {
 	}
 
 	static CompilationUnit parseWithJavaParser(String code, LanguageLevel languageLevel) {
+		SymbolResolver symbolSolver = new JavaSymbolSolver(new CombinedTypeSolver());
+
 		JavaParser parser = new JavaParser();
-		parser.getParserConfiguration().setLanguageLevel(languageLevel);
+		ParserConfiguration parserConf = parser.getParserConfiguration();
+		parserConf.setSymbolResolver(symbolSolver);// FIXME Resolver
+		parserConf.setLanguageLevel(languageLevel);
 		ParseResult<CompilationUnit> parseResult = parser.parse(code);
 		if (!parseResult.isSuccessful()) {
 			// TODO Test this part
@@ -209,21 +217,26 @@ public interface Refactorer {
 						@Override
 						public void rename(String newName) {
 							String currentName = parameterDeclaration.getNameAsString();
-							System.out.println(": " + parameterDeclaration.getName().getIdentifier() + " @" + parameterDeclaration.getName().getRange());
-							parameterDeclaration.getName().setIdentifier(newName);
-							System.out.println(": " + parameterDeclaration.getName().getIdentifier() + " @" + parameterDeclaration.getName().getRange());
 							methodDeclaration.getBody().ifPresent(body -> {
 								body.stream()//
 										.flatMap(filterOnClass(com.github.javaparser.ast.expr.SimpleName.class))//
-										.filter(nameNode -> !(nameNode.getParentNode().orElseThrow().getParentNode().orElseThrow() instanceof ObjectCreationExpr)).filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
+										.filter(nameNode -> !(nameNode.getParentNode().orElseThrow().getParentNode().orElseThrow() instanceof ObjectCreationExpr))//
+										.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
 										.forEach(nameNode -> {
-											// FIXME Do not rename those from other declarations (use resolver?)
-											System.out.println(": " + nameNode.getIdentifier() + " @" + nameNode.getRange());
-											System.out.println(":> " + nameNode.getParentNode().orElseThrow().getParentNode().orElseThrow().getClass().getSimpleName());
-											nameNode.setIdentifier(newName);
-											System.out.println(": " + nameNode.getIdentifier() + " @" + nameNode.getRange());
+											Node parentNode = nameNode.getParentNode().orElseThrow();
+											if (parentNode instanceof NameExpr exp) {
+												com.github.javaparser.ast.body.Parameter declaration = exp.resolve().asParameter().toAst(com.github.javaparser.ast.body.Parameter.class).orElseThrow();
+												if (declaration.equals(parameterDeclaration)) {
+													nameNode.setIdentifier(newName);
+												} else {
+													// Relate to another parameter with the same name
+												}
+											} else {
+												// Relate to something else with the same name
+											}
 										});
 							});
+							parameterDeclaration.getName().setIdentifier(newName);
 						}
 					};
 				});
@@ -381,5 +394,8 @@ public interface Refactorer {
 
 	private static <T> Function<? super Node, Stream<T>> filterOnClass(java.lang.Class<T> clazz) {
 		return node -> clazz.isInstance(node) ? Stream.of(clazz.cast(node)) : Stream.empty();
+	}
+
+	interface Scope2 {
 	}
 }

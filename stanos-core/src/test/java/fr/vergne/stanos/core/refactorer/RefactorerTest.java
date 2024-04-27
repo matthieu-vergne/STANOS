@@ -168,7 +168,7 @@ class RefactorerTest {
 						"""
 								class MyClass {
 									interface MyInt {
-										String myMethod();
+										String myMethod(String myParam);
 									}
 									MyInt myMethod(MyInt myParam) {
 										myParam = new MyInt() {
@@ -185,7 +185,7 @@ class RefactorerTest {
 						"""
 								class MyClass {
 									interface MyInt {
-										String myMethod();
+										String myMethod(String myParam);
 									}
 									MyInt myMethod(MyInt foo) {
 										foo = new MyInt() {
