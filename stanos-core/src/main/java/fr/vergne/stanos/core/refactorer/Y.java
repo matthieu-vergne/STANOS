@@ -196,6 +196,10 @@ public interface Y {
 					});
 		}
 
+		void splitDeclaration();
+
+		void joinDeclaration();
+
 	}
 
 	public interface Field extends Y {

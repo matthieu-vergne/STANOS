@@ -57,8 +57,60 @@ class RefactorerTest {
 				testCodeRefactoringSuccess_Field(), //
 				testCodeRefactoringSuccess_Method(), //
 				testCodeRefactoringSuccess_Parameter(), //
-				testCodeRefactoringSuccess_Variable()//
+				testCodeRefactoringSuccess_Variable(), //
+				testCodeRefactoringSuccess_SplitJoin()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_SplitJoin() {
+		return Stream.of(//
+				new SuccessCase(//
+						"class MyClass{void myMethod(){String myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).splitDeclaration(), //
+						"class MyClass{void myMethod(){String myParam;myParam = null;}}"//
+				), //
+				new SuccessCase(//
+						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						"class MyClass{void myMethod(){String myParam = null;}}"//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myParam = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).splitDeclaration(), //
+						"""
+								class MyClass {
+									void myMethod() {
+										String myParam;
+										myParam = null;
+									}
+								}
+								"""//
+				), //
+				new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myParam;
+										myParam = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						"""
+								class MyClass {
+									void myMethod() {
+										String myParam = null;
+									}
+								}
+								"""//
+				)//
+		);
 	}
 
 	private static Stream<SuccessCase> testCodeRefactoringSuccess_Parameter() {
@@ -634,8 +686,34 @@ class RefactorerTest {
 				testCodeRefactoringFailure_Field(), //
 				testCodeRefactoringFailure_Method(), //
 				testCodeRefactoringFailure_Parameter(), //
-				testCodeRefactoringFailure_Variable()//
+				testCodeRefactoringFailure_Variable(), //
+				testCodeRefactoringFailure_SplitJoin()//
 		).flatMap(stream -> stream);
+	}
+	
+	private static Stream<FailureCase> testCodeRefactoringFailure_SplitJoin() {
+		return Stream.of(//
+				new FailureCase(//
+						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).splitDeclaration(), //
+						new IllegalStateException("No assignment to split on myParam declaration")//
+				), //
+				new FailureCase(//
+						"class MyClass{void myMethod(){String myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						new IllegalStateException("myParam declaration already assigns a value")//
+				), //
+				new FailureCase(//
+						"class MyClass{void myMethod(){String myParam;String foo = null;myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						new IllegalStateException("No myParam assignment just after its declaration")//
+				), //
+				new FailureCase(//
+						"class MyClass{void myMethod(String foo){String myParam;foo = null;myParam = null;}}", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).variable("myParam", 0).joinDeclaration(), //
+						new IllegalStateException("No myParam assignment just after its declaration")//
+				) //
+		);
 	}
 
 	private static Stream<FailureCase> testCodeRefactoringFailure_Parameter() {
@@ -758,167 +836,229 @@ class RefactorerTest {
 		StringBuilder builder = new StringBuilder();
 		Runnable firstDisplayer = () -> builder.append(currentMethodName() + "()");
 		Consumer<Object> nextDisplayer = arg -> builder.append("." + currentMethodName() + "(" + arg + ")");
+		try {
+			refactoring.accept(new UnimplementedSource() {
+				@Override
+				public Package defaultPackage() {
+					firstDisplayer.run();
+					return new UnimplementedPackage() {
+						@Override
+						public void rename(String newName) {
+							nextDisplayer.accept(newName);
+						}
 
-		refactoring.accept(new UnimplementedSource() {
-			@Override
-			public Package defaultPackage() {
-				firstDisplayer.run();
-				return new UnimplementedPackage() {
-					@Override
-					public void rename(String newName) {
-						nextDisplayer.accept(newName);
-					}
-
-					@Override
-					public Record record(String name) {
-						nextDisplayer.accept(name);
-						return new UnimplementedRecord() {
-							@Override
-							public void rename(String newName) {
-								nextDisplayer.accept(name);
-							}
+						@Override
+						public Record record(String name) {
+							nextDisplayer.accept(name);
+							return new UnimplementedRecord() {
+								@Override
+								public void rename(String newName) {
+									nextDisplayer.accept(name);
+								}
+							};
 						};
-					};
 
-					@Override
-					public Interface interf(String name) {
-						nextDisplayer.accept(name);
-						return new UnimplementedInterface() {
-							@Override
-							public void rename(String newName) {
-								nextDisplayer.accept(newName);
-							}
+						@Override
+						public Interface interf(String name) {
+							nextDisplayer.accept(name);
+							return new UnimplementedInterface() {
+								@Override
+								public void rename(String newName) {
+									nextDisplayer.accept(newName);
+								}
 
-							@Override
-							public Method method(String name, List<String> parameterTypes) {
-								nextDisplayer.accept(name + ", " + parameterTypes);
-								return new UnimplementedMethod() {
-									@Override
-									public Y.Parameter parameter(String name) {
-										nextDisplayer.accept(name);
-										return new UnimplementedParameter() {
-											@Override
-											public void rename(String newName) {
-												nextDisplayer.accept(newName);
-											}
+								@Override
+								public Method method(String name, List<String> parameterTypes) {
+									nextDisplayer.accept(name + ", " + parameterTypes);
+									return new UnimplementedMethod() {
+										@Override
+										public Y.Parameter parameter(String name) {
+											nextDisplayer.accept(name);
+											return new UnimplementedParameter() {
+												@Override
+												public void rename(String newName) {
+													nextDisplayer.accept(newName);
+												}
+											};
 										};
 									};
 								};
 							};
 						};
-					};
 
-					@Override
-					public Class clazz(String name) {
-						nextDisplayer.accept(name);
-						return new UnimplementedClass() {
-							@Override
-							public void rename(String newName) {
-								nextDisplayer.accept(newName);
-							}
+						@Override
+						public Class clazz(String name) {
+							nextDisplayer.accept(name);
+							return new UnimplementedClass() {
+								@Override
+								public void rename(String newName) {
+									nextDisplayer.accept(newName);
+								}
 
-							@Override
-							public Field field(String name) {
-								nextDisplayer.accept(name);
-								return new UnimplementedField() {
+								@Override
+								public Field field(String name) {
+									nextDisplayer.accept(name);
+									return new UnimplementedField() {
 
-									@Override
-									public void rename(String newName) {
-										nextDisplayer.accept(newName);
-									}
-								};
-							}
-
-							@Override
-							public Method method(String name, List<String> parameterTypes) {
-								nextDisplayer.accept(name + ", " + parameterTypes);
-								return new UnimplementedMethod() {
-
-									@Override
-									public void rename(String newName) {
-										nextDisplayer.accept(name);
-									}
-
-									@Override
-									public Y.Parameter parameter(String name) {
-										nextDisplayer.accept(name);
-										return new UnimplementedParameter() {
-											@Override
-											public void rename(String newName) {
-												nextDisplayer.accept(newName);
-											}
-										};
+										@Override
+										public void rename(String newName) {
+											nextDisplayer.accept(newName);
+										}
 									};
+								}
 
-									@Override
-									public Variable variable(String name, int index) {
-										nextDisplayer.accept(name + ", " + index);
-										return new UnimplementedVariable() {
-											@Override
-											public void rename(String newName) {
-												nextDisplayer.accept(newName);
-											}
+								@Override
+								public Method method(String name, List<String> parameterTypes) {
+									nextDisplayer.accept(name + ", " + parameterTypes);
+									return new UnimplementedMethod() {
+
+										@Override
+										public void rename(String newName) {
+											nextDisplayer.accept(name);
+										}
+
+										@Override
+										public Y.Parameter parameter(String name) {
+											nextDisplayer.accept(name);
+											return new UnimplementedParameter() {
+												@Override
+												public void rename(String newName) {
+													nextDisplayer.accept(newName);
+												}
+											};
 										};
-									};
-								};
-							}
 
-							@Override
-							public Class clazz(String name) {
-								nextDisplayer.accept(name);
-								return new UnimplementedClass() {
-									@Override
-									public void rename(String newName) {
-										nextDisplayer.accept(name);
-									}
+										@Override
+										public Variable variable(String name, int index) {
+											nextDisplayer.accept(name + ", " + index);
+											return new UnimplementedVariable() {
+												@Override
+												public void rename(String newName) {
+													nextDisplayer.accept(newName);
+												}
 
-									@Override
-									public Method method(String name, List<String> parameterTypes) {
-										nextDisplayer.accept(name + ", " + parameterTypes);
-										return new UnimplementedMethod() {
-											@Override
-											public Class clazz(String name) {
-												nextDisplayer.accept(name);
-												return new UnimplementedClass() {
-													@Override
-													public Method method(String name, List<String> parameterTypes) {
-														nextDisplayer.accept(name + ", " + parameterTypes);
-														return new UnimplementedMethod() {
-															@Override
-															public Y.Parameter parameter(String name) {
-																nextDisplayer.accept(name);
-																return new UnimplementedParameter() {
-																	@Override
-																	public void rename(String newName) {
-																		nextDisplayer.accept(newName);
-																	}
+												@Override
+												public void splitDeclaration() {
+													nextDisplayer.accept("");
+												}
+
+												@Override
+												public void joinDeclaration() {
+													nextDisplayer.accept("");
+												}
+
+												@Override
+												public Method method(String name, List<String> parameterTypes) {
+													nextDisplayer.accept(name + ", " + parameterTypes);
+													return new UnimplementedMethod() {
+
+														@Override
+														public void rename(String newName) {
+															nextDisplayer.accept(name);
+														}
+
+														@Override
+														public Y.Parameter parameter(String name) {
+															nextDisplayer.accept(name);
+															return new UnimplementedParameter() {
+																@Override
+																public void rename(String newName) {
+																	nextDisplayer.accept(newName);
+																}
+															};
+														};
+
+														@Override
+														public Variable variable(String name, int index) {
+															nextDisplayer.accept(name + ", " + index);
+															return new UnimplementedVariable() {
+																@Override
+																public void rename(String newName) {
+																	nextDisplayer.accept(newName);
+																}
+
+																@Override
+																public void splitDeclaration() {
+																	nextDisplayer.accept("");
 																};
 															};
-
-															@Override
-															public Variable variable(String name, int index) {
-																nextDisplayer.accept(name + ", " + index);
-																return new UnimplementedVariable() {
-																	@Override
-																	public void rename(String newName) {
-																		nextDisplayer.accept(name);
-																	}
-																};
-															}
 														};
-													}
-												};
-											}
+													};
+												}
+											};
 										};
-									}
-								};
-							}
-						};
-					}
-				};
-			}
-		});
+									};
+								}
 
+								@Override
+								public Class clazz(String name) {
+									nextDisplayer.accept(name);
+									return new UnimplementedClass() {
+										@Override
+										public void rename(String newName) {
+											nextDisplayer.accept(name);
+										}
+
+										@Override
+										public Method method(String name, List<String> parameterTypes) {
+											nextDisplayer.accept(name + ", " + parameterTypes);
+											return new UnimplementedMethod() {
+												@Override
+												public Class clazz(String name) {
+													nextDisplayer.accept(name);
+													return new UnimplementedClass() {
+														@Override
+														public Method method(String name, List<String> parameterTypes) {
+															nextDisplayer.accept(name + ", " + parameterTypes);
+															return new UnimplementedMethod() {
+																@Override
+																public Y.Parameter parameter(String name) {
+																	nextDisplayer.accept(name);
+																	return new UnimplementedParameter() {
+																		@Override
+																		public void rename(String newName) {
+																			nextDisplayer.accept(newName);
+																		}
+																	};
+																};
+
+																@Override
+																public Variable variable(String name, int index) {
+																	nextDisplayer.accept(name + ", " + index);
+																	return new UnimplementedVariable() {
+																		@Override
+																		public void rename(String newName) {
+																			nextDisplayer.accept(name);
+																		}
+
+																		@Override
+																		public void splitDeclaration() {
+																			nextDisplayer.accept("");
+																		}
+
+																		@Override
+																		public void joinDeclaration() {
+																			nextDisplayer.accept("");
+																		}
+																	};
+																}
+															};
+														}
+													};
+												}
+											};
+										}
+									};
+								}
+							};
+						}
+					};
+				}
+			});
+		} catch (Exception cause) {
+			cause.printStackTrace();
+			builder.append(".???");
+		}
 		return builder.toString();
 	}
 
@@ -1068,6 +1208,16 @@ class RefactorerTest {
 
 		@Override
 		public Stream<Method> methods() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void splitDeclaration() {
+			throw new UnsupportedOperationException("Not implemented yet");
+		}
+
+		@Override
+		public void joinDeclaration() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
 	}

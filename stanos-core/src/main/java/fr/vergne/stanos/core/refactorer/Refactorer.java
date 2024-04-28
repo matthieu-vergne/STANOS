@@ -15,6 +15,8 @@ import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.AssignExpr;
+import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
@@ -157,6 +159,88 @@ public interface Refactorer {
 						throw new UnsupportedOperationException("Not supported: " + expr.getClass().getSimpleName());
 					}
 				}).orElse(Stream.empty()).peek(method -> System.out.println("M= " + method.name()));
+			}
+
+			@Override
+			public void splitDeclaration() {
+				Expression initializer = variableDeclaration.getInitializer().orElseThrow(() -> {
+					return new IllegalStateException("No assignment to split on " + name() + " declaration");
+				});
+
+				Node parentNode = variableDeclaration.getParentNode().orElseThrow();
+				if (parentNode instanceof VariableDeclarationExpr exp) {
+					Node grandParentNode = exp.getParentNode().orElseThrow();
+					if (grandParentNode instanceof ExpressionStmt stmt) {
+						Node grandGrandParentNode = stmt.getParentNode().orElseThrow();
+						if (grandGrandParentNode instanceof BlockStmt block) {
+							List<Node> childNodes = block.getChildNodes();
+							int index = childNodes.indexOf(stmt) + 1;
+							AssignExpr assignExpr = new AssignExpr(new NameExpr(name()), initializer, Operator.ASSIGN);
+							block.addStatement(index, assignExpr);
+							// TODO Remove added \r\n
+						} else {
+							throw new UnsupportedOperationException("Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());
+						}
+					} else {
+						throw new UnsupportedOperationException("Not implemented yet: " + grandParentNode.getClass().getSimpleName());
+					}
+				} else {
+					throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass().getSimpleName());
+				}
+
+				variableDeclaration.removeInitializer();
+			}
+
+			@Override
+			public void joinDeclaration() {
+				variableDeclaration.getInitializer().ifPresent(init -> {
+					throw new IllegalStateException(name() + " declaration already assigns a value");
+				});
+
+				Node parentNode = variableDeclaration.getParentNode().orElseThrow();
+				if (parentNode instanceof VariableDeclarationExpr exp) {
+					Node grandParentNode = exp.getParentNode().orElseThrow();
+					if (grandParentNode instanceof ExpressionStmt stmt) {
+						Node grandGrandParentNode = stmt.getParentNode().orElseThrow();
+						if (grandGrandParentNode instanceof BlockStmt block) {
+							List<Node> childNodes = block.getChildNodes();
+							int indexOfNextStatement = childNodes.indexOf(stmt) + 1;
+							Statement statement = block.getStatement(indexOfNextStatement);
+							if (statement instanceof ExpressionStmt nextStmt) {
+								Expression nextExpr = nextStmt.getExpression();
+								if (nextExpr instanceof AssignExpr nextAssignExpr) {
+									Operator operator = nextAssignExpr.getOperator();
+									if (operator.equals(Operator.ASSIGN)) {
+										Expression target = nextAssignExpr.getTarget();
+										if (target instanceof NameExpr nameExpr) {
+											String name = nameExpr.getNameAsString();
+											if (name.equals(name())) {
+												block.getStatements().remove(indexOfNextStatement);
+												variableDeclaration.setInitializer(nextAssignExpr.getValue());
+											} else {
+												throw new IllegalStateException("No " + name() + " assignment just after its declaration");
+											}
+										} else {
+											throw new UnsupportedOperationException("Not implemented yet: " + target.getClass().getSimpleName());
+										}
+									} else {
+										throw new UnsupportedOperationException("Not implemented yet: " + operator);
+									}
+								} else {
+									throw new IllegalStateException("No " + name() + " assignment just after its declaration");
+								}
+							} else {
+								throw new UnsupportedOperationException("Not implemented yet: " + statement.getClass().getSimpleName());
+							}
+						} else {
+							throw new UnsupportedOperationException("Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());
+						}
+					} else {
+						throw new UnsupportedOperationException("Not implemented yet: " + grandParentNode.getClass().getSimpleName());
+					}
+				} else {
+					throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass().getSimpleName());
+				}
 			}
 		};
 	}
