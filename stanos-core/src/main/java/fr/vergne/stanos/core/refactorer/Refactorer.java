@@ -1,10 +1,6 @@
 package fr.vergne.stanos.core.refactorer;
 
-import static java.util.stream.Collectors.toMap;
-
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -15,11 +11,22 @@ import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.Node.TreeTraversal;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.LocalClassDeclarationStmt;
+import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
+import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 
@@ -29,7 +36,6 @@ import fr.vergne.stanos.core.refactorer.Y.Interface;
 import fr.vergne.stanos.core.refactorer.Y.Method;
 import fr.vergne.stanos.core.refactorer.Y.Package;
 import fr.vergne.stanos.core.refactorer.Y.Record;
-import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 public interface Refactorer {
 
@@ -53,93 +59,10 @@ public interface Refactorer {
 	}
 
 	static Code.Source abstractFromJavaParser(CompilationUnit compilationUnit) {
-		List<Y.Class> defaultPackageClasses = new LinkedList<>();
-		List<Y.Interface> defaultPackageInterfaces = new LinkedList<>();
-		List<Y.Record> defaultPackageRecords = new LinkedList<>();
-		Y.Package defaultPackage = DefaultSource.createDefaultPackage(defaultPackageClasses, defaultPackageInterfaces, defaultPackageRecords);
-		Code.Source defaultSource = new DefaultSource(defaultPackage);
-		Scope root = Scope.root(defaultPackageClasses::add, defaultPackageInterfaces::add, defaultPackageRecords::add);
-		X x = new X(new Scope.Context(root), defaultSource);
-		try {
-			compilationUnit.accept(new Visitor(), x);
-		} catch (Exception cause) {
-			// TODO Remove visitor
-		}
 		return new Code.Source() {
-
 			@Override
 			public Package defaultPackage() {
-				Package defaultPackage = defaultSource.defaultPackage();
-				return new Y.Package() {
-
-					@Override
-					public Stream<Y.Record> records() {
-						Map<String, Y.Record> defaultRecords = defaultPackage.records().collect(toMap(r -> r.name(), r -> r));
-						return createRecordStream(compilationUnit, defaultRecords);
-					}
-
-					@Override
-					public Stream<Y.Interface> interfaces() {
-						Map<String, Y.Interface> defaultInterfaces = defaultPackage.interfaces().collect(toMap(r -> r.name(), r -> r));
-						return createInterfaceStream(compilationUnit, defaultInterfaces);
-					}
-
-					@Override
-					public Stream<Y.Class> classes() {
-						Map<String, Y.Class> defaultClasses = defaultPackage.classes().collect(toMap(r -> r.name(), r -> r));
-						return createClassStream(compilationUnit, defaultClasses);
-					}
-
-					@Override
-					public void rename(String newName) {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-
-					@Override
-					public String name() {
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-				};
-			}
-
-			@Override
-			public ClassDeclaration getClassDeclaration(String name) {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public RecordDeclaration getRecordDeclaration(String name) {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public RecordDeclaration createRecordDeclaration() {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public InterfaceDeclaration createInterfaceDeclaration() {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public ClassDeclaration createClassDeclaration() {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public ImportDeclaration createImportDeclaration() {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public PackageDeclaration createPackageDeclaration() {
-				throw new UnsupportedOperationException("Not implemented yet");
-			}
-
-			@Override
-			public List<Code> subCodes() {
-				throw new UnsupportedOperationException("Not implemented yet");
+				return createDefaultPackage(compilationUnit);
 			}
 		};
 	}
@@ -179,218 +102,357 @@ public interface Refactorer {
 		Code.Source source();
 	}
 
-	interface ForClass extends Refactorer, Renamable {
+	private static Y.Variable createVariable(MethodDeclaration methodDeclaration, VariableDeclarator variableDeclaration) {
+		return new Y.Variable() {
+			@Override
+			public String name() {
+				return variableDeclaration.getNameAsString();
+			}
+
+			@Override
+			public void rename(String newName) {
+				String currentName = variableDeclaration.getNameAsString();
+				methodDeclaration.getBody().orElseThrow().stream()//
+						.flatMap(filterOnClass(com.github.javaparser.ast.expr.SimpleName.class))//
+						.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
+						.forEach(nameNode -> {
+							Node parentNode = nameNode.getParentNode().orElseThrow();
+							if (parentNode instanceof NameExpr exp) {
+								ResolvedValueDeclaration resolved = exp.resolve();
+								if (resolved.isVariable()) {
+									VariableDeclarationExpr declarations = resolved.toAst(com.github.javaparser.ast.expr.VariableDeclarationExpr.class).orElseThrow();
+									if (declarations.getVariables().contains(variableDeclaration)) {
+										nameNode.setIdentifier(newName);
+									} else {
+										// Relate to another parameter with the same name
+									}
+								} else {
+									// Relate to something else with the same name
+								}
+							} else {
+								// Relate to something else with the same name
+							}
+						});
+				variableDeclaration.getName().setIdentifier(newName);
+			}
+
+			@Override
+			public Stream<Y.Method> methods() {
+				return variableDeclaration.getInitializer().map(expr -> {
+					if (expr instanceof ObjectCreationExpr ocExpr) {
+						return ocExpr.getAnonymousClassBody().map(body -> {
+							if (body instanceof NodeList<?> list) {
+								return list.stream().map(node -> {
+									if (node instanceof MethodDeclaration decl) {
+										return createMethod(decl);
+									} else {
+										throw new UnsupportedOperationException("Not supported: " + node.getClass().getSimpleName());
+									}
+								});
+							} else {
+								throw new UnsupportedOperationException("Not supported: " + body.getClass().getSimpleName());
+							}
+						}).orElse(Stream.empty());
+					} else {
+						throw new UnsupportedOperationException("Not supported: " + expr.getClass().getSimpleName());
+					}
+				}).orElse(Stream.empty()).peek(method -> System.out.println("M= " + method.name()));
+			}
+		};
 	}
 
-	interface ForInterface extends Refactorer, Renamable {
-	}
+	private static Y.Parameter createParameter(com.github.javaparser.ast.body.MethodDeclaration methodDeclaration, com.github.javaparser.ast.body.Parameter parameterDeclaration) {
+		return new Y.Parameter() {
+			@Override
+			public String name() {
+				return parameterDeclaration.getNameAsString();
+			}
 
-	interface ForRecord extends Refactorer, Renamable {
-	}
-
-	interface ForField extends Refactorer, Renamable {
-	}
-
-	interface ForMethod extends Refactorer, Renamable {
-	}
-
-	interface Renamable {
-		void rename(String newName);
-	}
-
-	record CodeRange(int start) {
-	}
-
-	private static Stream<fr.vergne.stanos.core.refactorer.Y.Parameter> createParameterStream(com.github.javaparser.ast.body.MethodDeclaration methodDeclaration) {
-		return methodDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-				.flatMap(filterOnClass(com.github.javaparser.ast.body.Parameter.class))//
-				.map(parameterDeclaration -> {
-					return new Y.Parameter() {
-						@Override
-						public String name() {
-							return parameterDeclaration.getNameAsString();
-						}
-
-						@Override
-						public void rename(String newName) {
-							String currentName = parameterDeclaration.getNameAsString();
-							methodDeclaration.getBody().ifPresent(body -> {
-								body.stream()//
-										.flatMap(filterOnClass(com.github.javaparser.ast.expr.SimpleName.class))//
-										.filter(nameNode -> !(nameNode.getParentNode().orElseThrow().getParentNode().orElseThrow() instanceof ObjectCreationExpr))//
-										.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
-										.forEach(nameNode -> {
-											Node parentNode = nameNode.getParentNode().orElseThrow();
-											if (parentNode instanceof NameExpr exp) {
-												com.github.javaparser.ast.body.Parameter declaration = exp.resolve().asParameter().toAst(com.github.javaparser.ast.body.Parameter.class).orElseThrow();
-												if (declaration.equals(parameterDeclaration)) {
-													nameNode.setIdentifier(newName);
-												} else {
-													// Relate to another parameter with the same name
-												}
-											} else {
-												// Relate to something else with the same name
-											}
-										});
+			@Override
+			public void rename(String newName) {
+				String currentName = parameterDeclaration.getNameAsString();
+				methodDeclaration.getBody().ifPresent(body -> {
+					body.stream()//
+							.flatMap(filterOnClass(com.github.javaparser.ast.expr.SimpleName.class))//
+							.filter(nameNode -> !(nameNode.getParentNode().orElseThrow().getParentNode().orElseThrow() instanceof ObjectCreationExpr))//
+							.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
+							.forEach(nameNode -> {
+								Node parentNode = nameNode.getParentNode().orElseThrow();
+								if (parentNode instanceof NameExpr exp) {
+									com.github.javaparser.ast.body.Parameter declaration = exp.resolve().asParameter().toAst(com.github.javaparser.ast.body.Parameter.class).orElseThrow();
+									if (declaration.equals(parameterDeclaration)) {
+										nameNode.setIdentifier(newName);
+									} else {
+										// Relate to another parameter with the same name
+									}
+								} else {
+									// Relate to something else with the same name
+								}
 							});
-							parameterDeclaration.getName().setIdentifier(newName);
-						}
-					};
 				});
+				parameterDeclaration.getName().setIdentifier(newName);
+			}
+		};
 	}
 
-	// FIXME Remove default map
-	private static Stream<Method> createMethodStream(ClassOrInterfaceDeclaration classDeclaration, Map<String, Y.Method> defaultMethods) {
-		return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-				.flatMap(filterOnClass(com.github.javaparser.ast.body.MethodDeclaration.class))//
-				.map(methodDeclaration -> {
-					String name = methodDeclaration.getNameAsString();
-					List<String> parameterTypes = methodDeclaration.getParameters().stream().map(x -> x.getTypeAsString()).toList();
-					return new Y.Method() {
-						@Override
-						public String name() {
-							return name;
-						}
+	private static Method createMethod(MethodDeclaration methodDeclaration) {
+		return new Y.Method() {
+			@Override
+			public String name() {
+				return methodDeclaration.getNameAsString();
+			}
 
-						@Override
-						public List<String> parameterTypes() {
-							return parameterTypes;
-						}
+			@Override
+			public List<String> parameterTypes() {
+				return methodDeclaration.getParameters().stream().map(x -> x.getTypeAsString()).toList();
+			}
 
-						@Override
-						public void rename(String newName) {
-							defaultMethods.get(name + parameterTypes).rename(newName);
-						}
+			@Override
+			public void rename(String newName) {
+				methodDeclaration.setName(newName);
+			}
 
-						@Override
-						public Stream<Y.Parameter> parameters() {
-							return createParameterStream(methodDeclaration);
-						}
+			@Override
+			public Stream<Y.Parameter> parameters() {
+				return methodDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.Parameter.class))//
+						.map(parameterDeclaration -> createParameter(methodDeclaration, parameterDeclaration));
+			}
 
-						@Override
-						public Stream<Variable> variables() {
-							return defaultMethods.get(name + parameterTypes).variables();
-						}
+			@Override
+			public Stream<Y.Variable> variables() {
+				return methodDeclaration.getBody().orElseThrow().stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(node -> {
+							if (node instanceof Statement stmt) {
+								return resolveStatementToExpressions(stmt);
+							} else {
+								throw new UnsupportedOperationException("Not supported: " + node.getClass().getSimpleName());
+							}
+						})//
+						.flatMap(node -> {
+							if (node instanceof VariableDeclarationExpr exp) {
+								return exp.getVariables().stream();
+							} else if (node instanceof NameExpr exp) {
+								return Stream.empty();
+							} else {
+								throw new UnsupportedOperationException("Not supported: " + node.getClass().getSimpleName());
+							}
+						})//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.VariableDeclarator.class))//
+						.map(variableDeclaration -> {
+							return createVariable(methodDeclaration, variableDeclaration);
+						});
+			}
 
-						@Override
-						public Stream<Y.Interface> interfaces() {
-							// TODO Auto-generated method stub
-							throw new UnsupportedOperationException("Not implemented yet");
-						}
+			private static Stream<? extends Expression> resolveStatementToExpressions(Statement statement) {
+				if (statement instanceof ExpressionStmt stmt) {
+					return Stream.of(stmt.getExpression());
+				} else if (statement instanceof BlockStmt stmt) {
+					return stmt.getStatements().stream().flatMap(stmt2 -> resolveStatementToExpressions(stmt2));
+				} else if (statement instanceof ReturnStmt stmt) {
+					return Stream.of(stmt.getExpression().orElseThrow());
+				} else if (statement instanceof IfStmt stmt) {
+					return Stream.concat(//
+							resolveStatementToExpressions(stmt.getThenStmt()), //
+							stmt.getElseStmt().map(elseStmt -> resolveStatementToExpressions(elseStmt)).orElse(Stream.empty())//
+					);
+				} else if (statement instanceof LocalClassDeclarationStmt stmt) {
+					return Stream.empty();
+				} else {
+					throw new UnsupportedOperationException("Not supported: " + statement.getClass().getSimpleName());
+				}
+			}
 
-						@Override
-						public Stream<Y.Class> classes() {
-							Map<String, Class> defaultClasses = defaultMethods.get(name + parameterTypes).classes().collect(toMap(r -> r.name(), r -> r));
-							return methodDeclaration.getBody()//
-									.map(body -> body.stream(TreeTraversal.DIRECT_CHILDREN)//
-											.flatMap(filterOnClass(LocalClassDeclarationStmt.class))//
-											.flatMap(localClassStatement -> createClassStream(localClassStatement, defaultClasses)))//
-									.orElseGet(Stream::empty);
-						}
+			@Override
+			public Stream<Y.Interface> interfaces() {
+				// TODO Auto-generated method stub
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
 
-					};
-				});
+			@Override
+			public Stream<Y.Class> classes() {
+				return methodDeclaration.getBody()//
+						.map(body -> body.stream(TreeTraversal.DIRECT_CHILDREN)//
+								.flatMap(filterOnClass(LocalClassDeclarationStmt.class))//
+								.flatMap(localClassStatement -> {
+									return localClassStatement.stream(TreeTraversal.DIRECT_CHILDREN)//
+											.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+											.filter(decl -> !decl.isInterface())//
+											.map(localClassDeclaration -> {
+												return createClass(localClassDeclaration);
+											});
+								}))//
+						.orElseGet(Stream::empty);
+			}
+
+		};
 	}
 
-	// FIXME Remove default map
-	private static Stream<Class> createClassStream(Node parentNode, Map<String, Y.Class> defaultClasses) {
-		return parentNode.stream(TreeTraversal.DIRECT_CHILDREN)//
-				.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
-				.filter(decl -> !decl.isInterface())//
-				.map(classDeclaration -> {
-					String name = classDeclaration.getNameAsString();
-					return new Y.Class() {
-						@Override
-						public String name() {
-							return name;
-						}
+	private static Field createField(VariableDeclarator variableDeclarator) {
+		return new Y.Field() {
+			@Override
+			public String name() {
+				return variableDeclarator.getNameAsString();
+			}
 
-						@Override
-						public void rename(String newName) {
-							defaultClasses.get(name).rename(newName);
-						}
+			@Override
+			public void rename(String newName) {
+				variableDeclarator.setName(newName);
+				// TODO Rename uses
+			}
 
-						@Override
-						public Stream<Y.Method> methods() {
-							Map<String, Y.Method> defaultMethods = defaultClasses.get(name).methods().collect(toMap(r -> r.name() + r.parameterTypes(), r -> r));
-							return createMethodStream(classDeclaration, defaultMethods);
-						}
-
-						@Override
-						// method
-						public Stream<Y.Class> classes() {
-							Map<String, Y.Class> defaultClasses2 = defaultClasses.get(name).classes().collect(toMap(r -> r.name(), r -> r));
-							return createClassStream(classDeclaration, defaultClasses2);
-						}
-
-						@Override
-						public Stream<Y.Interface> interfaces() {
-							throw new UnsupportedOperationException("Not implemented yet");
-						}
-
-						@Override
-						public Stream<Field> fields() {
-							return defaultClasses.get(name).fields();
-						}
-					};
-				});
+			@Override
+			public Stream<Method> methods() {
+				// TODO
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
+		};
 	}
 
-	// FIXME Remove default map
-	private static Stream<Interface> createInterfaceStream(Node parentNode, Map<String, Y.Interface> defaultInterfaces) {
-		return parentNode.stream(TreeTraversal.DIRECT_CHILDREN)//
-				.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
-				.filter(decl -> decl.isInterface())//
-				.map(interfaceDeclaration -> {
-					String name = interfaceDeclaration.getFullyQualifiedName().orElseThrow();
-					return new Y.Interface() {
-						@Override
-						public String name() {
-							return name;
-						}
+	private static Class createClass(ClassOrInterfaceDeclaration classDeclaration) {
+		return new Y.Class() {
+			@Override
+			public String name() {
+				return classDeclaration.getNameAsString();
+			}
 
-						@Override
-						public void rename(String newName) {
-							defaultInterfaces.get(name).rename(newName);
-						}
+			@Override
+			public void rename(String newName) {
+				classDeclaration.setName(newName);
+			}
 
-						@Override
-						public Stream<Y.Method> methods() {
-							Map<String, Y.Method> defaultMethods = defaultInterfaces.get(name).methods().collect(toMap(r -> r.name(), r -> r));
-							return createMethodStream(interfaceDeclaration, defaultMethods);
-						}
+			@Override
+			public Stream<Y.Method> methods() {
+				return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.MethodDeclaration.class))//
+						.map(methodDeclaration -> {
+							return createMethod(methodDeclaration);
+						});
+			}
 
-						@Override
-						public Stream<Y.Class> classes() {
-							throw new UnsupportedOperationException("Not implemented yet");
-						}
+			@Override
+			// method
+			public Stream<Y.Class> classes() {
+				return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+						.filter(decl -> !decl.isInterface())//
+						.map(innerClassDeclaration -> {
+							return createClass(innerClassDeclaration);
+						});
+			}
 
-						@Override
-						public Stream<Y.Interface> interfaces() {
-							throw new UnsupportedOperationException("Not implemented yet");
-						}
-					};
+			@Override
+			public Stream<Y.Interface> interfaces() {
+				// TODO
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
+
+			@Override
+			public Stream<Field> fields() {
+				return classDeclaration.getFields().stream().flatMap(fieldDeclaration -> {
+					return fieldDeclaration.getVariables().stream().map(variableDeclarator -> {
+						return createField(variableDeclarator);
+					});
 				});
+			}
+
+		};
 	}
 
-	// FIXME Remove default map
-	private static Stream<Record> createRecordStream(Node parentNode, Map<String, Y.Record> defaultRecords) {
-		return parentNode.stream(TreeTraversal.DIRECT_CHILDREN)//
-				.flatMap(filterOnClass(com.github.javaparser.ast.body.RecordDeclaration.class))//
-				.map(decl -> {
-					String name = decl.getFullyQualifiedName().orElseThrow();
-					return new Y.Record() {
-						@Override
-						public String name() {
-							return name;
-						}
+	private static Interface createInterface(ClassOrInterfaceDeclaration interfaceDeclaration) {
+		return new Y.Interface() {
+			@Override
+			public String name() {
+				return interfaceDeclaration.getFullyQualifiedName().orElseThrow();
+			}
 
-						@Override
-						public void rename(String newName) {
-							defaultRecords.get(name).rename(newName);
-						}
-					};
-				});
+			@Override
+			public void rename(String newName) {
+				interfaceDeclaration.setName(newName);
+				// TODO rename uses
+			}
+
+			@Override
+			public Stream<Y.Method> methods() {
+				return interfaceDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.MethodDeclaration.class))//
+						.map(methodDeclaration -> {
+							return createMethod(methodDeclaration);
+						});
+			}
+
+			@Override
+			public Stream<Y.Class> classes() {
+				// TODO
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
+
+			@Override
+			public Stream<Y.Interface> interfaces() {
+				// TODO
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
+		};
+	}
+
+	private static Record createRecord(com.github.javaparser.ast.body.RecordDeclaration recordDeclaration) {
+		return new Y.Record() {
+			@Override
+			public String name() {
+				return recordDeclaration.getFullyQualifiedName().orElseThrow();
+			}
+
+			@Override
+			public void rename(String newName) {
+				recordDeclaration.setName(newName);
+			}
+		};
+	}
+
+	private static Package createDefaultPackage(CompilationUnit compilationUnit) {
+		return new Y.Package() {
+
+			@Override
+			public Stream<Y.Record> records() {
+				return compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.RecordDeclaration.class))//
+						.map(decl -> {
+							return createRecord(decl);
+						});
+			}
+
+			@Override
+			public Stream<Y.Interface> interfaces() {
+				return compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+						.filter(decl -> decl.isInterface())//
+						.map(interfaceDeclaration -> {
+							return createInterface(interfaceDeclaration);
+						});
+			}
+
+			@Override
+			public Stream<Y.Class> classes() {
+				return compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN)//
+						.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+						.filter(decl -> !decl.isInterface())//
+						.map(classDeclaration -> {
+							return createClass(classDeclaration);
+						});
+			}
+
+			@Override
+			public void rename(String newName) {
+				// TODO
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
+
+			@Override
+			public String name() {
+				// TODO
+				throw new UnsupportedOperationException("Not implemented yet");
+			}
+		};
 	}
 
 	private static <T> Function<? super Node, Stream<T>> filterOnClass(java.lang.Class<T> clazz) {

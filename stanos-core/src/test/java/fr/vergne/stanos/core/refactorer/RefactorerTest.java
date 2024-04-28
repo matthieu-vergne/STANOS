@@ -937,46 +937,6 @@ class RefactorerTest {
 
 	private static class UnimplementedSource implements Code.Source {
 		@Override
-		public List<Code> subCodes() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public PackageDeclaration createPackageDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public ImportDeclaration createImportDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public ClassDeclaration createClassDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public ClassDeclaration getClassDeclaration(String name) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public InterfaceDeclaration createInterfaceDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public RecordDeclaration createRecordDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public RecordDeclaration getRecordDeclaration(String name) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
 		public Package defaultPackage() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
