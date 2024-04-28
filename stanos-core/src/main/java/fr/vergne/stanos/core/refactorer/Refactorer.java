@@ -146,7 +146,7 @@ public interface Refactorer {
 					} else {
 						throw new UnsupportedOperationException("Not supported: " + expr.getClass().getSimpleName());
 					}
-				}).orElse(Stream.empty()).peek(method -> System.out.println("M= " + method.name()));
+				}).orElse(Stream.empty());
 			}
 
 			@Override
