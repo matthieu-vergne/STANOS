@@ -5,7 +5,7 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface Y {
+public interface Component {
 
 	public interface Package {
 		String name();
@@ -181,7 +181,7 @@ public interface Y {
 		}
 	}
 
-	public interface Variable extends Y {
+	public interface Variable extends Component {
 		String name();
 
 		void rename(String newName);
@@ -202,7 +202,7 @@ public interface Y {
 
 	}
 
-	public interface Field extends Y {
+	public interface Field extends Component {
 		String name();
 
 		void rename(String newName);
@@ -220,7 +220,7 @@ public interface Y {
 
 	}
 
-	public interface Parameter extends Y {
+	public interface Parameter extends Component {
 		String name();
 
 		void rename(String newName);

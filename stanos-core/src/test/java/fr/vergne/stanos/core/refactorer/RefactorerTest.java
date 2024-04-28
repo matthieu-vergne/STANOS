@@ -1,27 +1,20 @@
 package fr.vergne.stanos.core.refactorer;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.joining;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import fr.vergne.stanos.core.refactorer.Y.Class;
-import fr.vergne.stanos.core.refactorer.Y.Field;
-import fr.vergne.stanos.core.refactorer.Y.Interface;
-import fr.vergne.stanos.core.refactorer.Y.Method;
-import fr.vergne.stanos.core.refactorer.Y.Package;
-import fr.vergne.stanos.core.refactorer.Y.Parameter;
-import fr.vergne.stanos.core.refactorer.Y.Record;
-import fr.vergne.stanos.core.refactorer.Y.Variable;
 
 class RefactorerTest {
 
@@ -66,12 +59,14 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).splitDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).splitDeclaration(), //
 						"class MyClass{void myMethod(){String myParam;myParam = null;}}"//
 				), //
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).joinDeclaration(), //
 						"class MyClass{void myMethod(){String myParam = null;}}"//
 				), //
 				new SuccessCase(//
@@ -82,7 +77,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).splitDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).splitDeclaration(), //
 						"""
 								class MyClass {
 									void myMethod() {
@@ -101,7 +97,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).joinDeclaration(), //
 						"""
 								class MyClass {
 									void myMethod() {
@@ -117,7 +114,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(String myParam){myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String"))
+								.parameter("myParam").rename("foo"), //
 						"class MyClass{void myMethod(String foo){foo = null;}}"//
 				), //
 				new SuccessCase(//
@@ -129,7 +127,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("myParam")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("myParam"))
+								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass{
 									class myParam {}
@@ -153,7 +152,9 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").clazz("MyChildClass").method("myMethod", emptyList()).clazz("MyInnerClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").clazz("MyChildClass")
+								.method("myMethod", emptyList()).clazz("MyInnerClass")
+								.method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
 									class MyChildClass {
@@ -180,7 +181,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String"))
+								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
 									void myMethod(String foo) {
@@ -204,7 +206,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
+								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
 									boolean myMethod(boolean foo) {
@@ -233,7 +236,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("MyInt")).parameter("myParam").rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("MyInt"))
+								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
 									interface MyInt {
@@ -295,7 +299,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"class MyClass{void myMethod(){String foo = null;}}"//
 				), //
 				new SuccessCase(//
@@ -307,7 +312,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass{
 									void myMethod(){
@@ -331,7 +337,9 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").clazz("MyChildClass").method("myMethod", emptyList()).clazz("MyInnerClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").clazz("MyChildClass")
+								.method("myMethod", emptyList()).clazz("MyInnerClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									class MyChildClass {
@@ -359,7 +367,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									void myMethod() {
@@ -387,7 +396,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									String myMethod(boolean b) {
@@ -416,7 +426,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 1).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
+								.variable("myVar", 1).rename("foo"), //
 						"""
 								class MyClass {
 									String myMethod(boolean b) {
@@ -449,7 +460,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									interface MyInt {
@@ -486,7 +498,9 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).method("myMethod", emptyList()).variable("myVar", 0)
+								.rename("foo"), //
 						"""
 								class MyClass {
 									interface MyInt {
@@ -522,7 +536,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
 									String myMethod() {
@@ -552,7 +567,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								import java.util.function.Supplier;
 
@@ -582,7 +598,8 @@ class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).variable("myVar", 0).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
+								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass{
 									void myMethod(boolean b){
@@ -607,7 +624,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).rename("foo"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.rename("foo"), //
 						"class MyClass{void foo(){}}"//
 				)//
 		);
@@ -690,27 +708,31 @@ class RefactorerTest {
 				testCodeRefactoringFailure_SplitJoin()//
 		).flatMap(stream -> stream);
 	}
-	
+
 	private static Stream<FailureCase> testCodeRefactoringFailure_SplitJoin() {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).splitDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).splitDeclaration(), //
 						new IllegalStateException("No assignment to split on myParam declaration")//
 				), //
 				new FailureCase(//
 						"class MyClass{void myMethod(){String myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).joinDeclaration(), //
 						new IllegalStateException("myParam declaration already assigns a value")//
 				), //
 				new FailureCase(//
 						"class MyClass{void myMethod(){String myParam;String foo = null;myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("myParam", 0).joinDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myParam", 0).joinDeclaration(), //
 						new IllegalStateException("No myParam assignment just after its declaration")//
 				), //
 				new FailureCase(//
 						"class MyClass{void myMethod(String foo){String myParam;foo = null;myParam = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String")).variable("myParam", 0).joinDeclaration(), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String"))
+								.variable("myParam", 0).joinDeclaration(), //
 						new IllegalStateException("No myParam assignment just after its declaration")//
 				) //
 		);
@@ -720,22 +742,26 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"interface MyInt{void myMethod();}", //
-						source -> source.defaultPackage().interf("MyInt").method("myMethod", emptyList()).parameter("x"), //
+						source -> source.defaultPackage().interf("MyInt").method("myMethod", emptyList())
+								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				), //
 				new FailureCase(//
 						"interface MyInt{void myMethod(boolean myParam);}", //
-						source -> source.defaultPackage().interf("MyInt").method("myMethod", List.of("boolean")).parameter("x"), //
+						source -> source.defaultPackage().interf("MyInt").method("myMethod", List.of("boolean"))
+								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				), //
 				new FailureCase(//
 						"class MyClass{void myMethod(){boolean myVar = true;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).parameter("x"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				), //
 				new FailureCase(//
 						"class MyClass{void myMethod(boolean myParam){myParam = true;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean")).parameter("x"), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
+								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				)//
 					// TODO Lambda parameter
@@ -746,7 +772,8 @@ class RefactorerTest {
 		return Stream.of(//
 				new FailureCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("x", 0), //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("x",
+								0), //
 						new NoSuchElementException("No variable x #0")//
 				)//
 		);
@@ -834,442 +861,52 @@ class RefactorerTest {
 
 	private static String stringOf(Consumer<Code.Source> refactoring) {
 		StringBuilder builder = new StringBuilder();
-		Runnable firstDisplayer = () -> builder.append(currentMethodName() + "()");
-		Consumer<Object> nextDisplayer = arg -> builder.append("." + currentMethodName() + "(" + arg + ")");
-		try {
-			refactoring.accept(new UnimplementedSource() {
-				@Override
-				public Package defaultPackage() {
-					firstDisplayer.run();
-					return new UnimplementedPackage() {
-						@Override
-						public void rename(String newName) {
-							nextDisplayer.accept(newName);
-						}
+		Consumable.ArgsConsumer displayer = new Consumable.ArgsConsumer() {
+			@Override
+			public void consumeArgs(Object... args) {
+				// Get element at index 2 in stack trace:
+				// 0 - getStackTrace()
+				// 1 - the consumer we are in
+				// 2 - the method we are interested in
+				StackTraceElement stackTraceElement = Thread.currentThread().getStackTrace()[2];
+				String methodName = stackTraceElement.getMethodName();
+				String argsInParentheses = Stream.of(args).map(Objects::toString).collect(joining(", ", "(", ")"));
 
-						@Override
-						public Record record(String name) {
-							nextDisplayer.accept(name);
-							return new UnimplementedRecord() {
-								@Override
-								public void rename(String newName) {
-									nextDisplayer.accept(name);
-								}
-							};
-						};
-
-						@Override
-						public Interface interf(String name) {
-							nextDisplayer.accept(name);
-							return new UnimplementedInterface() {
-								@Override
-								public void rename(String newName) {
-									nextDisplayer.accept(newName);
-								}
-
-								@Override
-								public Method method(String name, List<String> parameterTypes) {
-									nextDisplayer.accept(name + ", " + parameterTypes);
-									return new UnimplementedMethod() {
-										@Override
-										public Y.Parameter parameter(String name) {
-											nextDisplayer.accept(name);
-											return new UnimplementedParameter() {
-												@Override
-												public void rename(String newName) {
-													nextDisplayer.accept(newName);
-												}
-											};
-										};
-									};
-								};
-							};
-						};
-
-						@Override
-						public Class clazz(String name) {
-							nextDisplayer.accept(name);
-							return new UnimplementedClass() {
-								@Override
-								public void rename(String newName) {
-									nextDisplayer.accept(newName);
-								}
-
-								@Override
-								public Field field(String name) {
-									nextDisplayer.accept(name);
-									return new UnimplementedField() {
-
-										@Override
-										public void rename(String newName) {
-											nextDisplayer.accept(newName);
-										}
-									};
-								}
-
-								@Override
-								public Method method(String name, List<String> parameterTypes) {
-									nextDisplayer.accept(name + ", " + parameterTypes);
-									return new UnimplementedMethod() {
-
-										@Override
-										public void rename(String newName) {
-											nextDisplayer.accept(name);
-										}
-
-										@Override
-										public Y.Parameter parameter(String name) {
-											nextDisplayer.accept(name);
-											return new UnimplementedParameter() {
-												@Override
-												public void rename(String newName) {
-													nextDisplayer.accept(newName);
-												}
-											};
-										};
-
-										@Override
-										public Variable variable(String name, int index) {
-											nextDisplayer.accept(name + ", " + index);
-											return new UnimplementedVariable() {
-												@Override
-												public void rename(String newName) {
-													nextDisplayer.accept(newName);
-												}
-
-												@Override
-												public void splitDeclaration() {
-													nextDisplayer.accept("");
-												}
-
-												@Override
-												public void joinDeclaration() {
-													nextDisplayer.accept("");
-												}
-
-												@Override
-												public Method method(String name, List<String> parameterTypes) {
-													nextDisplayer.accept(name + ", " + parameterTypes);
-													return new UnimplementedMethod() {
-
-														@Override
-														public void rename(String newName) {
-															nextDisplayer.accept(name);
-														}
-
-														@Override
-														public Y.Parameter parameter(String name) {
-															nextDisplayer.accept(name);
-															return new UnimplementedParameter() {
-																@Override
-																public void rename(String newName) {
-																	nextDisplayer.accept(newName);
-																}
-															};
-														};
-
-														@Override
-														public Variable variable(String name, int index) {
-															nextDisplayer.accept(name + ", " + index);
-															return new UnimplementedVariable() {
-																@Override
-																public void rename(String newName) {
-																	nextDisplayer.accept(newName);
-																}
-
-																@Override
-																public void splitDeclaration() {
-																	nextDisplayer.accept("");
-																};
-															};
-														};
-													};
-												}
-											};
-										};
-									};
-								}
-
-								@Override
-								public Class clazz(String name) {
-									nextDisplayer.accept(name);
-									return new UnimplementedClass() {
-										@Override
-										public void rename(String newName) {
-											nextDisplayer.accept(name);
-										}
-
-										@Override
-										public Method method(String name, List<String> parameterTypes) {
-											nextDisplayer.accept(name + ", " + parameterTypes);
-											return new UnimplementedMethod() {
-												@Override
-												public Class clazz(String name) {
-													nextDisplayer.accept(name);
-													return new UnimplementedClass() {
-														@Override
-														public Method method(String name, List<String> parameterTypes) {
-															nextDisplayer.accept(name + ", " + parameterTypes);
-															return new UnimplementedMethod() {
-																@Override
-																public Y.Parameter parameter(String name) {
-																	nextDisplayer.accept(name);
-																	return new UnimplementedParameter() {
-																		@Override
-																		public void rename(String newName) {
-																			nextDisplayer.accept(newName);
-																		}
-																	};
-																};
-
-																@Override
-																public Variable variable(String name, int index) {
-																	nextDisplayer.accept(name + ", " + index);
-																	return new UnimplementedVariable() {
-																		@Override
-																		public void rename(String newName) {
-																			nextDisplayer.accept(name);
-																		}
-
-																		@Override
-																		public void splitDeclaration() {
-																			nextDisplayer.accept("");
-																		}
-
-																		@Override
-																		public void joinDeclaration() {
-																			nextDisplayer.accept("");
-																		}
-																	};
-																}
-															};
-														}
-													};
-												}
-											};
-										}
-									};
-								}
-							};
-						}
-					};
+				if (!builder.isEmpty()) {
+					builder.append(".");
 				}
-			});
-		} catch (Exception cause) {
-			cause.printStackTrace();
+				builder.append(methodName);
+				builder.append(argsInParentheses);
+			}
+		};
+		Code.Source source = new Code.Source() {
+			@Override
+			public Component.Package defaultPackage() {
+				displayer.consumeArgs("");
+				return new Consumable.Package(displayer);
+			}
+		};
+		try {
+			refactoring.accept(source);
+		} catch (RuntimeException cause) {
+			/*
+			 * This method is used to build the string that will name a test. When such an
+			 * operation throws an exception, it is ignored and the fallback strategy
+			 * consists in using a default toString() implementation. Thus, no exception
+			 * appears anywhere, but the report is corrupted with unusable test names.
+			 * 
+			 * We avoid that by forcing the exception display on the console (with
+			 * additional info) before to throw it.
+			 */
 			builder.append(".???");
+			var exception = new UnsupportedOperationException(builder.toString(), cause);
+			exception.printStackTrace();
+			throw exception;
 		}
 		return builder.toString();
 	}
 
-	private static String currentMethodName() {
-		// Get element at index 3 in stack trace:
-		// 0 - getStackTrace()
-		// 1 - the method we are in
-		// 2 - the lambda calling this method
-		// 3 - the method we are interested in
-		return Thread.currentThread().getStackTrace()[3].getMethodName();
-	}
-
 	private static String reduce(String code) {
 		return code.length() < 100 ? code : code.substring(0, 100) + "[...]";
-	}
-
-	private static class UnimplementedSource implements Code.Source {
-		@Override
-		public Package defaultPackage() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedClass implements Y.Class {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Field> fields() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Method> methods() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Class> classes() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Interface> interfaces() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedInterface implements Y.Interface {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Method> methods() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Class> classes() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Interface> interfaces() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedMethod implements Y.Method {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public List<String> parameterTypes() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Variable> variables() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Class> classes() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Interface> interfaces() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Parameter> parameters() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedField implements Y.Field {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Method> methods() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedVariable implements Y.Variable {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Method> methods() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void splitDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void joinDeclaration() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedParameter implements Y.Parameter {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedPackage implements Y.Package {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Class> classes() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Interface> interfaces() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public Stream<Record> records() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
-
-	private static class UnimplementedRecord implements Y.Record {
-		@Override
-		public String name() {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
-
-		@Override
-		public void rename(String newName) {
-			throw new UnsupportedOperationException("Not implemented yet");
-		}
 	}
 }

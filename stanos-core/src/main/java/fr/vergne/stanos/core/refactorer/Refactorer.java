@@ -14,12 +14,15 @@ import com.github.javaparser.ast.Node.TreeTraversal;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
@@ -31,13 +34,6 @@ import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinte
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-
-import fr.vergne.stanos.core.refactorer.Y.Class;
-import fr.vergne.stanos.core.refactorer.Y.Field;
-import fr.vergne.stanos.core.refactorer.Y.Interface;
-import fr.vergne.stanos.core.refactorer.Y.Method;
-import fr.vergne.stanos.core.refactorer.Y.Package;
-import fr.vergne.stanos.core.refactorer.Y.Record;
 
 public interface Refactorer {
 
@@ -63,7 +59,7 @@ public interface Refactorer {
 	static Code.Source abstractFromJavaParser(CompilationUnit compilationUnit) {
 		return new Code.Source() {
 			@Override
-			public Package defaultPackage() {
+			public Component.Package defaultPackage() {
 				return createDefaultPackage(compilationUnit);
 			}
 		};
@@ -83,19 +79,7 @@ public interface Refactorer {
 			});
 			throw exception;
 		}
-		CompilationUnit compilationUnit = parseResult.getResult().orElseThrow();
-		System.out.println(":::::::::::::::");
-		compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN).forEach(node -> {
-			System.out.println(node.getClass().getSimpleName());
-			node.stream(TreeTraversal.DIRECT_CHILDREN).forEach(node2 -> {
-				System.out.println("  " + node2.getClass().getSimpleName());
-				node2.stream(TreeTraversal.DIRECT_CHILDREN).forEach(node3 -> {
-					System.out.println("    " + node3.getClass().getSimpleName());
-				});
-			});
-		});
-		System.out.println(":::::::::::::::");
-		return compilationUnit;
+		return parseResult.getResult().orElseThrow();
 	}
 
 	interface ForCode extends Refactorer {
@@ -104,8 +88,9 @@ public interface Refactorer {
 		Code.Source source();
 	}
 
-	private static Y.Variable createVariable(MethodDeclaration methodDeclaration, VariableDeclarator variableDeclaration) {
-		return new Y.Variable() {
+	private static Component.Variable createVariable(MethodDeclaration methodDeclaration,
+			VariableDeclarator variableDeclaration) {
+		return new Component.Variable() {
 			@Override
 			public String name() {
 				return variableDeclaration.getNameAsString();
@@ -115,14 +100,15 @@ public interface Refactorer {
 			public void rename(String newName) {
 				String currentName = variableDeclaration.getNameAsString();
 				methodDeclaration.getBody().orElseThrow().stream()//
-						.flatMap(filterOnClass(com.github.javaparser.ast.expr.SimpleName.class))//
+						.flatMap(filterOnClass(SimpleName.class))//
 						.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
 						.forEach(nameNode -> {
 							Node parentNode = nameNode.getParentNode().orElseThrow();
 							if (parentNode instanceof NameExpr exp) {
 								ResolvedValueDeclaration resolved = exp.resolve();
 								if (resolved.isVariable()) {
-									VariableDeclarationExpr declarations = resolved.toAst(com.github.javaparser.ast.expr.VariableDeclarationExpr.class).orElseThrow();
+									VariableDeclarationExpr declarations = resolved.toAst(VariableDeclarationExpr.class)
+											.orElseThrow();
 									if (declarations.getVariables().contains(variableDeclaration)) {
 										nameNode.setIdentifier(newName);
 									} else {
@@ -139,7 +125,7 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Method> methods() {
+			public Stream<Component.Method> methods() {
 				return variableDeclaration.getInitializer().map(expr -> {
 					if (expr instanceof ObjectCreationExpr ocExpr) {
 						return ocExpr.getAnonymousClassBody().map(body -> {
@@ -148,11 +134,13 @@ public interface Refactorer {
 									if (node instanceof MethodDeclaration decl) {
 										return createMethod(decl);
 									} else {
-										throw new UnsupportedOperationException("Not supported: " + node.getClass().getSimpleName());
+										throw new UnsupportedOperationException(
+												"Not supported: " + node.getClass().getSimpleName());
 									}
 								});
 							} else {
-								throw new UnsupportedOperationException("Not supported: " + body.getClass().getSimpleName());
+								throw new UnsupportedOperationException(
+										"Not supported: " + body.getClass().getSimpleName());
 							}
 						}).orElse(Stream.empty());
 					} else {
@@ -179,13 +167,16 @@ public interface Refactorer {
 							block.addStatement(index, assignExpr);
 							// TODO Remove added \r\n
 						} else {
-							throw new UnsupportedOperationException("Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());
+							throw new UnsupportedOperationException(
+									"Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());
 						}
 					} else {
-						throw new UnsupportedOperationException("Not implemented yet: " + grandParentNode.getClass().getSimpleName());
+						throw new UnsupportedOperationException(
+								"Not implemented yet: " + grandParentNode.getClass().getSimpleName());
 					}
 				} else {
-					throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass().getSimpleName());
+					throw new UnsupportedOperationException(
+							"Not implemented yet: " + parentNode.getClass().getSimpleName());
 				}
 
 				variableDeclaration.removeInitializer();
@@ -218,35 +209,43 @@ public interface Refactorer {
 												block.getStatements().remove(indexOfNextStatement);
 												variableDeclaration.setInitializer(nextAssignExpr.getValue());
 											} else {
-												throw new IllegalStateException("No " + name() + " assignment just after its declaration");
+												throw new IllegalStateException(
+														"No " + name() + " assignment just after its declaration");
 											}
 										} else {
-											throw new UnsupportedOperationException("Not implemented yet: " + target.getClass().getSimpleName());
+											throw new UnsupportedOperationException(
+													"Not implemented yet: " + target.getClass().getSimpleName());
 										}
 									} else {
 										throw new UnsupportedOperationException("Not implemented yet: " + operator);
 									}
 								} else {
-									throw new IllegalStateException("No " + name() + " assignment just after its declaration");
+									throw new IllegalStateException(
+											"No " + name() + " assignment just after its declaration");
 								}
 							} else {
-								throw new UnsupportedOperationException("Not implemented yet: " + statement.getClass().getSimpleName());
+								throw new UnsupportedOperationException(
+										"Not implemented yet: " + statement.getClass().getSimpleName());
 							}
 						} else {
-							throw new UnsupportedOperationException("Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());
+							throw new UnsupportedOperationException(
+									"Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());
 						}
 					} else {
-						throw new UnsupportedOperationException("Not implemented yet: " + grandParentNode.getClass().getSimpleName());
+						throw new UnsupportedOperationException(
+								"Not implemented yet: " + grandParentNode.getClass().getSimpleName());
 					}
 				} else {
-					throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass().getSimpleName());
+					throw new UnsupportedOperationException(
+							"Not implemented yet: " + parentNode.getClass().getSimpleName());
 				}
 			}
 		};
 	}
 
-	private static Y.Parameter createParameter(com.github.javaparser.ast.body.MethodDeclaration methodDeclaration, com.github.javaparser.ast.body.Parameter parameterDeclaration) {
-		return new Y.Parameter() {
+	private static Component.Parameter createParameter(MethodDeclaration methodDeclaration,
+			Parameter parameterDeclaration) {
+		return new Component.Parameter() {
 			@Override
 			public String name() {
 				return parameterDeclaration.getNameAsString();
@@ -257,13 +256,13 @@ public interface Refactorer {
 				String currentName = parameterDeclaration.getNameAsString();
 				methodDeclaration.getBody().ifPresent(body -> {
 					body.stream()//
-							.flatMap(filterOnClass(com.github.javaparser.ast.expr.SimpleName.class))//
-							.filter(nameNode -> !(nameNode.getParentNode().orElseThrow().getParentNode().orElseThrow() instanceof ObjectCreationExpr))//
+							.flatMap(filterOnClass(SimpleName.class))//
 							.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
 							.forEach(nameNode -> {
 								Node parentNode = nameNode.getParentNode().orElseThrow();
 								if (parentNode instanceof NameExpr exp) {
-									com.github.javaparser.ast.body.Parameter declaration = exp.resolve().asParameter().toAst(com.github.javaparser.ast.body.Parameter.class).orElseThrow();
+									com.github.javaparser.ast.body.Parameter declaration = exp.resolve()
+											.toAst(com.github.javaparser.ast.body.Parameter.class).orElseThrow();
 									if (declaration.equals(parameterDeclaration)) {
 										nameNode.setIdentifier(newName);
 									} else {
@@ -279,8 +278,8 @@ public interface Refactorer {
 		};
 	}
 
-	private static Method createMethod(MethodDeclaration methodDeclaration) {
-		return new Y.Method() {
+	private static Component.Method createMethod(MethodDeclaration methodDeclaration) {
+		return new Component.Method() {
 			@Override
 			public String name() {
 				return methodDeclaration.getNameAsString();
@@ -297,20 +296,21 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Parameter> parameters() {
+			public Stream<Component.Parameter> parameters() {
 				return methodDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.Parameter.class))//
+						.flatMap(filterOnClass(Parameter.class))//
 						.map(parameterDeclaration -> createParameter(methodDeclaration, parameterDeclaration));
 			}
 
 			@Override
-			public Stream<Y.Variable> variables() {
+			public Stream<Component.Variable> variables() {
 				return methodDeclaration.getBody().orElseThrow().stream(TreeTraversal.DIRECT_CHILDREN)//
 						.flatMap(node -> {
 							if (node instanceof Statement stmt) {
 								return resolveStatementToExpressions(stmt);
 							} else {
-								throw new UnsupportedOperationException("Not supported: " + node.getClass().getSimpleName());
+								throw new UnsupportedOperationException(
+										"Not supported: " + node.getClass().getSimpleName());
 							}
 						})//
 						.flatMap(node -> {
@@ -319,10 +319,11 @@ public interface Refactorer {
 							} else if (node instanceof NameExpr exp) {
 								return Stream.empty();
 							} else {
-								throw new UnsupportedOperationException("Not supported: " + node.getClass().getSimpleName());
+								throw new UnsupportedOperationException(
+										"Not supported: " + node.getClass().getSimpleName());
 							}
 						})//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.VariableDeclarator.class))//
+						.flatMap(filterOnClass(VariableDeclarator.class))//
 						.map(variableDeclaration -> {
 							return createVariable(methodDeclaration, variableDeclaration);
 						});
@@ -338,7 +339,8 @@ public interface Refactorer {
 				} else if (statement instanceof IfStmt stmt) {
 					return Stream.concat(//
 							resolveStatementToExpressions(stmt.getThenStmt()), //
-							stmt.getElseStmt().map(elseStmt -> resolveStatementToExpressions(elseStmt)).orElse(Stream.empty())//
+							stmt.getElseStmt().map(elseStmt -> resolveStatementToExpressions(elseStmt))
+									.orElse(Stream.empty())//
 					);
 				} else if (statement instanceof LocalClassDeclarationStmt stmt) {
 					return Stream.empty();
@@ -348,19 +350,19 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Interface> interfaces() {
+			public Stream<Component.Interface> interfaces() {
 				// TODO Auto-generated method stub
 				throw new UnsupportedOperationException("Not implemented yet");
 			}
 
 			@Override
-			public Stream<Y.Class> classes() {
+			public Stream<Component.Class> classes() {
 				return methodDeclaration.getBody()//
 						.map(body -> body.stream(TreeTraversal.DIRECT_CHILDREN)//
 								.flatMap(filterOnClass(LocalClassDeclarationStmt.class))//
 								.flatMap(localClassStatement -> {
 									return localClassStatement.stream(TreeTraversal.DIRECT_CHILDREN)//
-											.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+											.flatMap(filterOnClass(ClassOrInterfaceDeclaration.class))//
 											.filter(decl -> !decl.isInterface())//
 											.map(localClassDeclaration -> {
 												return createClass(localClassDeclaration);
@@ -372,8 +374,8 @@ public interface Refactorer {
 		};
 	}
 
-	private static Field createField(VariableDeclarator variableDeclarator) {
-		return new Y.Field() {
+	private static Component.Field createField(VariableDeclarator variableDeclarator) {
+		return new Component.Field() {
 			@Override
 			public String name() {
 				return variableDeclarator.getNameAsString();
@@ -393,8 +395,8 @@ public interface Refactorer {
 		};
 	}
 
-	private static Class createClass(ClassOrInterfaceDeclaration classDeclaration) {
-		return new Y.Class() {
+	private static Component.Class createClass(ClassOrInterfaceDeclaration classDeclaration) {
+		return new Component.Class() {
 			@Override
 			public String name() {
 				return classDeclaration.getNameAsString();
@@ -406,9 +408,9 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Method> methods() {
+			public Stream<Component.Method> methods() {
 				return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.MethodDeclaration.class))//
+						.flatMap(filterOnClass(MethodDeclaration.class))//
 						.map(methodDeclaration -> {
 							return createMethod(methodDeclaration);
 						});
@@ -416,9 +418,9 @@ public interface Refactorer {
 
 			@Override
 			// method
-			public Stream<Y.Class> classes() {
+			public Stream<Component.Class> classes() {
 				return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+						.flatMap(filterOnClass(ClassOrInterfaceDeclaration.class))//
 						.filter(decl -> !decl.isInterface())//
 						.map(innerClassDeclaration -> {
 							return createClass(innerClassDeclaration);
@@ -426,13 +428,13 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Interface> interfaces() {
+			public Stream<Component.Interface> interfaces() {
 				// TODO
 				throw new UnsupportedOperationException("Not implemented yet");
 			}
 
 			@Override
-			public Stream<Field> fields() {
+			public Stream<Component.Field> fields() {
 				return classDeclaration.getFields().stream().flatMap(fieldDeclaration -> {
 					return fieldDeclaration.getVariables().stream().map(variableDeclarator -> {
 						return createField(variableDeclarator);
@@ -443,8 +445,8 @@ public interface Refactorer {
 		};
 	}
 
-	private static Interface createInterface(ClassOrInterfaceDeclaration interfaceDeclaration) {
-		return new Y.Interface() {
+	private static Component.Interface createInterface(ClassOrInterfaceDeclaration interfaceDeclaration) {
+		return new Component.Interface() {
 			@Override
 			public String name() {
 				return interfaceDeclaration.getFullyQualifiedName().orElseThrow();
@@ -457,30 +459,30 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Method> methods() {
+			public Stream<Component.Method> methods() {
 				return interfaceDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.MethodDeclaration.class))//
+						.flatMap(filterOnClass(MethodDeclaration.class))//
 						.map(methodDeclaration -> {
 							return createMethod(methodDeclaration);
 						});
 			}
 
 			@Override
-			public Stream<Y.Class> classes() {
+			public Stream<Component.Class> classes() {
 				// TODO
 				throw new UnsupportedOperationException("Not implemented yet");
 			}
 
 			@Override
-			public Stream<Y.Interface> interfaces() {
+			public Stream<Component.Interface> interfaces() {
 				// TODO
 				throw new UnsupportedOperationException("Not implemented yet");
 			}
 		};
 	}
 
-	private static Record createRecord(com.github.javaparser.ast.body.RecordDeclaration recordDeclaration) {
-		return new Y.Record() {
+	private static Component.Record createRecord(RecordDeclaration recordDeclaration) {
+		return new Component.Record() {
 			@Override
 			public String name() {
 				return recordDeclaration.getFullyQualifiedName().orElseThrow();
@@ -493,22 +495,22 @@ public interface Refactorer {
 		};
 	}
 
-	private static Package createDefaultPackage(CompilationUnit compilationUnit) {
-		return new Y.Package() {
+	private static Component.Package createDefaultPackage(CompilationUnit compilationUnit) {
+		return new Component.Package() {
 
 			@Override
-			public Stream<Y.Record> records() {
+			public Stream<Component.Record> records() {
 				return compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.RecordDeclaration.class))//
+						.flatMap(filterOnClass(RecordDeclaration.class))//
 						.map(decl -> {
 							return createRecord(decl);
 						});
 			}
 
 			@Override
-			public Stream<Y.Interface> interfaces() {
+			public Stream<Component.Interface> interfaces() {
 				return compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+						.flatMap(filterOnClass(ClassOrInterfaceDeclaration.class))//
 						.filter(decl -> decl.isInterface())//
 						.map(interfaceDeclaration -> {
 							return createInterface(interfaceDeclaration);
@@ -516,9 +518,9 @@ public interface Refactorer {
 			}
 
 			@Override
-			public Stream<Y.Class> classes() {
+			public Stream<Component.Class> classes() {
 				return compilationUnit.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class))//
+						.flatMap(filterOnClass(ClassOrInterfaceDeclaration.class))//
 						.filter(decl -> !decl.isInterface())//
 						.map(classDeclaration -> {
 							return createClass(classDeclaration);
