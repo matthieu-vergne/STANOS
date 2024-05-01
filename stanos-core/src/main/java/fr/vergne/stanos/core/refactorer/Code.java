@@ -1,6 +1,6 @@
 package fr.vergne.stanos.core.refactorer;
 
-interface Code {
+public interface Code {
 
 	interface Source extends Code {
 		Component.Package defaultPackage();

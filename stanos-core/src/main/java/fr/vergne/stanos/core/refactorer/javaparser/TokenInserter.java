@@ -1,8 +1,8 @@
-package fr.vergne.stanos.core.refactorer;
+package fr.vergne.stanos.core.refactorer.javaparser;
 
 import com.github.javaparser.JavaToken;
 
-public class TokenInserter {
+class TokenInserter {
 	private JavaToken lastToken;
 
 	private TokenInserter(JavaToken lastToken) {

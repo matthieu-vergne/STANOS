@@ -16,6 +16,8 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import fr.vergne.stanos.core.refactorer.javaparser.JavaParserRefactorer;
+
 class RefactorerTest {
 
 	record SuccessCase(String code, Consumer<Code.Source> refactoring, String expectedCode) {
@@ -33,7 +35,7 @@ class RefactorerTest {
 		var expectedCode = successCase.expectedCode();
 
 		// GIVEN
-		Refactorer.ForCode refactorer = Refactorer.forCode(code);
+		Refactorer.ForCode refactorer = JavaParserRefactorer.forCode(code);
 
 		// WHEN
 		refactorerExecutor.accept(refactorer.source());
@@ -686,7 +688,7 @@ class RefactorerTest {
 		var expectedException = failureCase.expectedException();
 
 		// GIVEN
-		Refactorer.ForCode refactorer = Refactorer.forCode(code);
+		Refactorer.ForCode refactorer = JavaParserRefactorer.forCode(code);
 
 		// WHEN
 		Executable action = () -> refactorerExecutor.accept(refactorer.source());
