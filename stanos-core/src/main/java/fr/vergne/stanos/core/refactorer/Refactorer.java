@@ -2,14 +2,21 @@ package fr.vergne.stanos.core.refactorer;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import com.github.javaparser.JavaParser;
+import com.github.javaparser.JavaToken;
+import com.github.javaparser.JavaToken.Category;
+import com.github.javaparser.JavaToken.Kind;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
+import com.github.javaparser.TokenRange;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.Node.ObserverRegistrationMode;
 import com.github.javaparser.ast.Node.TreeTraversal;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -24,6 +31,9 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithTokenRange;
+import com.github.javaparser.ast.observer.AstObserver;
+import com.github.javaparser.ast.observer.ObservableProperty;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
@@ -41,17 +51,167 @@ public interface Refactorer {
 		// TODO Expose language version
 		CompilationUnit compilationUnit = parseWithJavaParser(code, LanguageLevel.JAVA_17);
 		LexicalPreservingPrinter.setup(compilationUnit);
+		X printer = printer(code, compilationUnit);
+		compilationUnit.register(printer.observer(), ObserverRegistrationMode.SELF_PROPAGATING);
 		Code.Source source = abstractFromJavaParser(compilationUnit);
 		return new Refactorer.ForCode() {
 
 			@Override
 			public String code() {
-				return LexicalPreservingPrinter.print(compilationUnit);
+				return printer.print();
+//				return LexicalPreservingPrinter.print(compilationUnit);
 			}
 
 			@Override
 			public Code.Source source() {
 				return source;
+			}
+		};
+	}
+
+	interface X {
+		String print();
+
+		AstObserver observer();
+	}
+
+	static X printer(String code, CompilationUnit compilationUnit) {
+		return new X() {
+			@Override
+			public String print() {
+				// TODO
+				TokenRange tokens = compilationUnit.getTokenRange().orElseThrow();
+				return StreamSupport.stream(tokens.spliterator(), false)//
+						.peek(token -> System.out.println(descriptionOf(token)))//
+						.map(token -> token.asString())//
+						.collect(Collectors.joining());
+			}
+
+			private String descriptionOf(JavaToken token) {
+				Kind kind = Kind.valueOf(token.getKind());
+				Category category = token.getCategory();
+				String text = token.getText();
+				return category + "." + kind + "(" + text + ")";
+			}
+
+			private String display(Object obj) {
+				return obj == null ? "(null)" : "[" + obj.getClass().getSimpleName() + "]" + obj;
+			}
+
+			@Override
+			public AstObserver observer() {
+				return new AstObserver() {
+					@Override
+					public void propertyChange(Node observedNode, ObservableProperty property, Object oldValue,
+							Object newValue) {
+						System.out.println("property " + property + " on " + display(observedNode) + ": "
+								+ display(oldValue) + " > " + display(newValue));
+						if (observedNode instanceof NodeWithTokenRange<?> nodeWithTokens) {
+							if (singleTokenIn(nodeWithTokens)) {
+								if (oldValue instanceof String oldString && newValue instanceof String newString) {
+									JavaToken token = nodeWithTokens.getTokenRange().orElseThrow().getBegin();
+									token.setText(newString);
+								} else if (nodeWithTokens instanceof VariableDeclarator varDec
+										&& property == ObservableProperty.INITIALIZER && oldValue == null
+										&& newValue instanceof NodeWithTokenRange<?> newNode) {
+									TokenInserter.from(varDec.getTokenRange().orElseThrow().getEnd())//
+											.insertAfter(new JavaToken(Kind.SPACE.getKind()))//
+											.insertAfter(new JavaToken(Kind.ASSIGN.getKind()))//
+											.insertAfter(new JavaToken(Kind.SPACE.getKind()))//
+											.insertAfter(newNode.getTokenRange().orElseThrow().getBegin());
+								} else {
+									throw new UnsupportedOperationException("Not implemented yet");
+								}
+							} else {
+								throw new UnsupportedOperationException("Not implemented yet");
+							}
+						} else {
+							throw new UnsupportedOperationException("Not implemented yet");
+						}
+					}
+
+					@Override
+					public void parentChange(Node observedNode, Node previousParent, Node newParent) {
+						// TODO
+						System.out.println("parent of " + display(observedNode) + ": " + display(previousParent) + " > "
+								+ display(newParent));
+					}
+
+					@Override
+					public void listChange(NodeList<?> observedNodeList, ListChangeType type, int index,
+							Node nodeAddedOrRemoved) {
+						System.out.println("list of " + observedNodeList + "[" + index + "]: " + type + " "
+								+ display(nodeAddedOrRemoved));
+						Node actedNode = observedNodeList.get(index);
+						if (actedNode instanceof NodeWithTokenRange<?> nodeWithTokens) {
+							if (type == ListChangeType.REMOVAL) {
+								Node parentNode = observedNodeList.getParentNode().orElseThrow();
+								TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
+								TokenRange removedTokens = actedNode.getTokenRange().orElseThrow();
+								if (index == 0) {
+									JavaToken removedBegin;
+									removedBegin = removedTokens.getBegin();
+									JavaToken removedEnd = removedTokens.getEnd();
+									boolean remove = false;
+									for (JavaToken token : parentTokens) {
+										if (sameTokens(token, removedBegin)) {
+											System.out.println("X " + descriptionOf(token));
+											remove = true;
+											token.deleteToken();
+										} else if (sameTokens(token, removedEnd)) {
+											System.out.println("X " + descriptionOf(token));
+											token.deleteToken();
+											remove = false;
+										} else if (remove) {
+											System.out.println("X " + descriptionOf(token));
+											token.deleteToken();
+										} else {
+											System.out.println("| " + descriptionOf(token));
+										}
+									}
+									throw new UnsupportedOperationException("Not implemented yet");
+								} else {
+									JavaToken keepEnd;
+									TokenRange previousTokens = observedNodeList.get(index - 1).getTokenRange()
+											.orElseThrow();
+									keepEnd = previousTokens.getEnd();
+									JavaToken removedEnd = removedTokens.getEnd();
+									boolean remove = false;
+									for (JavaToken token : parentTokens) {
+										if (sameTokens(token, keepEnd)) {
+											System.out.println("| " + descriptionOf(token));
+											remove = true;
+										} else if (sameTokens(token, removedEnd)) {
+											System.out.println("X " + descriptionOf(token));
+											token.deleteToken();
+											remove = false;
+										} else if (remove) {
+											System.out.println("X " + descriptionOf(token));
+											token.deleteToken();
+										} else {
+											System.out.println("| " + descriptionOf(token));
+										}
+									}
+								}
+							} else {
+								throw new UnsupportedOperationException("Not implemented yet");
+							}
+						} else {
+							throw new UnsupportedOperationException("Not implemented yet");
+						}
+					}
+
+					@Override
+					public void listReplacement(NodeList<?> observedNode, int index, Node oldNode, Node newNode) {
+						// TODO Auto-generated method stub
+						throw new UnsupportedOperationException("Not implemented yet");
+					}
+
+					private boolean singleTokenIn(NodeWithTokenRange<?> nodeWithToken) {
+						TokenRange tokenRange = nodeWithToken.getTokenRange().orElseThrow();
+						return tokenRange.getBegin() == tokenRange.getEnd();
+					}
+				};
 			}
 		};
 	}
@@ -163,7 +323,10 @@ public interface Refactorer {
 						if (grandGrandParentNode instanceof BlockStmt block) {
 							List<Node> childNodes = block.getChildNodes();
 							int index = childNodes.indexOf(stmt) + 1;
-							AssignExpr assignExpr = new AssignExpr(new NameExpr(name()), initializer, Operator.ASSIGN);
+							AssignExpr assignExpr = new AssignExpr();
+							assignExpr.setTarget(new NameExpr(name()));
+							assignExpr.setOperator(Operator.ASSIGN);
+							assignExpr.setValue(initializer);// Keep it last to not break parent change notif
 							block.addStatement(index, assignExpr);
 							// TODO Remove added \r\n
 						} else {
@@ -292,7 +455,7 @@ public interface Refactorer {
 
 			@Override
 			public void rename(String newName) {
-				methodDeclaration.setName(newName);
+				methodDeclaration.getName().setIdentifier(newName);
 			}
 
 			@Override
@@ -383,7 +546,7 @@ public interface Refactorer {
 
 			@Override
 			public void rename(String newName) {
-				variableDeclarator.setName(newName);
+				variableDeclarator.getName().setIdentifier(newName);
 				// TODO Rename uses
 			}
 
@@ -404,7 +567,7 @@ public interface Refactorer {
 
 			@Override
 			public void rename(String newName) {
-				classDeclaration.setName(newName);
+				classDeclaration.getName().setIdentifier(newName);
 			}
 
 			@Override
@@ -454,7 +617,7 @@ public interface Refactorer {
 
 			@Override
 			public void rename(String newName) {
-				interfaceDeclaration.setName(newName);
+				interfaceDeclaration.getName().setIdentifier(newName);
 				// TODO rename uses
 			}
 
@@ -490,7 +653,7 @@ public interface Refactorer {
 
 			@Override
 			public void rename(String newName) {
-				recordDeclaration.setName(newName);
+				recordDeclaration.getName().setIdentifier(newName);
 			}
 		};
 	}
@@ -543,5 +706,9 @@ public interface Refactorer {
 
 	private static <T> Function<? super Node, Stream<T>> filterOnClass(java.lang.Class<T> clazz) {
 		return node -> clazz.isInstance(node) ? Stream.of(clazz.cast(node)) : Stream.empty();
+	}
+
+	static boolean sameTokens(JavaToken token1, JavaToken token2) {
+		return token1.equals(token2) && token1.getRange().equals(token2.getRange());
 	}
 }
