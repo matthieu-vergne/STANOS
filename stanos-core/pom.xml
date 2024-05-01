@@ -26,6 +26,9 @@
 			<artifactId>javaparser-symbol-solver-core</artifactId>
 			<version>${javaparser.version}</version>
 		</dependency>
+
+		<!-- TESTING -->
+
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
