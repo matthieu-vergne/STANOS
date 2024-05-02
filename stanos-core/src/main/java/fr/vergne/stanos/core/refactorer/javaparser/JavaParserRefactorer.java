@@ -47,12 +47,12 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
 import fr.vergne.stanos.core.refactorer.Refactorer;
-import fr.vergne.stanos.core.refactorer.javaparser.TokenSerializer.Align;
+import fr.vergne.stanos.core.utils.Padding;
 
 public interface JavaParserRefactorer extends Refactorer {
 
 	static Refactorer.ForCode forCode(String code) {
-		TokenSerializer tokenSerializer = TokenSerializer.textOnly().withMinLength(7, Align.CENTER);
+		TokenSerializer tokenSerializer = TokenSerializer.textOnly().withMinLength(7, Padding.BOTH);
 		TokensTreeRenderer tokensTreeRenderer = new TokensTreeRenderer(tokenSerializer);
 
 		// TODO Expose language version

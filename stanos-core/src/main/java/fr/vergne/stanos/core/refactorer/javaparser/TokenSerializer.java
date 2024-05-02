@@ -3,7 +3,6 @@ package fr.vergne.stanos.core.refactorer.javaparser;
 import static java.util.stream.Collectors.joining;
 
 import java.util.List;
-import java.util.function.BiFunction;
 
 import com.github.javaparser.JavaToken;
 import com.github.javaparser.JavaToken.Category;
@@ -11,55 +10,20 @@ import com.github.javaparser.JavaToken.Kind;
 import com.github.javaparser.Position;
 import com.github.javaparser.Range;
 
+import fr.vergne.stanos.core.utils.Padding;
+
 interface TokenSerializer {
 	String serialize(JavaToken token);
 
-	enum Align implements BiFunction<String, Integer, String> {
-		RIGHT((content, minLength) -> {
-			return minLength < content.length() //
-					? content //
-					: String.format("%" + minLength + "s", content);
-		}), //
-		LEFT((content, minLength) -> {
-			return minLength < content.length() //
-					? content //
-					: String.format("%-" + minLength + "s", content);
-		}), //
-		CENTER((content, minLength) -> {
-			int length = content.length();
-			int totalPadding = minLength - length;
-			if (totalPadding <= 0) {
-				return content;
-			} else {
-				int halfPadding = totalPadding / 2;
-				int minHalfLength = length + halfPadding;
-				String leftPadded = String.format("%" + minHalfLength + "s", content);
-				String leftRightPadded = String.format("%-" + minLength + "s", leftPadded);
-				return leftRightPadded;
-			}
-		});
-
-		private final BiFunction<String, Integer, String> padder;
-
-		private Align(BiFunction<String, Integer, String> padder) {
-			this.padder = padder;
-		}
-
-		@Override
-		public String apply(String content, Integer minLength) {
-			return padder.apply(content, minLength);
-		}
-	}
-
 	default TokenSerializer withMinLength(int minLength) {
-		return withMinLength(minLength, Align.LEFT);
+		return withMinLength(minLength, Padding.RIGHT);
 	}
 
-	default TokenSerializer withMinLength(int minLength, Align align) {
+	default TokenSerializer withMinLength(int minLength, Padding padding) {
 		if (minLength < 0) {
 			throw new IllegalArgumentException("Min length must be positive");
 		}
-		return token -> align.apply(this.serialize(token), minLength);
+		return token -> padding.apply(this.serialize(token), minLength);
 	}
 
 	default String serializeAll(List<JavaToken> tokens) {
