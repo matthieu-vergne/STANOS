@@ -40,7 +40,6 @@ import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.LocalClassDeclarationStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -48,17 +47,18 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
 import fr.vergne.stanos.core.refactorer.Refactorer;
+import fr.vergne.stanos.core.refactorer.javaparser.TokenSerializer.Align;
 
 public interface JavaParserRefactorer extends Refactorer {
 
 	static Refactorer.ForCode forCode(String code) {
-		TokenSerializer tokenSerializer = TokenSerializer::textInRange;
+		TokenSerializer tokenSerializer = TokenSerializer.textOnly().withMinLength(7, Align.CENTER);
 		TokensTreeRenderer tokensTreeRenderer = new TokensTreeRenderer(tokenSerializer);
 
 		// TODO Expose language version
 		CompilationUnit compilationUnit = parseWithJavaParser(code, LanguageLevel.JAVA_17);
-		LexicalPreservingPrinter.setup(compilationUnit);
-		CodePrinter codePrinter = createCodePrinter(compilationUnit, tokenSerializer);
+//		LexicalPreservingPrinter.setup(compilationUnit);
+		CodePrinter codePrinter = createCodePrinter(compilationUnit, tokensTreeRenderer, tokenSerializer);
 		compilationUnit.register(codePrinter.observer(), ObserverRegistrationMode.SELF_PROPAGATING);
 		Code.Source source = abstractFromJavaParser(compilationUnit);
 		return new Refactorer.ForCode() {
@@ -88,7 +88,8 @@ public interface JavaParserRefactorer extends Refactorer {
 		AstObserver observer();
 	}
 
-	static CodePrinter createCodePrinter(CompilationUnit compilationUnit, TokenSerializer tokenLogSerializer) {
+	static CodePrinter createCodePrinter(CompilationUnit compilationUnit, TokensTreeRenderer tokensTreeRenderer,
+			TokenSerializer tokenLogSerializer) {
 		return new CodePrinter() {
 			@Override
 			public String print() {
@@ -140,6 +141,9 @@ public interface JavaParserRefactorer extends Refactorer {
 						// TODO
 						System.out.println("parent of " + display(observedNode) + ": " + display(previousParent) + " > "
 								+ display(newParent));
+						System.out.println("======");
+						tokensTreeRenderer.render(compilationUnit, System.out::println);
+						System.out.println("======");
 					}
 
 					@Override
@@ -147,59 +151,68 @@ public interface JavaParserRefactorer extends Refactorer {
 							Node nodeAddedOrRemoved) {
 						System.out.println("list of " + observedNodeList + "[" + index + "]: " + type + " "
 								+ display(nodeAddedOrRemoved));
-						Node actedNode = observedNodeList.get(index);
-						if (actedNode instanceof NodeWithTokenRange<?> nodeWithTokens) {
-							if (type == ListChangeType.REMOVAL) {
-								Node parentNode = observedNodeList.getParentNode().orElseThrow();
-								TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
-								TokenRange removedTokens = actedNode.getTokenRange().orElseThrow();
-								if (index == 0) {
-									JavaToken removedBegin;
-									removedBegin = removedTokens.getBegin();
-									JavaToken removedEnd = removedTokens.getEnd();
-									boolean remove = false;
-									for (JavaToken token : parentTokens) {
-										if (sameTokens(token, removedBegin)) {
-											System.out.println("X " + tokenLogSerializer.serialize(token));
-											remove = true;
-											token.deleteToken();
-										} else if (sameTokens(token, removedEnd)) {
-											System.out.println("X " + tokenLogSerializer.serialize(token));
-											token.deleteToken();
-											remove = false;
-										} else if (remove) {
-											System.out.println("X " + tokenLogSerializer.serialize(token));
-											token.deleteToken();
-										} else {
-											System.out.println("| " + tokenLogSerializer.serialize(token));
-										}
-									}
-									throw new UnsupportedOperationException("Not implemented yet");
-								} else {
-									JavaToken keepEnd;
-									TokenRange previousTokens = observedNodeList.get(index - 1).getTokenRange()
-											.orElseThrow();
-									keepEnd = previousTokens.getEnd();
-									JavaToken removedEnd = removedTokens.getEnd();
-									boolean remove = false;
-									for (JavaToken token : parentTokens) {
-										if (sameTokens(token, keepEnd)) {
-											System.out.println("| " + tokenLogSerializer.serialize(token));
-											remove = true;
-										} else if (sameTokens(token, removedEnd)) {
-											System.out.println("X " + tokenLogSerializer.serialize(token));
-											token.deleteToken();
-											remove = false;
-										} else if (remove) {
-											System.out.println("X " + tokenLogSerializer.serialize(token));
-											token.deleteToken();
-										} else {
-											System.out.println("| " + tokenLogSerializer.serialize(token));
-										}
+						switch (type) {
+						case REMOVAL -> listRemoval(observedNodeList, index, nodeAddedOrRemoved);
+						case ADDITION -> listAddition(observedNodeList, index, nodeAddedOrRemoved);
+						default -> throw new UnsupportedOperationException("Not implemented yet");
+						}
+						System.out.println("======");
+						tokensTreeRenderer.render(compilationUnit, System.out::println);
+						System.out.println("======");
+					}
+
+					private void listAddition(NodeList<?> observedNodeList, int index, Node nodeAddedOrRemoved) {
+					}
+
+					private void listRemoval(NodeList<?> observedNodeList, int index, Node nodeAddedOrRemoved) {
+						if (nodeAddedOrRemoved instanceof NodeWithTokenRange<?> nodeWithTokens) {
+							Node parentNode = observedNodeList.getParentNode().orElseThrow();
+							TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
+							TokenRange removedTokens = nodeAddedOrRemoved.getTokenRange().orElseThrow();
+							if (index == 0) {
+								JavaToken removedBegin;
+								removedBegin = removedTokens.getBegin();
+								JavaToken removedEnd = removedTokens.getEnd();
+								boolean remove = false;
+								for (JavaToken token : parentTokens) {
+									if (sameTokens(token, removedBegin)) {
+										System.out.println("X " + tokenLogSerializer.serialize(token));
+										remove = true;
+										token.deleteToken();
+									} else if (sameTokens(token, removedEnd)) {
+										System.out.println("X " + tokenLogSerializer.serialize(token));
+										token.deleteToken();
+										remove = false;
+									} else if (remove) {
+										System.out.println("X " + tokenLogSerializer.serialize(token));
+										token.deleteToken();
+									} else {
+										System.out.println("| " + tokenLogSerializer.serialize(token));
 									}
 								}
-							} else {
 								throw new UnsupportedOperationException("Not implemented yet");
+							} else {
+								JavaToken keepEnd;
+								TokenRange previousTokens = observedNodeList.get(index - 1).getTokenRange()
+										.orElseThrow();
+								keepEnd = previousTokens.getEnd();
+								JavaToken removedEnd = removedTokens.getEnd();
+								boolean remove = false;
+								for (JavaToken token : parentTokens) {
+									if (sameTokens(token, keepEnd)) {
+										System.out.println("| " + tokenLogSerializer.serialize(token));
+										remove = true;
+									} else if (sameTokens(token, removedEnd)) {
+										System.out.println("X " + tokenLogSerializer.serialize(token));
+										token.deleteToken();
+										remove = false;
+									} else if (remove) {
+										System.out.println("X " + tokenLogSerializer.serialize(token));
+										token.deleteToken();
+									} else {
+										System.out.println("| " + tokenLogSerializer.serialize(token));
+									}
+								}
 							}
 						} else {
 							throw new UnsupportedOperationException("Not implemented yet");
