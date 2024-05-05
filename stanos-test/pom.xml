@@ -8,18 +8,16 @@
 		<version>1.0-SNAPSHOT</version>
 	</parent>
 
-	<artifactId>stanos-core</artifactId>
+	<artifactId>stanos-test</artifactId>
 	<packaging>jar</packaging>
-	<name>STANOS Core Features</name>
-	<description>All the required algorithms to retrieve the useful data.</description>
+	<name>STANOS Tests</name>
+	<description></description>
 	<inceptionYear>2020</inceptionYear>
 
 	<properties>
 		<junit-jupiter.version>5.6.0</junit-jupiter.version>
 		<hamcrest.version>2.2</hamcrest.version>
 		<javaparser.version>3.25.11-SNAPSHOT</javaparser.version>
-		<spoon.version>11.0.1-beta-4</spoon.version>
-		<surefire.version>3.2.5</surefire.version>
 	</properties>
 
 	<build>
@@ -28,7 +26,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
-					<version>${surefire.version}</version>
+					<version>3.2.5</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
@@ -36,14 +34,14 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>fr.matthieu-vergne</groupId>
+			<artifactId>stanos-core</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
 			<groupId>com.github.javaparser</groupId>
 			<artifactId>javaparser-symbol-solver-core</artifactId>
 			<version>${javaparser.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.gforge.spoon</groupId>
-			<artifactId>spoon-core</artifactId>
-			<version>${spoon.version}</version>
 		</dependency>
 
 		<!-- TESTING -->
@@ -66,5 +64,6 @@
 			<version>${hamcrest.version}</version>
 			<scope>test</scope>
 		</dependency>
+
 	</dependencies>
 </project>

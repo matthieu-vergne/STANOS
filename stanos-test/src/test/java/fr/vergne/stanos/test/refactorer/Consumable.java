@@ -1,7 +1,9 @@
-package fr.vergne.stanos.core.refactorer;
+package fr.vergne.stanos.test.refactorer;
 
 import java.util.List;
 import java.util.stream.Stream;
+
+import fr.vergne.stanos.core.refactorer.Component;
 
 public interface Consumable {
 	public static class Package implements Component.Package {

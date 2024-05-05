@@ -1,18 +1,15 @@
 package fr.vergne.stanos.core.refactorer.javaparser;
 
-import static java.util.stream.Collectors.joining;
-
 import java.util.List;
 
 import com.github.javaparser.JavaToken;
 import com.github.javaparser.JavaToken.Category;
 import com.github.javaparser.JavaToken.Kind;
 import com.github.javaparser.Position;
-import com.github.javaparser.Range;
 
 import fr.vergne.stanos.core.utils.Padding;
 
-interface TokenSerializer {
+public interface TokenSerializer {
 	String serialize(JavaToken token);
 
 	default TokenSerializer withMinLength(int minLength) {
@@ -27,7 +24,13 @@ interface TokenSerializer {
 	}
 
 	default String serializeAll(List<JavaToken> tokens) {
-		return tokens.stream().map(this::serialize).collect(joining());
+		StringBuilder builder = new StringBuilder();
+		try {
+			tokens.stream().map(this::serialize).forEach(builder::append);
+		} catch (RuntimeException cause) {
+			throw new IllegalStateException("Cannot serialize token after: " + builder.toString(), cause);
+		}
+		return builder.toString();
 	}
 
 	record Positions(String begin, String end) {
@@ -60,14 +63,23 @@ interface TokenSerializer {
 
 	public static TokenSerializer simple() {
 		return token -> {
-			if (Kind.valueOf(token.getKind()).equals(Kind.EOF)) {
+			Kind kind = Kind.valueOf(token.getKind());
+			if (kind.equals(Kind.EOF)) {
 				return "[EOF]";
 			} else {
-				Range range = token.getRange().orElseThrow();
-				String col = range.begin.column == range.end.column //
-						? "col " + range.begin.column //
-						: "col " + range.begin.column + "-" + range.end.column;
-				return "[" + col + ":" + escapedCharacters(token.getText()) + "]";
+				String text = escapedCharacters(token.getText());
+
+				String col = token.getRange().map(range -> {
+					int beginColumn = range.begin.column;
+					int endColumn = range.end.column;
+					return beginColumn == endColumn //
+							? "col " + beginColumn //
+							: "col " + beginColumn + "-" + endColumn;
+				}).orElseThrow(() -> {
+					return new IllegalArgumentException("No range for " + kind + " token: " + text);
+				});
+
+				return "[" + col + ":" + text + "]";
 			}
 		};
 	}

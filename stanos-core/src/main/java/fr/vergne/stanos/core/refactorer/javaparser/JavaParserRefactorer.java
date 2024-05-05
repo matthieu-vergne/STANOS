@@ -31,7 +31,6 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.nodeTypes.NodeWithTokenRange;
 import com.github.javaparser.ast.observer.AstObserver;
 import com.github.javaparser.ast.observer.ObservableProperty;
 import com.github.javaparser.ast.stmt.BlockStmt;
@@ -52,7 +51,7 @@ import fr.vergne.stanos.core.utils.Padding;
 public interface JavaParserRefactorer extends Refactorer {
 
 	static Refactorer.ForCode forCode(String code) {
-		TokenSerializer tokenSerializer = TokenSerializer.textOnly().withMinLength(7, Padding.BOTH);
+		TokenSerializer tokenSerializer = TokenSerializer.simple().withMinLength(7, Padding.BOTH);
 		TokensTreeRenderer tokensTreeRenderer = new TokensTreeRenderer(tokenSerializer);
 
 		// TODO Expose language version
@@ -66,7 +65,7 @@ public interface JavaParserRefactorer extends Refactorer {
 			@Override
 			public String code() {
 				System.out.println(">>>>>");
-				tokensTreeRenderer.render(compilationUnit, System.out::println);
+				tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
 				System.out.println(">>>>>");
 				return codePrinter.print();
 //				return LexicalPreservingPrinter.print(compilationUnit);
@@ -75,7 +74,7 @@ public interface JavaParserRefactorer extends Refactorer {
 			@Override
 			public Code.Source source() {
 				System.out.println("<<<<<");
-				tokensTreeRenderer.render(compilationUnit, System.out::println);
+				tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
 				System.out.println("<<<<<");
 				return source;
 			}
@@ -100,7 +99,7 @@ public interface JavaParserRefactorer extends Refactorer {
 						.collect(joining());
 			}
 
-			private String display(Object obj) {
+			private String logOf(Object obj) {
 				return obj == null ? "(null)" : "[" + obj.getClass().getSimpleName() + "]" + obj;
 			}
 
@@ -110,112 +109,101 @@ public interface JavaParserRefactorer extends Refactorer {
 					@Override
 					public void propertyChange(Node observedNode, ObservableProperty property, Object oldValue,
 							Object newValue) {
-						System.out.println("property " + property + " on " + display(observedNode) + ": "
-								+ display(oldValue) + " > " + display(newValue));
-						if (observedNode instanceof NodeWithTokenRange<?> nodeWithTokens) {
-							if (singleTokenIn(nodeWithTokens)) {
-								if (oldValue instanceof String oldString && newValue instanceof String newString) {
-									JavaToken token = nodeWithTokens.getTokenRange().orElseThrow().getBegin();
-									token.setText(newString);
-								} else if (nodeWithTokens instanceof VariableDeclarator varDec
-										&& property == ObservableProperty.INITIALIZER && oldValue == null
-										&& newValue instanceof NodeWithTokenRange<?> newNode) {
+						System.out.println("property " + property + " on " + logOf(observedNode) + ": "
+								+ logOf(oldValue) + " > " + logOf(newValue));
+						if (oldValue instanceof String oldString && newValue instanceof String newString) {
+							JavaToken token = observedNode.getTokenRange().orElseThrow().getBegin();
+							token.setText(newString);
+							System.out.println("======");
+							tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
+							System.out.println("======");
+						} else if (observedNode instanceof VariableDeclarator varDec) {
+							if (property == ObservableProperty.INITIALIZER) {
+								if (oldValue == null && newValue instanceof Node newNode) {
 									TokenInserter.from(varDec.getTokenRange().orElseThrow().getEnd())//
-											.insertAfter(new JavaToken(Kind.SPACE.getKind()))//
+											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code formatter
 											.insertAfter(new JavaToken(Kind.ASSIGN.getKind()))//
-											.insertAfter(new JavaToken(Kind.SPACE.getKind()))//
+											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code formatter
 											.insertAfter(newNode.getTokenRange().orElseThrow().getBegin());
+									System.out.println("======");
+									tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
+									System.out.println("======");
+								} else if (oldValue instanceof Node oldNode && newValue == null) {
+									System.out.println("=====");
+									tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
+									System.out.println("=====");
 								} else {
-									throw new UnsupportedOperationException("Not implemented yet");
+									throw new UnsupportedOperationException(
+											"Not implemented yet: " + logOf(oldValue) + " > " + logOf(newValue));
 								}
 							} else {
-								throw new UnsupportedOperationException("Not implemented yet");
+								throw new UnsupportedOperationException("Not implemented yet: " + property);
 							}
 						} else {
-							throw new UnsupportedOperationException("Not implemented yet");
+							throw new UnsupportedOperationException(
+									"Not implemented yet: " + observedNode.getClass().getSimpleName());
 						}
 					}
 
 					@Override
 					public void parentChange(Node observedNode, Node previousParent, Node newParent) {
 						// TODO
-						System.out.println("parent of " + display(observedNode) + ": " + display(previousParent) + " > "
-								+ display(newParent));
+						System.out.println("parent of " + logOf(observedNode) + ": " + logOf(previousParent) + " > "
+								+ logOf(newParent));
 						System.out.println("======");
-						tokensTreeRenderer.render(compilationUnit, System.out::println);
+						tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
 						System.out.println("======");
 					}
 
 					@Override
 					public void listChange(NodeList<?> observedNodeList, ListChangeType type, int index,
-							Node nodeAddedOrRemoved) {
+							Node addedOrRemovedNode) {
 						System.out.println("list of " + observedNodeList + "[" + index + "]: " + type + " "
-								+ display(nodeAddedOrRemoved));
+								+ logOf(addedOrRemovedNode));
 						switch (type) {
-						case REMOVAL -> listRemoval(observedNodeList, index, nodeAddedOrRemoved);
-						case ADDITION -> listAddition(observedNodeList, index, nodeAddedOrRemoved);
-						default -> throw new UnsupportedOperationException("Not implemented yet");
+						case REMOVAL -> listRemoval(observedNodeList, index, addedOrRemovedNode);
+						case ADDITION -> listAddition(observedNodeList, index, addedOrRemovedNode);
+						default -> throw new UnsupportedOperationException("Not implemented yet: " + type);
 						}
+					}
+
+					private void listAddition(NodeList<?> observedNodeList, int index, Node addedNode) {
 						System.out.println("======");
-						tokensTreeRenderer.render(compilationUnit, System.out::println);
+						tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
 						System.out.println("======");
 					}
 
-					private void listAddition(NodeList<?> observedNodeList, int index, Node nodeAddedOrRemoved) {
-					}
-
-					private void listRemoval(NodeList<?> observedNodeList, int index, Node nodeAddedOrRemoved) {
-						if (nodeAddedOrRemoved instanceof NodeWithTokenRange<?> nodeWithTokens) {
-							Node parentNode = observedNodeList.getParentNode().orElseThrow();
-							TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
-							TokenRange removedTokens = nodeAddedOrRemoved.getTokenRange().orElseThrow();
-							if (index == 0) {
-								JavaToken removedBegin;
-								removedBegin = removedTokens.getBegin();
-								JavaToken removedEnd = removedTokens.getEnd();
-								boolean remove = false;
-								for (JavaToken token : parentTokens) {
-									if (sameTokens(token, removedBegin)) {
-										System.out.println("X " + tokenLogSerializer.serialize(token));
-										remove = true;
-										token.deleteToken();
-									} else if (sameTokens(token, removedEnd)) {
-										System.out.println("X " + tokenLogSerializer.serialize(token));
-										token.deleteToken();
-										remove = false;
-									} else if (remove) {
-										System.out.println("X " + tokenLogSerializer.serialize(token));
-										token.deleteToken();
-									} else {
-										System.out.println("| " + tokenLogSerializer.serialize(token));
-									}
-								}
-								throw new UnsupportedOperationException("Not implemented yet");
-							} else {
-								JavaToken keepEnd;
-								TokenRange previousTokens = observedNodeList.get(index - 1).getTokenRange()
-										.orElseThrow();
-								keepEnd = previousTokens.getEnd();
-								JavaToken removedEnd = removedTokens.getEnd();
-								boolean remove = false;
-								for (JavaToken token : parentTokens) {
-									if (sameTokens(token, keepEnd)) {
-										System.out.println("| " + tokenLogSerializer.serialize(token));
-										remove = true;
-									} else if (sameTokens(token, removedEnd)) {
-										System.out.println("X " + tokenLogSerializer.serialize(token));
-										token.deleteToken();
-										remove = false;
-									} else if (remove) {
-										System.out.println("X " + tokenLogSerializer.serialize(token));
-										token.deleteToken();
-									} else {
-										System.out.println("| " + tokenLogSerializer.serialize(token));
-									}
+					private void listRemoval(NodeList<?> observedNodeList, int index, Node removedNode) {
+						Node parentNode = observedNodeList.getParentNode().orElseThrow();
+						TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
+						TokenRange removedTokens = removedNode.getTokenRange().orElseThrow();
+						if (index == 0) {
+							throw new UnsupportedOperationException("Not implemented yet");
+						} else {
+							JavaToken keepEnd;
+							TokenRange previousTokens = observedNodeList.get(index - 1).getTokenRange().orElseThrow();
+							keepEnd = previousTokens.getEnd();
+							JavaToken removedEnd = removedTokens.getEnd();
+							boolean remove = false;
+							for (JavaToken token : parentTokens) {
+								if (sameTokens(token, keepEnd)) {
+									System.out.println("| " + tokenLogSerializer.serialize(token));
+									remove = true;
+								} else if (sameTokens(token, removedEnd)) {
+									System.out.println("X " + tokenLogSerializer.serialize(token));
+									token.deleteToken();
+									remove = false;
+								} else if (remove) {
+									System.out.println("X " + tokenLogSerializer.serialize(token));
+									token.deleteToken();
+								} else {
+									System.out.println("| " + tokenLogSerializer.serialize(token));
 								}
 							}
-						} else {
-							throw new UnsupportedOperationException("Not implemented yet");
+							System.out.println("======");
+							tokensTreeRenderer.render(compilationUnit, node -> node != removedNode,
+									System.out::println);
+							System.out.println("======");
 						}
 					}
 
@@ -223,11 +211,6 @@ public interface JavaParserRefactorer extends Refactorer {
 					public void listReplacement(NodeList<?> observedNode, int index, Node oldNode, Node newNode) {
 						// TODO Auto-generated method stub
 						throw new UnsupportedOperationException("Not implemented yet");
-					}
-
-					private boolean singleTokenIn(NodeWithTokenRange<?> nodeWithToken) {
-						TokenRange tokenRange = nodeWithToken.getTokenRange().orElseThrow();
-						return tokenRange.getBegin() == tokenRange.getEnd();
 					}
 				};
 			}
@@ -300,20 +283,15 @@ public interface JavaParserRefactorer extends Refactorer {
 			public Stream<Component.Method> methods() {
 				return variableDeclaration.getInitializer().map(expr -> {
 					if (expr instanceof ObjectCreationExpr ocExpr) {
-						return ocExpr.getAnonymousClassBody().map(body -> {
-							if (body instanceof NodeList<?> list) {
-								return list.stream().map(node -> {
-									if (node instanceof MethodDeclaration decl) {
-										return createMethod(decl);
-									} else {
-										throw new UnsupportedOperationException(
-												"Not supported: " + node.getClass().getSimpleName());
-									}
-								});
-							} else {
-								throw new UnsupportedOperationException(
-										"Not supported: " + body.getClass().getSimpleName());
-							}
+						return ocExpr.getAnonymousClassBody().map(list -> {
+							return list.stream().map(node -> {
+								if (node instanceof MethodDeclaration decl) {
+									return createMethod(decl);
+								} else {
+									throw new UnsupportedOperationException(
+											"Not supported: " + node.getClass().getSimpleName());
+								}
+							});
 						}).orElse(Stream.empty());
 					} else {
 						throw new UnsupportedOperationException("Not supported: " + expr.getClass().getSimpleName());

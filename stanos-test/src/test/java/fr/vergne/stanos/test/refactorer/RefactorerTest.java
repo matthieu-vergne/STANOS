@@ -1,4 +1,4 @@
-package fr.vergne.stanos.core.refactorer;
+package fr.vergne.stanos.test.refactorer;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
@@ -16,9 +16,12 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import fr.vergne.stanos.core.refactorer.javaparser.JavaParserRefactorer;
+import fr.vergne.stanos.core.refactorer.Code;
+import fr.vergne.stanos.core.refactorer.Component;
+import fr.vergne.stanos.core.refactorer.Refactorer;
 
-class RefactorerTest {
+public abstract class RefactorerTest {
+	protected abstract Refactorer.ForCode parseCode(String code);
 
 	record SuccessCase(String code, Consumer<Code.Source> refactoring, String expectedCode) {
 		@Override
@@ -29,13 +32,13 @@ class RefactorerTest {
 
 	@ParameterizedTest
 	@MethodSource
-	void testCodeRefactoringSuccess(SuccessCase successCase) {
+	public void testCodeRefactoringSuccess(SuccessCase successCase) {
 		var code = successCase.code();
 		var refactorerExecutor = successCase.refactoring();
 		var expectedCode = successCase.expectedCode();
 
 		// GIVEN
-		Refactorer.ForCode refactorer = JavaParserRefactorer.forCode(code);
+		Refactorer.ForCode refactorer = parseCode(code);
 
 		// WHEN
 		refactorerExecutor.accept(refactorer.source());
@@ -44,7 +47,7 @@ class RefactorerTest {
 		assertThat(refactorer.code(), is(expectedCode));
 	}
 
-	static Stream<SuccessCase> testCodeRefactoringSuccess() {
+	public static Stream<SuccessCase> testCodeRefactoringSuccess() {
 		return Stream.of(//
 				testCodeRefactoringSuccess_Class(), //
 				testCodeRefactoringSuccess_Interface(), //
@@ -682,13 +685,13 @@ class RefactorerTest {
 
 	@ParameterizedTest
 	@MethodSource
-	void testCodeRefactoringFailure(FailureCase failureCase) {
+	public void testCodeRefactoringFailure(FailureCase failureCase) {
 		var code = failureCase.code();
 		var refactorerExecutor = failureCase.refactoring();
 		var expectedException = failureCase.expectedException();
 
 		// GIVEN
-		Refactorer.ForCode refactorer = JavaParserRefactorer.forCode(code);
+		Refactorer.ForCode refactorer = parseCode(code);
 
 		// WHEN
 		Executable action = () -> refactorerExecutor.accept(refactorer.source());
@@ -698,7 +701,7 @@ class RefactorerTest {
 		assertThat(except.getMessage(), is(expectedException.getMessage()));
 	}
 
-	static Stream<FailureCase> testCodeRefactoringFailure() {
+	public static Stream<FailureCase> testCodeRefactoringFailure() {
 		return Stream.of(//
 				testCodeRefactoringFailure_Class(), //
 				testCodeRefactoringFailure_Interface(), //

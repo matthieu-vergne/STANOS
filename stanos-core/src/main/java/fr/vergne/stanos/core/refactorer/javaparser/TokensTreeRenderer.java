@@ -3,13 +3,14 @@ package fr.vergne.stanos.core.refactorer.javaparser;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
 import com.github.javaparser.JavaToken;
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.ast.Node;
 
-class TokensTreeRenderer {
+public class TokensTreeRenderer {
 
 	private final TokenSerializer tokenSerializer;
 
@@ -17,7 +18,11 @@ class TokensTreeRenderer {
 		this.tokenSerializer = tokenSerializer;
 	}
 
-	public void render(Node rootNode, Consumer<String> output) {
+	public void renderAll(Node rootNode, Consumer<String> output) {
+		render(rootNode, node -> true, output);
+	}
+
+	public void render(Node rootNode, Predicate<Node> isRendered, Consumer<String> output) {
 		String rootType = typeOf(rootNode);
 		String rootTokens = tokenSerializer.serializeAll(tokensOf(rootNode));
 
@@ -30,6 +35,10 @@ class TokensTreeRenderer {
 			String tokensLine = emptyLine;
 			List<Node> nextChildren = new LinkedList<>();
 			for (Node childNode : children) {
+				if (!isRendered.test(childNode)) {
+					continue;
+				}
+
 				String childType = typeOf(childNode);
 
 				Node parentNode = rootNode;
@@ -65,11 +74,17 @@ class TokensTreeRenderer {
 	}
 
 	private List<JavaToken> tokensOf(Node node) {
-		TokenRange tokenRange = node.getTokenRange().orElseThrow();
+		TokenRange tokenRange = node.getTokenRange().orElseThrow(() -> {
+			return new IllegalArgumentException("No token for: " + logOf(node));
+		});
 		return StreamSupport.stream(tokenRange.spliterator(), false).toList();
 	}
 
 	private String typeOf(Node node) {
 		return node.getClass().getSimpleName();
+	}
+
+	private String logOf(Object obj) {
+		return obj == null ? "(null)" : "[" + obj.getClass().getSimpleName() + "]" + obj;
 	}
 }

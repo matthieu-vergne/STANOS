@@ -13,6 +13,7 @@
 
 	<modules>
 		<module>stanos-core</module>
+		<module>stanos-test</module>
 	</modules>
 
 	<scm>
