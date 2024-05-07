@@ -67,8 +67,12 @@ public class TokensTreeRenderer {
 
 				nextChildren.addAll(childNode.getChildNodes());
 			}
-			output.accept(typesLine);
-			output.accept(tokensLine);
+			if (!typesLine.isBlank()) {
+				output.accept(typesLine);
+			}
+			if (!tokensLine.isBlank()) {
+				output.accept(tokensLine);
+			}
 			children = nextChildren;
 		}
 	}
@@ -77,7 +81,11 @@ public class TokensTreeRenderer {
 		TokenRange tokenRange = node.getTokenRange().orElseThrow(() -> {
 			return new IllegalArgumentException("No token for: " + logOf(node));
 		});
-		return StreamSupport.stream(tokenRange.spliterator(), false).toList();
+		try {
+			return StreamSupport.stream(tokenRange.spliterator(), false).toList();
+		} catch (RuntimeException cause) {
+			throw new IllegalStateException("Cannot retrieve the tokens of: " + logOf(node), cause);
+		}
 	}
 
 	private String typeOf(Node node) {

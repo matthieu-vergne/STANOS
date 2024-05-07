@@ -121,17 +121,23 @@ public interface JavaParserRefactorer extends Refactorer {
 							if (property == ObservableProperty.INITIALIZER) {
 								if (oldValue == null && newValue instanceof Node newNode) {
 									TokenInserter.from(varDec.getTokenRange().orElseThrow().getEnd())//
-											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code formatter
+											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code
+																								// formatter
 											.insertAfter(new JavaToken(Kind.ASSIGN.getKind()))//
-											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code formatter
+											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code
+																								// formatter
 											.insertAfter(newNode.getTokenRange().orElseThrow().getBegin());
 									System.out.println("======");
 									tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
 									System.out.println("======");
-								} else if (oldValue instanceof Node oldNode && newValue == null) {
+								} else if (oldValue instanceof Node removedNode && newValue == null) {
+									extracted(observedNode, removedNode);
+									// FIXME Remove initializer tokens
 									System.out.println("=====");
-									tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
+									tokensTreeRenderer.render(compilationUnit, node -> node != removedNode,
+											System.out::println);
 									System.out.println("=====");
+									throw new UnsupportedOperationException("Not implemented yet");
 								} else {
 									throw new UnsupportedOperationException(
 											"Not implemented yet: " + logOf(oldValue) + " > " + logOf(newValue));
@@ -143,6 +149,54 @@ public interface JavaParserRefactorer extends Refactorer {
 							throw new UnsupportedOperationException(
 									"Not implemented yet: " + observedNode.getClass().getSimpleName());
 						}
+					}
+
+					private void extracted(Node parentNode, Node removedNode) {
+						TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
+						JavaToken currentToken = parentTokens.getBegin();
+
+						TokenRange removedTokens = removedNode.getTokenRange().orElseThrow();
+						JavaToken firstRemoved = removedTokens.getBegin();
+						JavaToken lastRemoved = removedTokens.getEnd();
+
+						while (!sameTokens(currentToken, firstRemoved)) {
+							currentToken = currentToken.getNextToken().orElseThrow();
+						}
+						System.err.println(firstRemoved.hashCode() + " > " + currentToken.hashCode() + " = "
+								+ (firstRemoved == currentToken));
+						while (!sameTokens(currentToken, lastRemoved)) {
+							throw new UnsupportedOperationException("Not implemented yet: more than one token removed");
+						}
+						System.err.println(currentToken.getPreviousToken());
+						tokensTreeRenderer.render(parentNode, node -> false, System.err::println);
+						System.err.println(parentNode.getTokenRange().orElseThrow().getBegin() + " > "
+								+ parentNode.getTokenRange().orElseThrow().getEnd() + " > "
+								+ parentNode.getTokenRange().orElseThrow().getEnd().getNextToken());
+						if (sameTokens(parentTokens.getEnd(), currentToken)) {
+							// FIXME Make it recursive
+							JavaToken currentToken2 = currentToken;
+							parentTokens.getEnd().getPreviousToken().ifPresent(newEnd -> {
+								parentNode.setTokenRange(parentTokens.withEnd(newEnd));
+								parentNode.getParentNode().ifPresent(grandParentNode -> {
+									TokenRange grandParentTokens = grandParentNode.getTokenRange().orElseThrow();
+									if (sameTokens(grandParentTokens.getEnd(), currentToken2)) {
+										grandParentTokens.getEnd().getPreviousToken().ifPresent(newEnd2 -> {
+											grandParentNode.setTokenRange(grandParentTokens.withEnd(newEnd2));
+										});
+									}
+								});
+							});
+						}
+						tokensTreeRenderer.render(parentNode, node -> false, System.err::println);
+						System.err.println(parentNode.getTokenRange().orElseThrow().getBegin() + " > "
+								+ parentNode.getTokenRange().orElseThrow().getEnd() + " > "
+								+ parentNode.getTokenRange().orElseThrow().getEnd().getNextToken());
+						currentToken.deleteToken();
+						tokensTreeRenderer.render(parentNode, node -> false, System.err::println);
+						System.err.println(parentNode.getTokenRange().orElseThrow().getBegin() + " > "
+								+ parentNode.getTokenRange().orElseThrow().getEnd() + " > "
+								+ parentNode.getTokenRange().orElseThrow().getEnd().getNextToken());
+						tokensTreeRenderer.render(removedNode, node -> false, System.err::println);
 					}
 
 					@Override
@@ -304,6 +358,7 @@ public interface JavaParserRefactorer extends Refactorer {
 				Expression initializer = variableDeclaration.getInitializer().orElseThrow(() -> {
 					return new IllegalStateException("No assignment to split on " + name() + " declaration");
 				});
+				variableDeclaration.removeInitializer();
 
 				Node parentNode = variableDeclaration.getParentNode().orElseThrow();
 				if (parentNode instanceof VariableDeclarationExpr exp) {
@@ -331,8 +386,6 @@ public interface JavaParserRefactorer extends Refactorer {
 					throw new UnsupportedOperationException(
 							"Not implemented yet: " + parentNode.getClass().getSimpleName());
 				}
-
-				variableDeclaration.removeInitializer();
 			}
 
 			@Override
