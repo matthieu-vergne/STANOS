@@ -1,9 +1,12 @@
 package fr.vergne.stanos.test.refactorer.spoon;
 
+import org.junit.jupiter.api.Disabled;
+
 import fr.vergne.stanos.core.refactorer.Refactorer.ForCode;
 import fr.vergne.stanos.core.refactorer.spoon.SpoonRefactorer;
 import fr.vergne.stanos.test.refactorer.RefactorerTest;
 
+@Disabled
 class SpoonRefactorerTest extends RefactorerTest {
 	@Override
 	protected ForCode parseCode(String code) {

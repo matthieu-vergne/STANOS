@@ -1,24 +1,17 @@
 package fr.vergne.stanos.core.refactorer.javaparser;
 
-import static java.util.stream.Collectors.joining;
-
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.JavaToken;
-import com.github.javaparser.JavaToken.Kind;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
-import com.github.javaparser.TokenRange;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.Node.ObserverRegistrationMode;
 import com.github.javaparser.ast.Node.TreeTraversal;
-import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
@@ -31,8 +24,6 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.observer.AstObserver;
-import com.github.javaparser.ast.observer.ObservableProperty;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
@@ -51,31 +42,20 @@ import fr.vergne.stanos.core.utils.Padding;
 public interface JavaParserRefactorer extends Refactorer {
 
 	static Refactorer.ForCode forCode(String code) {
-		TokenSerializer tokenSerializer = TokenSerializer.simple().withMinLength(7, Padding.BOTH);
-		TokensTreeRenderer tokensTreeRenderer = new TokensTreeRenderer(tokenSerializer);
-
 		// TODO Expose language version
 		CompilationUnit compilationUnit = parseWithJavaParser(code, LanguageLevel.JAVA_17);
 //		LexicalPreservingPrinter.setup(compilationUnit);
-		CodePrinter codePrinter = createCodePrinter(compilationUnit, tokensTreeRenderer, tokenSerializer);
-		compilationUnit.register(codePrinter.observer(), ObserverRegistrationMode.SELF_PROPAGATING);
 		Code.Source source = abstractFromJavaParser(compilationUnit);
 		return new Refactorer.ForCode() {
 
 			@Override
 			public String code() {
-				System.out.println(">>>>>");
-				tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
-				System.out.println(">>>>>");
-				return codePrinter.print();
+				return compilationUnit.toString();
 //				return LexicalPreservingPrinter.print(compilationUnit);
 			}
 
 			@Override
 			public Code.Source source() {
-				System.out.println("<<<<<");
-				tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
-				System.out.println("<<<<<");
 				return source;
 			}
 		};
@@ -83,192 +63,6 @@ public interface JavaParserRefactorer extends Refactorer {
 
 	interface CodePrinter {
 		String print();
-
-		AstObserver observer();
-	}
-
-	static CodePrinter createCodePrinter(CompilationUnit compilationUnit, TokensTreeRenderer tokensTreeRenderer,
-			TokenSerializer tokenLogSerializer) {
-		return new CodePrinter() {
-			@Override
-			public String print() {
-				TokenRange tokens = compilationUnit.getTokenRange().orElseThrow();
-				return StreamSupport.stream(tokens.spliterator(), false)//
-						.peek(token -> System.out.println(tokenLogSerializer.serialize(token)))//
-						.map(token -> token.asString())//
-						.collect(joining());
-			}
-
-			private String logOf(Object obj) {
-				return obj == null ? "(null)" : "[" + obj.getClass().getSimpleName() + "]" + obj;
-			}
-
-			@Override
-			public AstObserver observer() {
-				return new AstObserver() {
-					@Override
-					public void propertyChange(Node observedNode, ObservableProperty property, Object oldValue,
-							Object newValue) {
-						System.out.println("property " + property + " on " + logOf(observedNode) + ": "
-								+ logOf(oldValue) + " > " + logOf(newValue));
-						if (oldValue instanceof String oldString && newValue instanceof String newString) {
-							JavaToken token = observedNode.getTokenRange().orElseThrow().getBegin();
-							token.setText(newString);
-							System.out.println("======");
-							tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
-							System.out.println("======");
-						} else if (observedNode instanceof VariableDeclarator varDec) {
-							if (property == ObservableProperty.INITIALIZER) {
-								if (oldValue == null && newValue instanceof Node newNode) {
-									TokenInserter.from(varDec.getTokenRange().orElseThrow().getEnd())//
-											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code
-																								// formatter
-											.insertAfter(new JavaToken(Kind.ASSIGN.getKind()))//
-											.insertAfter(new JavaToken(Kind.SPACE.getKind()))// TODO Manage in code
-																								// formatter
-											.insertAfter(newNode.getTokenRange().orElseThrow().getBegin());
-									System.out.println("======");
-									tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
-									System.out.println("======");
-								} else if (oldValue instanceof Node removedNode && newValue == null) {
-									extracted(observedNode, removedNode);
-									// FIXME Remove initializer tokens
-									System.out.println("=====");
-									tokensTreeRenderer.render(compilationUnit, node -> node != removedNode,
-											System.out::println);
-									System.out.println("=====");
-									throw new UnsupportedOperationException("Not implemented yet");
-								} else {
-									throw new UnsupportedOperationException(
-											"Not implemented yet: " + logOf(oldValue) + " > " + logOf(newValue));
-								}
-							} else {
-								throw new UnsupportedOperationException("Not implemented yet: " + property);
-							}
-						} else {
-							throw new UnsupportedOperationException(
-									"Not implemented yet: " + observedNode.getClass().getSimpleName());
-						}
-					}
-
-					private void extracted(Node parentNode, Node removedNode) {
-						TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
-						JavaToken currentToken = parentTokens.getBegin();
-
-						TokenRange removedTokens = removedNode.getTokenRange().orElseThrow();
-						JavaToken firstRemoved = removedTokens.getBegin();
-						JavaToken lastRemoved = removedTokens.getEnd();
-
-						while (!sameTokens(currentToken, firstRemoved)) {
-							currentToken = currentToken.getNextToken().orElseThrow();
-						}
-						System.err.println(firstRemoved.hashCode() + " > " + currentToken.hashCode() + " = "
-								+ (firstRemoved == currentToken));
-						while (!sameTokens(currentToken, lastRemoved)) {
-							throw new UnsupportedOperationException("Not implemented yet: more than one token removed");
-						}
-						System.err.println(currentToken.getPreviousToken());
-						tokensTreeRenderer.render(parentNode, node -> false, System.err::println);
-						System.err.println(parentNode.getTokenRange().orElseThrow().getBegin() + " > "
-								+ parentNode.getTokenRange().orElseThrow().getEnd() + " > "
-								+ parentNode.getTokenRange().orElseThrow().getEnd().getNextToken());
-						if (sameTokens(parentTokens.getEnd(), currentToken)) {
-							// FIXME Make it recursive
-							JavaToken currentToken2 = currentToken;
-							parentTokens.getEnd().getPreviousToken().ifPresent(newEnd -> {
-								parentNode.setTokenRange(parentTokens.withEnd(newEnd));
-								parentNode.getParentNode().ifPresent(grandParentNode -> {
-									TokenRange grandParentTokens = grandParentNode.getTokenRange().orElseThrow();
-									if (sameTokens(grandParentTokens.getEnd(), currentToken2)) {
-										grandParentTokens.getEnd().getPreviousToken().ifPresent(newEnd2 -> {
-											grandParentNode.setTokenRange(grandParentTokens.withEnd(newEnd2));
-										});
-									}
-								});
-							});
-						}
-						tokensTreeRenderer.render(parentNode, node -> false, System.err::println);
-						System.err.println(parentNode.getTokenRange().orElseThrow().getBegin() + " > "
-								+ parentNode.getTokenRange().orElseThrow().getEnd() + " > "
-								+ parentNode.getTokenRange().orElseThrow().getEnd().getNextToken());
-						currentToken.deleteToken();
-						tokensTreeRenderer.render(parentNode, node -> false, System.err::println);
-						System.err.println(parentNode.getTokenRange().orElseThrow().getBegin() + " > "
-								+ parentNode.getTokenRange().orElseThrow().getEnd() + " > "
-								+ parentNode.getTokenRange().orElseThrow().getEnd().getNextToken());
-						tokensTreeRenderer.render(removedNode, node -> false, System.err::println);
-					}
-
-					@Override
-					public void parentChange(Node observedNode, Node previousParent, Node newParent) {
-						// TODO
-						System.out.println("parent of " + logOf(observedNode) + ": " + logOf(previousParent) + " > "
-								+ logOf(newParent));
-						System.out.println("======");
-						tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
-						System.out.println("======");
-					}
-
-					@Override
-					public void listChange(NodeList<?> observedNodeList, ListChangeType type, int index,
-							Node addedOrRemovedNode) {
-						System.out.println("list of " + observedNodeList + "[" + index + "]: " + type + " "
-								+ logOf(addedOrRemovedNode));
-						switch (type) {
-						case REMOVAL -> listRemoval(observedNodeList, index, addedOrRemovedNode);
-						case ADDITION -> listAddition(observedNodeList, index, addedOrRemovedNode);
-						default -> throw new UnsupportedOperationException("Not implemented yet: " + type);
-						}
-					}
-
-					private void listAddition(NodeList<?> observedNodeList, int index, Node addedNode) {
-						System.out.println("======");
-						tokensTreeRenderer.renderAll(compilationUnit, System.out::println);
-						System.out.println("======");
-					}
-
-					private void listRemoval(NodeList<?> observedNodeList, int index, Node removedNode) {
-						Node parentNode = observedNodeList.getParentNode().orElseThrow();
-						TokenRange parentTokens = parentNode.getTokenRange().orElseThrow();
-						TokenRange removedTokens = removedNode.getTokenRange().orElseThrow();
-						if (index == 0) {
-							throw new UnsupportedOperationException("Not implemented yet");
-						} else {
-							JavaToken keepEnd;
-							TokenRange previousTokens = observedNodeList.get(index - 1).getTokenRange().orElseThrow();
-							keepEnd = previousTokens.getEnd();
-							JavaToken removedEnd = removedTokens.getEnd();
-							boolean remove = false;
-							for (JavaToken token : parentTokens) {
-								if (sameTokens(token, keepEnd)) {
-									System.out.println("| " + tokenLogSerializer.serialize(token));
-									remove = true;
-								} else if (sameTokens(token, removedEnd)) {
-									System.out.println("X " + tokenLogSerializer.serialize(token));
-									token.deleteToken();
-									remove = false;
-								} else if (remove) {
-									System.out.println("X " + tokenLogSerializer.serialize(token));
-									token.deleteToken();
-								} else {
-									System.out.println("| " + tokenLogSerializer.serialize(token));
-								}
-							}
-							System.out.println("======");
-							tokensTreeRenderer.render(compilationUnit, node -> node != removedNode,
-									System.out::println);
-							System.out.println("======");
-						}
-					}
-
-					@Override
-					public void listReplacement(NodeList<?> observedNode, int index, Node oldNode, Node newNode) {
-						// TODO Auto-generated method stub
-						throw new UnsupportedOperationException("Not implemented yet");
-					}
-				};
-			}
-		};
 	}
 
 	static Code.Source abstractFromJavaParser(CompilationUnit compilationUnit) {
@@ -373,7 +167,6 @@ public interface JavaParserRefactorer extends Refactorer {
 							assignExpr.setOperator(Operator.ASSIGN);
 							assignExpr.setValue(initializer);// Keep it last to not break parent change notif
 							block.addStatement(index, assignExpr);
-							// TODO Remove added \r\n
 						} else {
 							throw new UnsupportedOperationException(
 									"Not implemented yet: " + grandGrandParentNode.getClass().getSimpleName());

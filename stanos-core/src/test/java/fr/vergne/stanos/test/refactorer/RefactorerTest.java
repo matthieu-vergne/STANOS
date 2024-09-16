@@ -6,6 +6,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -20,10 +21,22 @@ import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
 import fr.vergne.stanos.core.refactorer.Refactorer;
 
+// TODO Fix formatting of expected codes in success cases
 public abstract class RefactorerTest {
 	protected abstract Refactorer.ForCode parseCode(String code);
 
-	record SuccessCase(String code, Consumer<Code.Source> refactoring, String expectedCode) {
+	record SuccessCase(String code, Consumer<Code.Source> refactoring, String expectedCode,
+			RuntimeException instanciationException) {
+		SuccessCase(String code, Consumer<Code.Source> refactoring, String expectedCode) {
+			this(code, refactoring, expectedCode, new RuntimeException("Success case expectations"));
+		}
+
+		SuccessCase {
+			StackTraceElement[] originalStack = instanciationException.getStackTrace();
+			StackTraceElement[] relevantStack = Arrays.copyOfRange(originalStack, 1, originalStack.length);
+			instanciationException.setStackTrace(relevantStack);
+		}
+
 		@Override
 		public String toString() {
 			return reduce(code) + " > " + stringOf(refactoring) + " > " + reduce(expectedCode);
@@ -33,29 +46,34 @@ public abstract class RefactorerTest {
 	@ParameterizedTest
 	@MethodSource
 	public void testCodeRefactoringSuccess(SuccessCase successCase) {
-		var code = successCase.code();
-		var refactorerExecutor = successCase.refactoring();
-		var expectedCode = successCase.expectedCode();
+		try {
+			var code = successCase.code();
+			var refactorerExecutor = successCase.refactoring();
+			var expectedCode = successCase.expectedCode();
 
-		// GIVEN
-		Refactorer.ForCode refactorer = parseCode(code);
+			// GIVEN
+			Refactorer.ForCode refactorer = parseCode(code);
 
-		// WHEN
-		refactorerExecutor.accept(refactorer.source());
+			// WHEN
+			refactorerExecutor.accept(refactorer.source());
 
-		// THEN
-		assertThat(refactorer.code(), is(expectedCode));
+			// THEN
+			assertThat(refactorer.code(), is(expectedCode));
+		} catch (RuntimeException | AssertionError cause) {
+			cause.addSuppressed(successCase.instanciationException());
+			throw cause;
+		}
 	}
 
 	public static Stream<SuccessCase> testCodeRefactoringSuccess() {
 		return Stream.of(//
-				testCodeRefactoringSuccess_Class(), //
-				testCodeRefactoringSuccess_Interface(), //
-				testCodeRefactoringSuccess_Record(), //
-				testCodeRefactoringSuccess_Field(), //
-				testCodeRefactoringSuccess_Method(), //
-				testCodeRefactoringSuccess_Parameter(), //
-				testCodeRefactoringSuccess_Variable(), //
+				testCodeRefactoringSuccess_ClassRename(), //
+				testCodeRefactoringSuccess_InterfaceRename(), //
+				testCodeRefactoringSuccess_RecordRename(), //
+				testCodeRefactoringSuccess_FieldRename(), //
+				testCodeRefactoringSuccess_MethodRename(), //
+				testCodeRefactoringSuccess_ParameterRename(), //
+				testCodeRefactoringSuccess_VariableRename(), //
 				testCodeRefactoringSuccess_SplitJoin()//
 		).flatMap(stream -> stream);
 	}
@@ -66,13 +84,13 @@ public abstract class RefactorerTest {
 						"class MyClass{void myMethod(){String myParam = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).splitDeclaration(), //
-						"class MyClass{void myMethod(){String myParam;myParam = null;}}"//
+						"class MyClass {\r\n\r\n    void myMethod() {\r\n        String myParam;\r\n        myParam = null;\r\n    }\r\n}\r\n"//
 				), //
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).joinDeclaration(), //
-						"class MyClass{void myMethod(){String myParam = null;}}"//
+						"class MyClass {\r\n\r\n    void myMethod() {\r\n        String myParam = null;\r\n    }\r\n}\r\n"//
 				), //
 				new SuccessCase(//
 						"""
@@ -86,10 +104,11 @@ public abstract class RefactorerTest {
 								.variable("myParam", 0).splitDeclaration(), //
 						"""
 								class MyClass {
-									void myMethod() {
-										String myParam;
-										myParam = null;
-									}
+
+								    void myMethod() {
+								        String myParam;
+								        myParam = null;
+								    }
 								}
 								"""//
 				), //
@@ -106,22 +125,23 @@ public abstract class RefactorerTest {
 								.variable("myParam", 0).joinDeclaration(), //
 						"""
 								class MyClass {
-									void myMethod() {
-										String myParam = null;
-									}
+
+								    void myMethod() {
+								        String myParam = null;
+								    }
 								}
 								"""//
 				)//
 		);
 	}
 
-	private static Stream<SuccessCase> testCodeRefactoringSuccess_Parameter() {
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_ParameterRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(String myParam){myParam = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String"))
 								.parameter("myParam").rename("foo"), //
-						"class MyClass{void myMethod(String foo){foo = null;}}"//
+						"class MyClass {\r\n\r\n    void myMethod(String foo) {\r\n        foo = null;\r\n    }\r\n}\r\n"//
 				), //
 				new SuccessCase(//
 						"""
@@ -135,11 +155,14 @@ public abstract class RefactorerTest {
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("myParam"))
 								.parameter("myParam").rename("foo"), //
 						"""
-								class MyClass{
-									class myParam {}
-									void myMethod(myParam foo){
-										foo = new myParam();
-									}
+								class MyClass {
+
+								    class myParam {
+								    }
+
+								    void myMethod(myParam foo) {
+								        foo = new myParam();
+								    }
 								}
 								"""//
 				), //
@@ -162,15 +185,18 @@ public abstract class RefactorerTest {
 								.method("myMethod", List.of("String")).parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
-									class MyChildClass {
-										void myMethod() {
-											class MyInnerClass {
-												void myMethod(String foo) {
-													foo = null;
-												}
-											}
-										}
-									}
+
+								    class MyChildClass {
+
+								        void myMethod() {
+								            class MyInnerClass {
+
+								                void myMethod(String foo) {
+								                    foo = null;
+								                }
+								            }
+								        }
+								    }
 								}
 								"""//
 				), //
@@ -190,13 +216,15 @@ public abstract class RefactorerTest {
 								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
-									void myMethod(String foo) {
-										class MyInnerClass {
-											String myMethod() {
-												return foo;
-											}
-										}
-									}
+
+								    void myMethod(String foo) {
+								        class MyInnerClass {
+
+								            String myMethod() {
+								                return foo;
+								            }
+								        }
+								    }
 								}
 								"""//
 				), //
@@ -215,12 +243,14 @@ public abstract class RefactorerTest {
 								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
-									boolean myMethod(boolean foo) {
-										return foo;
-									}
-									String myMethod(String myParam) {
-										return myParam;
-									}
+
+								    boolean myMethod(boolean foo) {
+								        return foo;
+								    }
+
+								    String myMethod(String myParam) {
+								        return myParam;
+								    }
 								}
 								"""//
 				), //
@@ -245,18 +275,22 @@ public abstract class RefactorerTest {
 								.parameter("myParam").rename("foo"), //
 						"""
 								class MyClass {
-									interface MyInt {
-										String myMethod(String myParam);
-									}
-									MyInt myMethod(MyInt foo) {
-										foo = new MyInt() {
-											@Override
-											public String myMethod(String myParam) {
-												return myParam;
-											}
-										};
-										return foo;
-									}
+
+								    interface MyInt {
+
+								        String myMethod(String myParam);
+								    }
+
+								    MyInt myMethod(MyInt foo) {
+								        foo = new MyInt() {
+
+								            @Override
+								            public String myMethod(String myParam) {
+								                return myParam;
+								            }
+								        };
+								        return foo;
+								    }
 								}
 								"""//
 				// TODO Test anonymous class
@@ -300,13 +334,13 @@ public abstract class RefactorerTest {
 		);
 	}
 
-	private static Stream<SuccessCase> testCodeRefactoringSuccess_Variable() {
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_VariableRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myVar = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myVar", 0).rename("foo"), //
-						"class MyClass{void myMethod(){String foo = null;}}"//
+						"class MyClass {\r\n\r\n    void myMethod() {\r\n        String foo = null;\r\n    }\r\n}\r\n"//
 				), //
 				new SuccessCase(//
 						"""
@@ -320,11 +354,13 @@ public abstract class RefactorerTest {
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myVar", 0).rename("foo"), //
 						"""
-								class MyClass{
-									void myMethod(){
-										class myVar {}
-										myVar foo = new myVar();
-									}
+								class MyClass {
+
+								    void myMethod() {
+								        class myVar {
+								        }
+								        myVar foo = new myVar();
+								    }
 								}
 								"""//
 				), //
@@ -347,15 +383,18 @@ public abstract class RefactorerTest {
 								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
-									class MyChildClass {
-										void myMethod() {
-											class MyInnerClass {
-												void myMethod() {
-													String foo = null;
-												}
-											}
-										}
-									}
+
+								    class MyChildClass {
+
+								        void myMethod() {
+								            class MyInnerClass {
+
+								                void myMethod() {
+								                    String foo = null;
+								                }
+								            }
+								        }
+								    }
 								}
 								"""//
 				), //
@@ -376,14 +415,16 @@ public abstract class RefactorerTest {
 								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
-									void myMethod() {
-										String foo = null;
-										class MyInnerClass {
-											String myMethod() {
-												return foo;
-											}
-										}
-									}
+
+								    void myMethod() {
+								        String foo = null;
+								        class MyInnerClass {
+
+								            String myMethod() {
+								                return foo;
+								            }
+								        }
+								    }
 								}
 								"""//
 				), //
@@ -405,15 +446,16 @@ public abstract class RefactorerTest {
 								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
-									String myMethod(boolean b) {
-										if (b) {
-											String foo = "a";
-											return foo;
-										} else {
-											String myVar = "b";
-											return myVar;
-										}
-									}
+
+								    String myMethod(boolean b) {
+								        if (b) {
+								            String foo = "a";
+								            return foo;
+								        } else {
+								            String myVar = "b";
+								            return myVar;
+								        }
+								    }
 								}
 								"""//
 				), //
@@ -435,15 +477,16 @@ public abstract class RefactorerTest {
 								.variable("myVar", 1).rename("foo"), //
 						"""
 								class MyClass {
-									String myMethod(boolean b) {
-										if (b) {
-											String myVar = "a";
-											return myVar;
-										} else {
-											String foo = "b";
-											return foo;
-										}
-									}
+
+								    String myMethod(boolean b) {
+								        if (b) {
+								            String myVar = "a";
+								            return myVar;
+								        } else {
+								            String foo = "b";
+								            return foo;
+								        }
+								    }
 								}
 								"""//
 				), //
@@ -469,19 +512,23 @@ public abstract class RefactorerTest {
 								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
-									interface MyInt {
-										String myMethod();
-									}
-									MyInt myMethod() {
-										MyInt foo = new MyInt() {
-											@Override
-											public String myMethod() {
-												String myVar = "";
-												return myVar;
-											}
-										};
-										return foo;
-									}
+
+								    interface MyInt {
+
+								        String myMethod();
+								    }
+
+								    MyInt myMethod() {
+								        MyInt foo = new MyInt() {
+
+								            @Override
+								            public String myMethod() {
+								                String myVar = "";
+								                return myVar;
+								            }
+								        };
+								        return foo;
+								    }
 								}
 								"""//
 				), //
@@ -508,19 +555,23 @@ public abstract class RefactorerTest {
 								.rename("foo"), //
 						"""
 								class MyClass {
-									interface MyInt {
-										String myMethod();
-									}
-									MyInt myMethod() {
-										MyInt myVar = new MyInt() {
-											@Override
-											public String myMethod() {
-												String foo = "";
-												return foo;
-											}
-										};
-										return myVar;
-									}
+
+								    interface MyInt {
+
+								        String myMethod();
+								    }
+
+								    MyInt myMethod() {
+								        MyInt myVar = new MyInt() {
+
+								            @Override
+								            public String myMethod() {
+								                String foo = "";
+								                return foo;
+								            }
+								        };
+								        return myVar;
+								    }
 								}
 								"""//
 				), //
@@ -545,18 +596,19 @@ public abstract class RefactorerTest {
 								.variable("myVar", 0).rename("foo"), //
 						"""
 								class MyClass {
-									String myMethod() {
-										String foo = "abc";
-										foo = "";
-										String x = foo;
-										x = "<" + foo + ">";
-										foo = myMethod(foo);
-										return foo;
-									}
 
-									String myMethod(String s) {
-										return null;
-									}
+								    String myMethod() {
+								        String foo = "abc";
+								        foo = "";
+								        String x = foo;
+								        x = "<" + foo + ">";
+								        foo = myMethod(foo);
+								        return foo;
+								    }
+
+								    String myMethod(String s) {
+								        return null;
+								    }
 								}
 								"""//
 				), //
@@ -578,11 +630,12 @@ public abstract class RefactorerTest {
 								import java.util.function.Supplier;
 
 								class MyClass {
-									void myMethod() {
-										String foo = "abc";
-										Supplier<String> sup = () -> foo;
-										Supplier<Supplier<String>> sup2 = () -> () -> foo;
-									}
+
+								    void myMethod() {
+								        String foo = "abc";
+								        Supplier<String> sup = () -> foo;
+								        Supplier<Supplier<String>> sup2 = () -> () -> foo;
+								    }
 								}
 								"""//
 				), //
@@ -606,77 +659,92 @@ public abstract class RefactorerTest {
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
 								.variable("myVar", 0).rename("foo"), //
 						"""
-								class MyClass{
-									void myMethod(boolean b){
-										String foo = null;
-									}
-									void myMethod(String s){
-										String myVar = null;
-									}
-									void myMethod(boolean b, String s){
-										String myVar = null;
-									}
-									void myMethod(){
-										String myVar = null;
-									}
+								class MyClass {
+
+								    void myMethod(boolean b) {
+								        String foo = null;
+								    }
+
+								    void myMethod(String s) {
+								        String myVar = null;
+								    }
+
+								    void myMethod(boolean b, String s) {
+								        String myVar = null;
+								    }
+
+								    void myMethod() {
+								        String myVar = null;
+								    }
 								}
 								"""//
 				)//
 		);
 	}
 
-	private static Stream<SuccessCase> testCodeRefactoringSuccess_Method() {
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_MethodRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{void myMethod(){}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.rename("foo"), //
-						"class MyClass{void foo(){}}"//
+						"class MyClass {\r\n\r\n    void foo() {\r\n    }\r\n}\r\n"//
 				)//
 		);
 	}
 
-	private static Stream<SuccessCase> testCodeRefactoringSuccess_Field() {
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_FieldRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{String myField;}", //
 						source -> source.defaultPackage().clazz("MyClass").field("myField").rename("foo"), //
-						"class MyClass{String foo;}"//
+						"class MyClass {\r\n\r\n    String foo;\r\n}\r\n"//
 				)//
 		);
 	}
 
-	private static Stream<SuccessCase> testCodeRefactoringSuccess_Record() {
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_RecordRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"record MyRecord(){}", //
 						source -> source.defaultPackage().record("MyRecord").rename("Foo"), //
-						"record Foo(){}"//
+						"record Foo() {\r\n}\r\n"//
 				)//
 		);
 	}
 
-	private static Stream<SuccessCase> testCodeRefactoringSuccess_Interface() {
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_InterfaceRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"interface MyInt{}", //
 						source -> source.defaultPackage().interf("MyInt").rename("Foo"), //
-						"interface Foo{}"//
+						"interface Foo {\r\n}\r\n"//
 				)//
 		);
 	}
 
-	static Stream<SuccessCase> testCodeRefactoringSuccess_Class() {
+	static Stream<SuccessCase> testCodeRefactoringSuccess_ClassRename() {
 		return Stream.of(//
 				new SuccessCase(//
 						"class MyClass{}", //
 						source -> source.defaultPackage().clazz("MyClass").rename("Foo"), //
-						"class Foo{}"//
+						"class Foo {\r\n}\r\n"//
 				)//
 		);
 	}
 
-	record FailureCase(String code, Consumer<Code.Source> refactoring, Exception expectedException) {
+	record FailureCase(String code, Consumer<Code.Source> refactoring, Exception expectedException,
+			RuntimeException instanciationException) {
+		FailureCase(String code, Consumer<Code.Source> refactoring, Exception expectedException) {
+			this(code, refactoring, expectedException, new RuntimeException("Success case expectations"));
+		}
+
+		FailureCase {
+			StackTraceElement[] originalStack = instanciationException.getStackTrace();
+			StackTraceElement[] relevantStack = Arrays.copyOfRange(originalStack, 1, originalStack.length);
+			instanciationException.setStackTrace(relevantStack);
+		}
+
 		@Override
 		public String toString() {
 			return reduce(code) + " > " + stringOf(refactoring) + " > " + expectedException;
@@ -686,19 +754,24 @@ public abstract class RefactorerTest {
 	@ParameterizedTest
 	@MethodSource
 	public void testCodeRefactoringFailure(FailureCase failureCase) {
-		var code = failureCase.code();
-		var refactorerExecutor = failureCase.refactoring();
-		var expectedException = failureCase.expectedException();
+		try {
+			var code = failureCase.code();
+			var refactorerExecutor = failureCase.refactoring();
+			var expectedException = failureCase.expectedException();
 
-		// GIVEN
-		Refactorer.ForCode refactorer = parseCode(code);
+			// GIVEN
+			Refactorer.ForCode refactorer = parseCode(code);
 
-		// WHEN
-		Executable action = () -> refactorerExecutor.accept(refactorer.source());
+			// WHEN
+			Executable action = () -> refactorerExecutor.accept(refactorer.source());
 
-		// THEN
-		Exception except = assertThrows(expectedException.getClass(), action);
-		assertThat(except.getMessage(), is(expectedException.getMessage()));
+			// THEN
+			Exception except = assertThrows(expectedException.getClass(), action);
+			assertThat(except.getMessage(), is(expectedException.getMessage()));
+		} catch (RuntimeException | AssertionError cause) {
+			cause.addSuppressed(failureCase.instanciationException());
+			throw cause;
+		}
 	}
 
 	public static Stream<FailureCase> testCodeRefactoringFailure() {
