@@ -218,6 +218,7 @@ public interface Component {
 					});
 		}
 
+		void scopeTo(Method method);
 	}
 
 	public interface Parameter extends Component {

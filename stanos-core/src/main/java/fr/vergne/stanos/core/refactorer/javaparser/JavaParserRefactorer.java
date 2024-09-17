@@ -13,6 +13,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.Node.TreeTraversal;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.RecordDeclaration;
@@ -37,7 +38,6 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
 import fr.vergne.stanos.core.refactorer.Refactorer;
-import fr.vergne.stanos.core.utils.Padding;
 
 public interface JavaParserRefactorer extends Refactorer {
 
@@ -390,6 +390,20 @@ public interface JavaParserRefactorer extends Refactorer {
 			public Stream<Method> methods() {
 				// TODO
 				throw new UnsupportedOperationException("Not implemented yet");
+			}
+
+			@Override
+			public void scopeTo(Method method) {
+				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				ClassOrInterfaceDeclaration clazz = (ClassOrInterfaceDeclaration) fieldDeclaration.getParentNode()
+						.orElseThrow();
+				clazz.remove(fieldDeclaration);
+				MethodDeclaration methodDeclaration = clazz.getMethods().stream()//
+						.filter(meth -> meth.getNameAsString().equals(method.name()))//
+						.filter(meth -> meth.hasParametersOfType(method.parameterTypes().toArray(new String[0])))//
+						.findFirst().orElseThrow();
+				BlockStmt methodBody = methodDeclaration.getBody().orElseThrow();
+				methodBody.addStatement(0, new VariableDeclarationExpr(variableDeclarator));
 			}
 		};
 	}

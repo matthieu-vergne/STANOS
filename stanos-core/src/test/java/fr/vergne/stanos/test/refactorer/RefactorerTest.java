@@ -74,8 +74,41 @@ public abstract class RefactorerTest {
 				testCodeRefactoringSuccess_MethodRename(), //
 				testCodeRefactoringSuccess_ParameterRename(), //
 				testCodeRefactoringSuccess_VariableRename(), //
-				testCodeRefactoringSuccess_SplitJoin()//
+				testCodeRefactoringSuccess_SplitJoin(), //
+				testCodeRefactoringSuccess_Scope()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_Scope() {
+		return Stream.of(//
+				new SuccessCase(//
+						"""
+								class MyClass {
+									String myVar = null;
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar")
+								.scopeTo(source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        }
+								    }
+								}
+								"""//
+				)//
+		);
 	}
 
 	private static Stream<SuccessCase> testCodeRefactoringSuccess_SplitJoin() {

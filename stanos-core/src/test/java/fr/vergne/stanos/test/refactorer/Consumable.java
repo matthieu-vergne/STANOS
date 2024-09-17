@@ -315,6 +315,11 @@ public interface Consumable {
 		public Stream<Method> methods() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
+
+		@Override
+		public void scopeTo(Method method) {
+			consumer.consumeArgs(method);
+		}
 	}
 
 	public static interface ArgsConsumer {
