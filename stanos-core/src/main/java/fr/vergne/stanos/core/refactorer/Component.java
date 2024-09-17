@@ -200,6 +200,7 @@ public interface Component {
 
 		void joinDeclaration();
 
+		// TODO Replace clazz by visibility
 		void increaseScope(Class clazz);
 
 		void decreaseScope();
