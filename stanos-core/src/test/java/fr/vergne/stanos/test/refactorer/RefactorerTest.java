@@ -93,8 +93,8 @@ public abstract class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").field("myVar")
-								.scopeTo(source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())), //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").decreaseScope(
+								source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())), //
 						"""
 								class MyClass {
 
@@ -121,7 +121,7 @@ public abstract class RefactorerTest {
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).scopeTo(source.defaultPackage().clazz("MyClass")), //
+								.variable("myVar", 0).increaseScope(source.defaultPackage().clazz("MyClass")), //
 						"""
 								class MyClass {
 

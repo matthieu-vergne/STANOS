@@ -200,7 +200,7 @@ public interface Component {
 
 		void joinDeclaration();
 
-		void scopeTo(Class clazz);
+		void increaseScope(Class clazz);
 
 	}
 
@@ -220,7 +220,7 @@ public interface Component {
 					});
 		}
 
-		void scopeTo(Method method);
+		void decreaseScope(Method method);
 	}
 
 	public interface Parameter extends Component {

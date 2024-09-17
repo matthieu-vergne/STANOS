@@ -293,7 +293,7 @@ public interface Consumable {
 		}
 
 		@Override
-		public void scopeTo(Class clazz) {
+		public void increaseScope(Class clazz) {
 			consumer.consumeArgs(clazz);
 		};
 	}
@@ -322,7 +322,7 @@ public interface Consumable {
 		}
 
 		@Override
-		public void scopeTo(Method method) {
+		public void decreaseScope(Method method) {
 			consumer.consumeArgs(method);
 		}
 	}

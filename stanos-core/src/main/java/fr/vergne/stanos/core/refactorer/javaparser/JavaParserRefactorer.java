@@ -241,13 +241,14 @@ public interface JavaParserRefactorer extends Refactorer {
 			}
 
 			@Override
-			public void scopeTo(Class clazz) {
+			public void increaseScope(Class clazz) {
 				VariableDeclarationExpr variableDeclarationExp = (VariableDeclarationExpr) variableDeclaration
 						.getParentNode().orElseThrow();
 				ExpressionStmt expressionStmt = (ExpressionStmt) variableDeclarationExp.getParentNode().orElseThrow();
 				BlockStmt blockStmt = (BlockStmt) expressionStmt.getParentNode().orElseThrow();
 				blockStmt.remove(expressionStmt);
 
+				// FIXME Fail if clazz is not parent clazz
 				ClassOrInterfaceDeclaration classOrInterface = (ClassOrInterfaceDeclaration) methodDeclaration
 						.getParentNode().orElseThrow();
 				classOrInterface.addFieldWithInitializer(variableDeclaration.getType(),
@@ -407,11 +408,13 @@ public interface JavaParserRefactorer extends Refactorer {
 			}
 
 			@Override
-			public void scopeTo(Method method) {
+			public void decreaseScope(Method method) {
 				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
 				ClassOrInterfaceDeclaration clazz = (ClassOrInterfaceDeclaration) fieldDeclaration.getParentNode()
 						.orElseThrow();
 				clazz.remove(fieldDeclaration);
+
+				// FIXME Fail if method is not one of ours
 				MethodDeclaration methodDeclaration = clazz.getMethods().stream()//
 						.filter(meth -> meth.getNameAsString().equals(method.name()))//
 						.filter(meth -> meth.hasParametersOfType(method.parameterTypes().toArray(new String[0])))//
