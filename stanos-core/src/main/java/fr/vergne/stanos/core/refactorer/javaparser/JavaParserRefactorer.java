@@ -239,6 +239,20 @@ public interface JavaParserRefactorer extends Refactorer {
 							"Not implemented yet: " + parentNode.getClass().getSimpleName());
 				}
 			}
+
+			@Override
+			public void scopeTo(Class clazz) {
+				VariableDeclarationExpr variableDeclarationExp = (VariableDeclarationExpr) variableDeclaration
+						.getParentNode().orElseThrow();
+				ExpressionStmt expressionStmt = (ExpressionStmt) variableDeclarationExp.getParentNode().orElseThrow();
+				BlockStmt blockStmt = (BlockStmt) expressionStmt.getParentNode().orElseThrow();
+				blockStmt.remove(expressionStmt);
+
+				ClassOrInterfaceDeclaration classOrInterface = (ClassOrInterfaceDeclaration) methodDeclaration
+						.getParentNode().orElseThrow();
+				classOrInterface.addFieldWithInitializer(variableDeclaration.getType(),
+						variableDeclaration.getNameAsString(), variableDeclaration.getInitializer().orElseThrow());
+			}
 		};
 	}
 

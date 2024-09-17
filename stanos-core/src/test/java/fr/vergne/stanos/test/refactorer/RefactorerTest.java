@@ -107,6 +107,34 @@ public abstract class RefactorerTest {
 								    }
 								}
 								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        }
+								    }
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).scopeTo(source.defaultPackage().clazz("MyClass")), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        }
+								    }
+
+								    String myVar = null;
+								}
+								"""//
 				)//
 		);
 	}

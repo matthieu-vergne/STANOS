@@ -290,6 +290,11 @@ public interface Consumable {
 		@Override
 		public void joinDeclaration() {
 			consumer.consumeArgs("");
+		}
+
+		@Override
+		public void scopeTo(Class clazz) {
+			consumer.consumeArgs(clazz);
 		};
 	}
 

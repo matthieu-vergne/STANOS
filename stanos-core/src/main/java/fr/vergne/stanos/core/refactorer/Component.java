@@ -200,6 +200,8 @@ public interface Component {
 
 		void joinDeclaration();
 
+		void scopeTo(Class clazz);
+
 	}
 
 	public interface Field extends Component {
