@@ -296,6 +296,21 @@ public interface Consumable {
 		public void increaseScope(Class clazz) {
 			consumer.consumeArgs(clazz);
 		};
+
+		@Override
+		public void decreaseScope() {
+			consumer.consumeArgs();
+		}
+
+		@Override
+		public void increaseScope() {
+			consumer.consumeArgs();
+		}
+
+		@Override
+		public void decreaseScope(int blockIndex) {
+			consumer.consumeArgs(blockIndex);
+		}
 	}
 
 	public static class Field implements Component.Field {

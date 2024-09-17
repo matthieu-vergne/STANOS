@@ -202,6 +202,12 @@ public interface Component {
 
 		void increaseScope(Class clazz);
 
+		void decreaseScope();
+
+		void increaseScope();
+
+		void decreaseScope(int blockIndex);
+
 	}
 
 	public interface Field extends Component {

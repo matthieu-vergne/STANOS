@@ -135,6 +135,263 @@ public abstract class RefactorerTest {
 								    String myVar = null;
 								}
 								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).decreaseScope(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        }
+								    }
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).increaseScope(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										String myVar = null;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).decreaseScope(0), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            String myVar = null;
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											String myVar = null;
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).increaseScope(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										String myVar = null;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).decreaseScope(1), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            String myVar = null;
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											String myVar = null;
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).increaseScope(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										String myVar = null;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).decreaseScope(2), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            String myVar = null;
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											String myVar = null;
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).increaseScope(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
 				)//
 		);
 	}

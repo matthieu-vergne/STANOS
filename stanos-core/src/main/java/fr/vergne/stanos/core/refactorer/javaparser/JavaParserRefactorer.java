@@ -21,6 +21,7 @@ import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.SimpleName;
@@ -254,6 +255,76 @@ public interface JavaParserRefactorer extends Refactorer {
 				classOrInterface.addFieldWithInitializer(variableDeclaration.getType(),
 						variableDeclaration.getNameAsString(), variableDeclaration.getInitializer().orElseThrow());
 			}
+
+			@Override
+			public void decreaseScope() {
+				VariableDeclarationExpr variableDeclarationExp = (VariableDeclarationExpr) variableDeclaration
+						.getParentNode().orElseThrow();
+				ExpressionStmt expressionStmt = (ExpressionStmt) variableDeclarationExp.getParentNode().orElseThrow();
+				BlockStmt blockStmt = (BlockStmt) expressionStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(expressionStmt);
+				blockStmt.remove(expressionStmt);
+
+				// TODO Fail if no next statement
+				// TODO Fail if next statement depends on it
+				blockStmt.addStatement(index + 1, expressionStmt);
+			}
+
+			@Override
+			public void increaseScope() {
+				VariableDeclarationExpr variableDeclarationExp = (VariableDeclarationExpr) variableDeclaration
+						.getParentNode().orElseThrow();
+				ExpressionStmt expressionStmt = (ExpressionStmt) variableDeclarationExp.getParentNode().orElseThrow();
+				BlockStmt blockStmt = (BlockStmt) expressionStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(expressionStmt);
+				blockStmt.remove(expressionStmt);
+
+				// TODO Fail if no previous statement
+				// TODO Fail if previous statement depends on it
+				if (index > 0) {
+					blockStmt.addStatement(index - 1, expressionStmt);
+				} else {
+					Node parentNode = blockStmt.getParentNode().orElseThrow();
+					Node childNode = blockStmt;
+					while (parentNode instanceof IfStmt ifStmt) {
+						childNode = parentNode;
+						parentNode = ifStmt.getParentNode().orElseThrow();
+					}
+					BlockStmt parentBlockStmt = (BlockStmt) parentNode;
+					index = parentBlockStmt.getChildNodes().indexOf(childNode);
+					parentBlockStmt.addStatement(index, expressionStmt);
+				}
+			}
+
+			@Override
+			public void decreaseScope(int blockIndex) {
+				VariableDeclarationExpr variableDeclarationExp = (VariableDeclarationExpr) variableDeclaration
+						.getParentNode().orElseThrow();
+				ExpressionStmt expressionStmt = (ExpressionStmt) variableDeclarationExp.getParentNode().orElseThrow();
+				BlockStmt blockStmt = (BlockStmt) expressionStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(expressionStmt);
+				Node node = blockStmt.getChildNodes().get(index + 1);
+				if (node instanceof IfStmt) {
+					for (; blockIndex > 0; blockIndex--) {
+						node = ((IfStmt) node).getElseStmt().orElseThrow();
+					}
+					BlockStmt targetStmt;
+					if (node instanceof IfStmt ifStmt) {
+						// Not last else
+						targetStmt = (BlockStmt) ifStmt.getThenStmt();
+					} else {
+						// Last else
+						targetStmt = (BlockStmt) node;
+					}
+					blockStmt.remove(expressionStmt);
+					targetStmt.addStatement(0, expressionStmt);
+				} else {
+					throw new UnsupportedOperationException("Not implemented yet");
+				}
+			}
 		};
 	}
 
@@ -330,7 +401,9 @@ public interface JavaParserRefactorer extends Refactorer {
 						.flatMap(node -> {
 							if (node instanceof VariableDeclarationExpr exp) {
 								return exp.getVariables().stream();
-							} else if (node instanceof NameExpr exp) {
+							} else if (node instanceof NameExpr) {
+								return Stream.empty();
+							} else if (node instanceof MethodCallExpr) {
 								return Stream.empty();
 							} else {
 								throw new UnsupportedOperationException(
@@ -356,7 +429,7 @@ public interface JavaParserRefactorer extends Refactorer {
 							stmt.getElseStmt().map(elseStmt -> resolveStatementToExpressions(elseStmt))
 									.orElse(Stream.empty())//
 					);
-				} else if (statement instanceof LocalClassDeclarationStmt stmt) {
+				} else if (statement instanceof LocalClassDeclarationStmt) {
 					return Stream.empty();
 				} else {
 					throw new UnsupportedOperationException("Not supported: " + statement.getClass().getSimpleName());
