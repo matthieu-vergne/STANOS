@@ -76,8 +76,32 @@ public abstract class RefactorerTest {
 				testCodeRefactoringSuccess_VariableRename(), //
 				testCodeRefactoringSuccess_SplitJoin(), //
 				testCodeRefactoringSuccess_Scope(), //
-				testCodeRefactoringSuccess_DistributeFactor()//
+				testCodeRefactoringSuccess_DistributeFactor(), //
+				testCodeRefactoringSuccess_RemoveUnused()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_RemoveUnused() {
+		return Stream.of(//
+				new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeIfUnused(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								    }
+								}
+								"""//
+				)//
+		);
 	}
 
 	private static Stream<SuccessCase> testCodeRefactoringSuccess_DistributeFactor() {

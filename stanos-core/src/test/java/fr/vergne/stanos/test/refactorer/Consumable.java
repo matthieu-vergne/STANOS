@@ -345,6 +345,11 @@ public interface Consumable {
 		public void decreaseScope(int blockIndex) {
 			consumer.consumeArgs(blockIndex);
 		}
+
+		@Override
+		public void removeIfUnused() {
+			consumer.consumeArgs();
+		}
 	}
 
 	public static class Field implements Component.Field {

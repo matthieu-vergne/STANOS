@@ -222,6 +222,8 @@ public interface Component {
 
 		void decreaseScope(int blockIndex);
 
+		void removeIfUnused();
+
 	}
 
 	public interface Field extends Component {

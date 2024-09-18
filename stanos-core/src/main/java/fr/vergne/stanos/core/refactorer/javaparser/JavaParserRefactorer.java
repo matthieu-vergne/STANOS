@@ -326,6 +326,18 @@ public interface JavaParserRefactorer extends Refactorer {
 					throw new UnsupportedOperationException("Not implemented yet");
 				}
 			}
+
+			@Override
+			public void removeIfUnused() {
+				VariableDeclarationExpr expr = (VariableDeclarationExpr) variableDeclaration.getParentNode()
+						.orElseThrow();
+				ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
+				BlockStmt blockStmt = (BlockStmt) stmt.getParentNode().orElseThrow();
+				blockStmt.remove(stmt);
+
+				// TODO Don't remove if used
+				// TODO Remove useless writes/reads
+			}
 		};
 	}
 
