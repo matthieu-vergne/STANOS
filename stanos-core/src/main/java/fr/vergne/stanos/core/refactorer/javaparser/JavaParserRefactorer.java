@@ -1,5 +1,6 @@
 package fr.vergne.stanos.core.refactorer.javaparser;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -334,34 +335,36 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public void removeIfUnused() {
-				Action[] action = { Action.NO_OP };
+				Action action = Action.NO_OP;
 
 				{
 					VariableDeclarationExpr expr = (VariableDeclarationExpr) variableDeclaration.getParentNode()
 							.orElseThrow();
 					ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
 					BlockStmt blockStmt = (BlockStmt) stmt.getParentNode().orElseThrow();
-					action[0] = action[0].then(() -> blockStmt.remove(stmt));
+					action = action.then(() -> blockStmt.remove(stmt));
 				}
 
 				{
-					retrieveVariableOtherOccurrences()//
-							.map(nameNode -> (NameExpr) nameNode.getParentNode().orElseThrow())//
-							.map(nameExpr -> nameExpr.getParentNode().orElseThrow())//
-							.forEach(parentNode -> {
-								if (parentNode instanceof AssignExpr assignExpr) {
-									ExpressionStmt stmt = (ExpressionStmt) assignExpr.getParentNode().orElseThrow();
-									Node actualParent = stmt.getParentNode().orElseThrow();
-									action[0] = action[0].then(() -> actualParent.remove(stmt));
-								} else {
-									throw new UnsupportedOperationException(
-											"Not implemented yet: " + parentNode.getClass());
-								}
-							});
+					Iterator<SimpleName> occurrences = retrieveVariableOtherOccurrences().iterator();
+					while (occurrences.hasNext()) {
+						SimpleName nameNode = occurrences.next();
+						NameExpr nameExpr = (NameExpr) nameNode.getParentNode().orElseThrow();
+						Node parentNode = nameExpr.getParentNode().orElseThrow();
+						if (parentNode instanceof MethodCallExpr) {
+							// Used, don't remove
+							return;
+						} else if (parentNode instanceof AssignExpr expr) {
+							ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
+							Node actualParent = stmt.getParentNode().orElseThrow();
+							action = action.then(() -> actualParent.remove(stmt));
+						} else {
+							throw new UnsupportedOperationException("Not implemented yet: " + parentNode.getClass());
+						}
+					}
 				}
 
-				// TODO Don't remove if used
-				action[0].act();
+				action.act();
 			}
 		};
 	}
