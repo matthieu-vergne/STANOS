@@ -103,11 +103,16 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public void rename(String newName) {
+				retrieveVariableOtherOccurrences().forEach(nameNode -> nameNode.setIdentifier(newName));
+				variableDeclaration.getName().setIdentifier(newName);
+			}
+
+			private Stream<SimpleName> retrieveVariableOtherOccurrences() {
 				String currentName = variableDeclaration.getNameAsString();
-				methodDeclaration.getBody().orElseThrow().stream()//
+				return methodDeclaration.getBody().orElseThrow().stream()//
 						.flatMap(filterOnClass(SimpleName.class))//
 						.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
-						.forEach(nameNode -> {
+						.flatMap(nameNode -> {
 							Node parentNode = nameNode.getParentNode().orElseThrow();
 							if (parentNode instanceof NameExpr exp) {
 								ResolvedValueDeclaration resolved = exp.resolve();
@@ -115,7 +120,7 @@ public interface JavaParserRefactorer extends Refactorer {
 									VariableDeclarationExpr declarations = resolved.toAst(VariableDeclarationExpr.class)
 											.orElseThrow();
 									if (declarations.getVariables().contains(variableDeclaration)) {
-										nameNode.setIdentifier(newName);
+										return Stream.of(nameNode);
 									} else {
 										// Relate to another parameter with the same name
 									}
@@ -125,8 +130,8 @@ public interface JavaParserRefactorer extends Refactorer {
 							} else {
 								// Relate to something else with the same name
 							}
+							return Stream.empty();
 						});
-				variableDeclaration.getName().setIdentifier(newName);
 			}
 
 			@Override
@@ -329,14 +334,34 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public void removeIfUnused() {
-				VariableDeclarationExpr expr = (VariableDeclarationExpr) variableDeclaration.getParentNode()
-						.orElseThrow();
-				ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
-				BlockStmt blockStmt = (BlockStmt) stmt.getParentNode().orElseThrow();
-				blockStmt.remove(stmt);
+				Action[] action = { Action.NO_OP };
+
+				{
+					VariableDeclarationExpr expr = (VariableDeclarationExpr) variableDeclaration.getParentNode()
+							.orElseThrow();
+					ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
+					BlockStmt blockStmt = (BlockStmt) stmt.getParentNode().orElseThrow();
+					action[0] = action[0].then(() -> blockStmt.remove(stmt));
+				}
+
+				{
+					retrieveVariableOtherOccurrences()//
+							.map(nameNode -> (NameExpr) nameNode.getParentNode().orElseThrow())//
+							.map(nameExpr -> nameExpr.getParentNode().orElseThrow())//
+							.forEach(parentNode -> {
+								if (parentNode instanceof AssignExpr assignExpr) {
+									ExpressionStmt stmt = (ExpressionStmt) assignExpr.getParentNode().orElseThrow();
+									Node actualParent = stmt.getParentNode().orElseThrow();
+									action[0] = action[0].then(() -> actualParent.remove(stmt));
+								} else {
+									throw new UnsupportedOperationException(
+											"Not implemented yet: " + parentNode.getClass());
+								}
+							});
+				}
 
 				// TODO Don't remove if used
-				// TODO Remove useless writes/reads
+				action[0].act();
 			}
 		};
 	}
@@ -773,5 +798,21 @@ public interface JavaParserRefactorer extends Refactorer {
 		return token1.getKind() == token2.getKind() //
 				&& token1.getText().equals(token2.getText())//
 				&& token1.getRange().equals(token2.getRange());
+	}
+
+	// TODO Make private
+	public static interface Action {
+		public static Action NO_OP = () -> {
+		};
+
+		void act();
+
+		default Action then(Action next) {
+			Action previous = this;
+			return () -> {
+				previous.act();
+				next.act();
+			};
+		}
 	}
 }

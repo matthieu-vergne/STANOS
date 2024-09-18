@@ -100,6 +100,24 @@ public abstract class RefactorerTest {
 								    }
 								}
 								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeIfUnused(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								    }
+								}
+								"""//
 				)//
 		);
 	}
