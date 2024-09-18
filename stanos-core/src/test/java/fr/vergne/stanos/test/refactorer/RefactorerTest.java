@@ -154,6 +154,78 @@ public abstract class RefactorerTest {
 								    }
 								}
 								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+										String myVar = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).distributeNext(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								            String myVar = null;
+								        } else if (true) {
+								            System.out.println("true");
+								            String myVar = null;
+								        } else {
+								            System.out.println("else");
+								            String myVar = null;
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+											String myVar = null;
+										} else if (true) {
+											System.out.println("true");
+											String myVar = null;
+										} else {
+											System.out.println("else");
+											String myVar = null;
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).factorLast(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								        String myVar = null;
+								    }
+								}
+								"""//
 				)//
 		);
 	}

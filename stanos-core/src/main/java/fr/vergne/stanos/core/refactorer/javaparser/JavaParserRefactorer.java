@@ -38,8 +38,8 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 
 import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
-import fr.vergne.stanos.core.refactorer.Refactorer;
 import fr.vergne.stanos.core.refactorer.Component.IfStatement;
+import fr.vergne.stanos.core.refactorer.Refactorer;
 
 public interface JavaParserRefactorer extends Refactorer {
 
@@ -487,7 +487,33 @@ public interface JavaParserRefactorer extends Refactorer {
 					((BlockStmt) currentIfStmt.getThenStmt()).addStatement(0, previous);
 					currentNode = currentIfStmt.getElseStmt().orElseThrow();
 				} while (currentNode instanceof IfStmt);
-				((BlockStmt) currentNode).addStatement(0, previous);
+				{
+					((BlockStmt) currentNode).addStatement(0, previous);
+				}
+			}
+
+			@Override
+			public void distributeNext() {
+				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(ifStmt);
+				ExpressionStmt next = (ExpressionStmt) childNodes.get(index + 1);
+				blockStmt.remove(next);
+
+				// TODO Reuse previous or clone it?
+				Node currentNode = ifStmt;
+				do {
+					IfStmt currentIfStmt = (IfStmt) currentNode;
+					BlockStmt blockStmt2 = (BlockStmt) currentIfStmt.getThenStmt();
+					int lastIndex = blockStmt2.getChildNodes().size();
+					blockStmt2.addStatement(lastIndex, next);
+					currentNode = currentIfStmt.getElseStmt().orElseThrow();
+				} while (currentNode instanceof IfStmt);
+				{
+					BlockStmt blockStmt2 = (BlockStmt) currentNode;
+					int lastIndex = blockStmt2.getChildNodes().size();
+					blockStmt2.addStatement(lastIndex, next);
+				}
 			}
 
 			@Override
@@ -513,6 +539,33 @@ public interface JavaParserRefactorer extends Refactorer {
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
 				blockStmt.addStatement(index, firstStmt);
+			}
+
+			@Override
+			public void factorLast() {
+				// TODO Fail if 1 last statement missing
+				// TODO Fail if 1 last statement different
+				ExpressionStmt lastStmt;
+				Node currentNode = ifStmt;
+				do {
+					IfStmt currentIfStmt = (IfStmt) currentNode;
+					BlockStmt blockStmt = (BlockStmt) currentIfStmt.getThenStmt();
+					List<Node> childNodes = blockStmt.getChildNodes();
+					lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
+					blockStmt.remove(lastStmt);
+					currentNode = currentIfStmt.getElseStmt().orElseThrow();
+				} while (currentNode instanceof IfStmt);
+				{
+					BlockStmt blockStmt = (BlockStmt) currentNode;
+					List<Node> childNodes = blockStmt.getChildNodes();
+					lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
+					blockStmt.remove(lastStmt);
+				}
+
+				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(ifStmt);
+				blockStmt.addStatement(index + 1, lastStmt);
 			}
 		};
 	}

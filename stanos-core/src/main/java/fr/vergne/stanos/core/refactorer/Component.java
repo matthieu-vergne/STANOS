@@ -188,6 +188,10 @@ public interface Component {
 		void distributePrevious();
 
 		void factorFirst();
+
+		void distributeNext();
+
+		void factorLast();
 	}
 
 	public interface Variable extends Component {

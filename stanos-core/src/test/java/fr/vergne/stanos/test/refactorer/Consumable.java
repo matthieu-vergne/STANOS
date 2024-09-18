@@ -256,6 +256,16 @@ public interface Consumable {
 		public void factorFirst() {
 			consumer.consumeArgs("");
 		}
+
+		@Override
+		public void distributeNext() {
+			consumer.consumeArgs("");
+		}
+
+		@Override
+		public void factorLast() {
+			consumer.consumeArgs("");
+		}
 	}
 
 	public static class Parameter implements Component.Parameter {
