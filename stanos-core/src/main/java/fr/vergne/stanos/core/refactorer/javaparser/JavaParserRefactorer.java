@@ -21,6 +21,7 @@ import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
+import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
@@ -351,10 +352,16 @@ public interface JavaParserRefactorer extends Refactorer {
 						SimpleName nameNode = occurrences.next();
 						NameExpr nameExpr = (NameExpr) nameNode.getParentNode().orElseThrow();
 						Node parentNode = nameExpr.getParentNode().orElseThrow();
-						if (parentNode instanceof MethodCallExpr) {
+						if (parentNode instanceof MethodCallExpr //
+								|| parentNode instanceof VariableDeclarator //
+								|| parentNode instanceof BinaryExpr) {
 							// Used, don't remove
 							return;
 						} else if (parentNode instanceof AssignExpr expr) {
+							if (!expr.getTarget().equals(nameExpr)) {
+								// Used, don't remove
+								return;
+							}
 							ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
 							Node actualParent = stmt.getParentNode().orElseThrow();
 							action = action.then(() -> actualParent.remove(stmt));

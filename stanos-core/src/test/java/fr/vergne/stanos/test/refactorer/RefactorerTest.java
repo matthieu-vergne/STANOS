@@ -120,6 +120,76 @@ public abstract class RefactorerTest {
 								"""//
 				), new SuccessCase(//
 						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										String other = myVar;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeIfUnused(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        String other = myVar;
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										String other;
+										other = myVar;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeIfUnused(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        String other;
+								        other = myVar;
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										String other;
+										other = "" + myVar + "";
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeIfUnused(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        String other;
+								        other = "" + myVar + "";
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
 								abstract class MyClass {
 									void myMethod() {
 										String myVar = null;
