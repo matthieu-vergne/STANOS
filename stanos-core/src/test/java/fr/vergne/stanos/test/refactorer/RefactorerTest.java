@@ -75,8 +75,87 @@ public abstract class RefactorerTest {
 				testCodeRefactoringSuccess_ParameterRename(), //
 				testCodeRefactoringSuccess_VariableRename(), //
 				testCodeRefactoringSuccess_SplitJoin(), //
-				testCodeRefactoringSuccess_Scope()//
+				testCodeRefactoringSuccess_Scope(), //
+				testCodeRefactoringSuccess_DistributeFactor()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<SuccessCase> testCodeRefactoringSuccess_DistributeFactor() {
+		return Stream.of(//
+				new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										String myVar = null;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).distributePrevious(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            String myVar = null;
+								            System.out.println(b);
+								        } else if (true) {
+								            String myVar = null;
+								            System.out.println("true");
+								        } else {
+								            String myVar = null;
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											String myVar = null;
+											System.out.println(b);
+										} else if (true) {
+											String myVar = null;
+											System.out.println("true");
+										} else {
+											String myVar = null;
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).factorFirst(), //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								    }
+								}
+								"""//
+				)//
+		);
 	}
 
 	private static Stream<SuccessCase> testCodeRefactoringSuccess_Scope() {

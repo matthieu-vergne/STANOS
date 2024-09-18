@@ -232,6 +232,30 @@ public interface Consumable {
 		public Stream<Component.Interface> interfaces() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
+
+		@Override
+		public IfStatement ifStatement(int index) {
+			consumer.consumeArgs(index);
+			return new Consumable.IfStatement(consumer);
+		}
+	}
+
+	public static class IfStatement implements Component.IfStatement {
+		private final ArgsConsumer consumer;
+
+		public IfStatement(ArgsConsumer consumer) {
+			this.consumer = consumer;
+		}
+
+		@Override
+		public void distributePrevious() {
+			consumer.consumeArgs("");
+		}
+
+		@Override
+		public void factorFirst() {
+			consumer.consumeArgs("");
+		}
 	}
 
 	public static class Parameter implements Component.Parameter {

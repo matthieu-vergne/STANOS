@@ -39,6 +39,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
 import fr.vergne.stanos.core.refactorer.Refactorer;
+import fr.vergne.stanos.core.refactorer.Component.IfStatement;
 
 public interface JavaParserRefactorer extends Refactorer {
 
@@ -458,6 +459,61 @@ public interface JavaParserRefactorer extends Refactorer {
 						.orElseGet(Stream::empty);
 			}
 
+			@Override
+			public IfStatement ifStatement(int index) {
+				IfStmt ifStmt = (IfStmt) methodDeclaration.getBody().orElseThrow().stream()//
+						.filter(node -> node instanceof IfStmt).skip(index)//
+						.findFirst().orElseThrow();
+				return createIfStatement(ifStmt);
+			}
+		};
+	}
+
+	private static Component.IfStatement createIfStatement(IfStmt ifStmt) {
+		return new Component.IfStatement() {
+
+			@Override
+			public void distributePrevious() {
+				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(ifStmt);
+				ExpressionStmt previous = (ExpressionStmt) childNodes.get(index - 1);
+				blockStmt.remove(previous);
+
+				// TODO Reuse previous or clone it?
+				Node currentNode = ifStmt;
+				do {
+					IfStmt currentIfStmt = (IfStmt) currentNode;
+					((BlockStmt) currentIfStmt.getThenStmt()).addStatement(0, previous);
+					currentNode = currentIfStmt.getElseStmt().orElseThrow();
+				} while (currentNode instanceof IfStmt);
+				((BlockStmt) currentNode).addStatement(0, previous);
+			}
+
+			@Override
+			public void factorFirst() {
+				// TODO Fail if 1 first statement missing
+				// TODO Fail if 1 first statement different
+				ExpressionStmt firstStmt;
+				Node currentNode = ifStmt;
+				do {
+					IfStmt currentIfStmt = (IfStmt) currentNode;
+					BlockStmt blockStmt = (BlockStmt) currentIfStmt.getThenStmt();
+					firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
+					blockStmt.remove(firstStmt);
+					currentNode = currentIfStmt.getElseStmt().orElseThrow();
+				} while (currentNode instanceof IfStmt);
+				{
+					BlockStmt blockStmt = (BlockStmt) currentNode;
+					firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
+					blockStmt.remove(firstStmt);
+				}
+
+				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
+				List<Node> childNodes = blockStmt.getChildNodes();
+				int index = childNodes.indexOf(ifStmt);
+				blockStmt.addStatement(index, firstStmt);
+			}
 		};
 	}
 

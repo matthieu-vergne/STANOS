@@ -179,6 +179,15 @@ public interface Component {
 						throw new NoSuchElementException("No parameter " + name);
 					});
 		}
+
+		IfStatement ifStatement(int index);
+	}
+
+	public interface IfStatement extends Component {
+
+		void distributePrevious();
+
+		void factorFirst();
 	}
 
 	public interface Variable extends Component {
