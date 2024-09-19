@@ -130,6 +130,8 @@ public interface Component {
 						throw new NoSuchElementException("No interface " + name);
 					});
 		}
+
+		void factor();
 	}
 
 	public interface Method {
@@ -243,6 +245,8 @@ public interface Component {
 		}
 
 		void decreaseScope(Method method);
+
+		void distribute();
 	}
 
 	public interface Parameter extends Component {

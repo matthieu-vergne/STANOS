@@ -150,6 +150,11 @@ public interface Consumable {
 		public Stream<Component.Interface> interfaces() {
 			throw new UnsupportedOperationException("Not implemented yet");
 		}
+
+		@Override
+		public void factor() {
+			consumer.consumeArgs();
+		}
 	}
 
 	public static class Record implements Component.Record {
@@ -378,6 +383,11 @@ public interface Consumable {
 		@Override
 		public void decreaseScope(Method method) {
 			consumer.consumeArgs(method);
+		}
+
+		@Override
+		public void distribute() {
+			consumer.consumeArgs();
 		}
 	}
 

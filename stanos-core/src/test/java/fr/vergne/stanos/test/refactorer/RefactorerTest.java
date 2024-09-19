@@ -364,6 +364,53 @@ public abstract class RefactorerTest {
 								    }
 								}
 								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									String myVar = null;
+									void methodA() {
+									}
+									void methodB() {
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").distribute(), //
+						"""
+								class MyClass {
+
+								    void methodA() {
+								        String myVar = null;
+								    }
+
+								    void methodB() {
+								        String myVar = null;
+								    }
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									void methodA() {
+										String myVar = null;
+									}
+									void methodB() {
+										String myVar = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").factor(), //
+						"""
+								class MyClass {
+
+								    void methodA() {
+								    }
+
+								    void methodB() {
+								    }
+
+								    String myVar = null;
+								}
+								"""//
 				)//
 		);
 	}

@@ -108,6 +108,12 @@ public interface SpoonRefactorer extends Refactorer {
 											// TODO Auto-generated method stub
 											throw new UnsupportedOperationException("Not implemented yet");
 										}
+
+										@Override
+										public void factor() {
+											// TODO Auto-generated method stub
+											throw new UnsupportedOperationException("Not implemented yet");
+										}
 									};
 								});
 							}

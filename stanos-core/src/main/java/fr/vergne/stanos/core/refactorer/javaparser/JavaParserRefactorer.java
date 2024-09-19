@@ -651,6 +651,20 @@ public interface JavaParserRefactorer extends Refactorer {
 				BlockStmt methodBody = methodDeclaration.getBody().orElseThrow();
 				methodBody.addStatement(0, new VariableDeclarationExpr(variableDeclarator));
 			}
+
+			@Override
+			public void distribute() {
+				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				ClassOrInterfaceDeclaration clazz = (ClassOrInterfaceDeclaration) fieldDeclaration.getParentNode()
+						.orElseThrow();
+				clazz.remove(fieldDeclaration);
+
+				clazz.getMethods().stream()//
+						.forEach(methodDeclaration -> {
+							BlockStmt methodBody = methodDeclaration.getBody().orElseThrow();
+							methodBody.addStatement(0, new VariableDeclarationExpr(variableDeclarator));
+						});
+			}
 		};
 	}
 
@@ -668,11 +682,12 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public Stream<Component.Method> methods() {
+				return internalMethods().map(JavaParserRefactorer::createMethod);
+			}
+
+			private Stream<MethodDeclaration> internalMethods() {
 				return classDeclaration.stream(TreeTraversal.DIRECT_CHILDREN)//
-						.flatMap(filterOnClass(MethodDeclaration.class))//
-						.map(methodDeclaration -> {
-							return createMethod(methodDeclaration);
-						});
+						.flatMap(filterOnClass(MethodDeclaration.class));
 			}
 
 			@Override
@@ -701,6 +716,26 @@ public interface JavaParserRefactorer extends Refactorer {
 				});
 			}
 
+			@Override
+			public void factor() {
+				// TODO Fail if 1 first statement different
+				VariableDeclarator declarator = null;
+				Iterator<MethodDeclaration> iterator = internalMethods().iterator();
+				while (iterator.hasNext()) {
+					MethodDeclaration methodDeclaration = iterator.next();
+					BlockStmt body = methodDeclaration.getBody().orElseThrow();
+					Node firstNode = (ExpressionStmt) body.getChildNodes().get(0);
+					body.remove(firstNode);
+
+					VariableDeclarationExpr childNode = (VariableDeclarationExpr) firstNode.getChildNodes().get(0);
+					declarator = (VariableDeclarator) childNode.getChildNodes().get(0);
+				}
+
+				String type = declarator.getTypeAsString();
+				String name = declarator.getNameAsString();
+				Expression initializer = declarator.getInitializer().orElseThrow();
+				classDeclaration.addFieldWithInitializer(type, name, initializer);
+			}
 		};
 	}
 
