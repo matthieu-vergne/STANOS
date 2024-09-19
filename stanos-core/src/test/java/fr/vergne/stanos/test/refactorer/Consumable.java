@@ -91,7 +91,7 @@ public interface Consumable {
 
 		@Override
 		public Component.Method method(String name, List<String> parameterTypes) {
-			consumer.consumeArgs(name + ", " + parameterTypes);
+			consumer.consumeArgs(name, parameterTypes);
 			return new Method(consumer);
 		};
 	}
@@ -131,7 +131,7 @@ public interface Consumable {
 
 		@Override
 		public Component.Method method(String name, List<String> parameterTypes) {
-			consumer.consumeArgs(name + ", " + parameterTypes);
+			consumer.consumeArgs(name, parameterTypes);
 			return new Method(consumer);
 		}
 
@@ -161,7 +161,7 @@ public interface Consumable {
 
 		@Override
 		public String name() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 			return null;
 		}
 
@@ -180,13 +180,13 @@ public interface Consumable {
 
 		@Override
 		public String name() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 			return null;
 		}
 
 		@Override
 		public List<String> parameterTypes() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 			return null;
 		}
 
@@ -213,7 +213,7 @@ public interface Consumable {
 
 		@Override
 		public Component.Variable variable(String name, int index) {
-			consumer.consumeArgs(name + ", " + index);
+			consumer.consumeArgs(name, index);
 			return new Variable(consumer);
 		};
 
@@ -249,22 +249,22 @@ public interface Consumable {
 
 		@Override
 		public void distributePrevious() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 		}
 
 		@Override
 		public void factorFirst() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 		}
 
 		@Override
 		public void distributeNext() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 		}
 
 		@Override
 		public void factorLast() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 		}
 	}
 
@@ -277,7 +277,7 @@ public interface Consumable {
 
 		@Override
 		public String name() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 			return null;
 		}
 
@@ -296,7 +296,7 @@ public interface Consumable {
 
 		@Override
 		public String name() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 			return null;
 		}
 
@@ -312,18 +312,18 @@ public interface Consumable {
 
 		@Override
 		public Method method(String name, List<String> parameterTypes) {
-			consumer.consumeArgs(name + ", " + parameterTypes);
+			consumer.consumeArgs(name, parameterTypes);
 			return new Consumable.Method(consumer);
 		}
 
 		@Override
 		public void splitDeclaration() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 		};
 
 		@Override
 		public void joinDeclaration() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 		}
 
 		@Override
@@ -361,7 +361,7 @@ public interface Consumable {
 
 		@Override
 		public String name() {
-			consumer.consumeArgs("");
+			consumer.consumeArgs();
 			return null;
 		}
 
