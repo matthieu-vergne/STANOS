@@ -131,7 +131,7 @@ public interface Component {
 					});
 		}
 
-		void factor();
+		void factorFromMethods();
 	}
 
 	public interface Method {
@@ -244,9 +244,17 @@ public interface Component {
 					});
 		}
 
+		void decreaseScope();
+
 		void decreaseScope(Method method);
 
-		void distribute();
+		void distributeToMethods();
+
+		void distributeToInstances();
+
+		void increaseScope();
+
+		void factorFromInstances();
 	}
 
 	public interface Parameter extends Component {

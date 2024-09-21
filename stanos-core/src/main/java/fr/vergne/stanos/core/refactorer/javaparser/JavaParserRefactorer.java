@@ -10,7 +10,9 @@ import com.github.javaparser.JavaToken;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
+import com.github.javaparser.ast.AccessSpecifier;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Modifier.Keyword;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.Node.TreeTraversal;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -105,35 +107,9 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public void rename(String newName) {
-				retrieveVariableOtherOccurrences().forEach(nameNode -> nameNode.setIdentifier(newName));
+				_intern.retrieveVariableOtherOccurrences(methodDeclaration, variableDeclaration)
+						.forEach(nameNode -> nameNode.setIdentifier(newName));
 				variableDeclaration.getName().setIdentifier(newName);
-			}
-
-			private Stream<SimpleName> retrieveVariableOtherOccurrences() {
-				String currentName = variableDeclaration.getNameAsString();
-				return methodDeclaration.getBody().orElseThrow().stream()//
-						.flatMap(filterOnClass(SimpleName.class))//
-						.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
-						.flatMap(nameNode -> {
-							Node parentNode = nameNode.getParentNode().orElseThrow();
-							if (parentNode instanceof NameExpr exp) {
-								ResolvedValueDeclaration resolved = exp.resolve();
-								if (resolved.isVariable()) {
-									VariableDeclarationExpr declarations = resolved.toAst(VariableDeclarationExpr.class)
-											.orElseThrow();
-									if (declarations.getVariables().contains(variableDeclaration)) {
-										return Stream.of(nameNode);
-									} else {
-										// Relate to another parameter with the same name
-									}
-								} else {
-									// Relate to something else with the same name
-								}
-							} else {
-								// Relate to something else with the same name
-							}
-							return Stream.empty();
-						});
 			}
 
 			@Override
@@ -261,7 +237,8 @@ public interface JavaParserRefactorer extends Refactorer {
 				ClassOrInterfaceDeclaration classOrInterface = (ClassOrInterfaceDeclaration) methodDeclaration
 						.getParentNode().orElseThrow();
 				classOrInterface.addFieldWithInitializer(variableDeclaration.getType(),
-						variableDeclaration.getNameAsString(), variableDeclaration.getInitializer().orElseThrow());
+						variableDeclaration.getNameAsString(), variableDeclaration.getInitializer().orElseThrow(),
+						Keyword.PRIVATE);
 			}
 
 			@Override
@@ -272,6 +249,9 @@ public interface JavaParserRefactorer extends Refactorer {
 				BlockStmt blockStmt = (BlockStmt) expressionStmt.getParentNode().orElseThrow();
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(expressionStmt);
+				if (index == childNodes.size() - 1) {
+					throw new IllegalStateException("Minimum scope reached for " + name());
+				}
 				blockStmt.remove(expressionStmt);
 
 				// TODO Fail if no next statement
@@ -347,7 +327,8 @@ public interface JavaParserRefactorer extends Refactorer {
 				}
 
 				{
-					Iterator<SimpleName> occurrences = retrieveVariableOtherOccurrences().iterator();
+					Iterator<SimpleName> occurrences = _intern
+							.retrieveVariableOtherOccurrences(methodDeclaration, variableDeclaration).iterator();
 					while (occurrences.hasNext()) {
 						SimpleName nameNode = occurrences.next();
 						NameExpr nameExpr = (NameExpr) nameNode.getParentNode().orElseThrow();
@@ -511,12 +492,12 @@ public interface JavaParserRefactorer extends Refactorer {
 				IfStmt ifStmt = (IfStmt) methodDeclaration.getBody().orElseThrow().stream()//
 						.filter(node -> node instanceof IfStmt).skip(index)//
 						.findFirst().orElseThrow();
-				return createIfStatement(ifStmt);
+				return createIfStatement(methodDeclaration, ifStmt);
 			}
 		};
 	}
 
-	private static Component.IfStatement createIfStatement(IfStmt ifStmt) {
+	private static Component.IfStatement createIfStatement(MethodDeclaration methodDeclaration, IfStmt ifStmt) {
 		return new Component.IfStatement() {
 
 			@Override
@@ -525,6 +506,13 @@ public interface JavaParserRefactorer extends Refactorer {
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
 				ExpressionStmt previous = (ExpressionStmt) childNodes.get(index - 1);
+
+				VariableDeclarationExpr exp = (VariableDeclarationExpr) previous.getExpression();
+				VariableDeclarator variable = exp.getVariable(0);
+				if (isVariableUsedOutOfIf(methodDeclaration, ifStmt, variable)) {
+					throw new IllegalStateException(variable.getNameAsString() + " is used out of the if");
+				}
+
 				blockStmt.remove(previous);
 
 				// TODO Reuse previous or clone it?
@@ -539,12 +527,36 @@ public interface JavaParserRefactorer extends Refactorer {
 				}
 			}
 
+			private boolean isVariableUsedOutOfIf(MethodDeclaration methodDeclaration, IfStmt ifStmt, VariableDeclarator variable) {
+				return _intern.retrieveVariableOtherOccurrences(methodDeclaration, variable)//
+						.filter(occurrence -> {
+							Node current = occurrence;
+							do {
+								current = current.getParentNode().orElseThrow();
+								if (current == ifStmt) {
+									return false;
+								} else if (current == methodDeclaration) {
+									return true;
+								} else {
+									continue;
+								}
+							} while (true);
+						}).findFirst().isPresent();
+			}
+
 			@Override
 			public void distributeNext() {
 				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
 				ExpressionStmt next = (ExpressionStmt) childNodes.get(index + 1);
+
+				VariableDeclarationExpr exp = (VariableDeclarationExpr) next.getExpression();
+				VariableDeclarator variable = exp.getVariable(0);
+				if (isVariableUsedOutOfIf(methodDeclaration, ifStmt, variable)) {
+					throw new IllegalStateException(variable.getNameAsString() + " is used out of the if");
+				}
+
 				blockStmt.remove(next);
 
 				// TODO Reuse previous or clone it?
@@ -566,53 +578,61 @@ public interface JavaParserRefactorer extends Refactorer {
 			@Override
 			public void factorFirst() {
 				// TODO Fail if 1 first statement missing
-				// TODO Fail if 1 first statement different
-				ExpressionStmt firstStmt;
+				ExpressionStmt ref = null;
 				Node currentNode = ifStmt;
 				do {
 					IfStmt currentIfStmt = (IfStmt) currentNode;
 					BlockStmt blockStmt = (BlockStmt) currentIfStmt.getThenStmt();
-					firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
+					ExpressionStmt firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
+					if (ref == null) {
+						ref = firstStmt;
+					} else if (!firstStmt.toString().equals(ref.toString())) {
+						throw new IllegalStateException("Some blocks do not start with: " + ref.toString());
+					}
 					blockStmt.remove(firstStmt);
 					currentNode = currentIfStmt.getElseStmt().orElseThrow();
 				} while (currentNode instanceof IfStmt);
 				{
 					BlockStmt blockStmt = (BlockStmt) currentNode;
-					firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
+					ExpressionStmt firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
 					blockStmt.remove(firstStmt);
 				}
 
 				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
-				blockStmt.addStatement(index, firstStmt);
+				blockStmt.addStatement(index, ref);
 			}
 
 			@Override
 			public void factorLast() {
 				// TODO Fail if 1 last statement missing
-				// TODO Fail if 1 last statement different
-				ExpressionStmt lastStmt;
+				ExpressionStmt ref = null;
 				Node currentNode = ifStmt;
 				do {
 					IfStmt currentIfStmt = (IfStmt) currentNode;
 					BlockStmt blockStmt = (BlockStmt) currentIfStmt.getThenStmt();
 					List<Node> childNodes = blockStmt.getChildNodes();
-					lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
+					ExpressionStmt lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
+					if (ref == null) {
+						ref = lastStmt;
+					} else if (!lastStmt.toString().equals(ref.toString())) {
+						throw new IllegalStateException("Some blocks do not finish with: " + ref.toString());
+					}
 					blockStmt.remove(lastStmt);
 					currentNode = currentIfStmt.getElseStmt().orElseThrow();
 				} while (currentNode instanceof IfStmt);
 				{
 					BlockStmt blockStmt = (BlockStmt) currentNode;
 					List<Node> childNodes = blockStmt.getChildNodes();
-					lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
+					ExpressionStmt lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
 					blockStmt.remove(lastStmt);
 				}
 
 				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
-				blockStmt.addStatement(index + 1, lastStmt);
+				blockStmt.addStatement(index + 1, ref);
 			}
 		};
 	}
@@ -637,6 +657,20 @@ public interface JavaParserRefactorer extends Refactorer {
 			}
 
 			@Override
+			public void decreaseScope() {
+				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				if (fieldDeclaration.getAccessSpecifier().equals(AccessSpecifier.PUBLIC)) {
+					fieldDeclaration.setModifiers(Keyword.PROTECTED);
+				} else if (fieldDeclaration.getAccessSpecifier().equals(AccessSpecifier.PROTECTED)) {
+					fieldDeclaration.setModifiers(Keyword.PRIVATE);
+				} else {
+					System.out.println(fieldDeclaration.getClass() + ": " + fieldDeclaration);
+					// TODO Auto-generated method stub
+					throw new UnsupportedOperationException("Not implemented yet");
+				}
+			}
+
+			@Override
 			public void decreaseScope(Method method) {
 				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
 				ClassOrInterfaceDeclaration clazz = (ClassOrInterfaceDeclaration) fieldDeclaration.getParentNode()
@@ -653,8 +687,24 @@ public interface JavaParserRefactorer extends Refactorer {
 			}
 
 			@Override
-			public void distribute() {
+			public void increaseScope() {
 				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				if (fieldDeclaration.getAccessSpecifier().equals(AccessSpecifier.PRIVATE)) {
+					fieldDeclaration.setModifiers(Keyword.PROTECTED);
+				} else if (fieldDeclaration.getAccessSpecifier().equals(AccessSpecifier.PROTECTED)) {
+					fieldDeclaration.setModifiers(Keyword.PUBLIC);
+				} else {
+					throw new IllegalStateException("Maximum scope reached for " + name());
+				}
+			}
+
+			@Override
+			public void distributeToMethods() {
+				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				if (fieldDeclaration.isStatic()) {
+					throw new IllegalStateException(name() + " is static");
+				}
+
 				ClassOrInterfaceDeclaration clazz = (ClassOrInterfaceDeclaration) fieldDeclaration.getParentNode()
 						.orElseThrow();
 				clazz.remove(fieldDeclaration);
@@ -664,6 +714,26 @@ public interface JavaParserRefactorer extends Refactorer {
 							BlockStmt methodBody = methodDeclaration.getBody().orElseThrow();
 							methodBody.addStatement(0, new VariableDeclarationExpr(variableDeclarator));
 						});
+			}
+
+			@Override
+			public void distributeToInstances() {
+				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				if (fieldDeclaration.isStatic()) {
+					fieldDeclaration.setStatic(false);
+				} else {
+					throw new IllegalStateException(name() + " is not static");
+				}
+			}
+
+			@Override
+			public void factorFromInstances() {
+				FieldDeclaration fieldDeclaration = (FieldDeclaration) variableDeclarator.getParentNode().orElseThrow();
+				if (!fieldDeclaration.isStatic()) {
+					fieldDeclaration.setStatic(true);
+				} else {
+					throw new IllegalStateException(name() + " is static");
+				}
 			}
 		};
 	}
@@ -717,18 +787,22 @@ public interface JavaParserRefactorer extends Refactorer {
 			}
 
 			@Override
-			public void factor() {
-				// TODO Fail if 1 first statement different
+			public void factorFromMethods() {
+				ExpressionStmt ref = null;
 				VariableDeclarator declarator = null;
 				Iterator<MethodDeclaration> iterator = internalMethods().iterator();
 				while (iterator.hasNext()) {
 					MethodDeclaration methodDeclaration = iterator.next();
 					BlockStmt body = methodDeclaration.getBody().orElseThrow();
-					Node firstNode = (ExpressionStmt) body.getChildNodes().get(0);
+					ExpressionStmt firstNode = (ExpressionStmt) body.getChildNodes().get(0);
+					if (declarator == null) {
+						ref = firstNode;
+						VariableDeclarationExpr childNode = (VariableDeclarationExpr) firstNode.getChildNodes().get(0);
+						declarator = (VariableDeclarator) childNode.getChildNodes().get(0);
+					} else if (!firstNode.toString().equals(ref.toString())) {
+						throw new IllegalStateException("Some methods do not start with: " + ref.toString());
+					}
 					body.remove(firstNode);
-
-					VariableDeclarationExpr childNode = (VariableDeclarationExpr) firstNode.getChildNodes().get(0);
-					declarator = (VariableDeclarator) childNode.getChildNodes().get(0);
 				}
 
 				String type = declarator.getTypeAsString();
@@ -858,6 +932,36 @@ public interface JavaParserRefactorer extends Refactorer {
 				previous.act();
 				next.act();
 			};
+		}
+	}
+
+	public static class _intern {
+		private static Stream<SimpleName> retrieveVariableOtherOccurrences(MethodDeclaration methodDeclaration,
+				VariableDeclarator variableDeclaration) {
+			String currentName = variableDeclaration.getNameAsString();
+			return methodDeclaration.getBody().orElseThrow().stream()//
+					.flatMap(filterOnClass(SimpleName.class))//
+					.filter(nameNode -> nameNode.getIdentifier().equals(currentName))//
+					.flatMap(nameNode -> {
+						Node parentNode = nameNode.getParentNode().orElseThrow();
+						if (parentNode instanceof NameExpr exp) {
+							ResolvedValueDeclaration resolved = exp.resolve();
+							if (resolved.isVariable()) {
+								VariableDeclarationExpr declarations = resolved.toAst(VariableDeclarationExpr.class)
+										.orElseThrow();
+								if (declarations.getVariables().contains(variableDeclaration)) {
+									return Stream.of(nameNode);
+								} else {
+									// Relate to another parameter with the same name
+								}
+							} else {
+								// Relate to something else with the same name
+							}
+						} else {
+							// Relate to something else with the same name
+						}
+						return Stream.empty();
+					});
 		}
 	}
 }

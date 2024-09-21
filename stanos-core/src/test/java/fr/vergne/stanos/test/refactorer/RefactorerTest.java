@@ -374,7 +374,7 @@ public abstract class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").field("myVar").distribute(), //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").distributeToMethods(), //
 						"""
 								class MyClass {
 
@@ -398,7 +398,7 @@ public abstract class RefactorerTest {
 									}
 								}
 								""", //
-						source -> source.defaultPackage().clazz("MyClass").factor(), //
+						source -> source.defaultPackage().clazz("MyClass").factorFromMethods(), //
 						"""
 								class MyClass {
 
@@ -411,6 +411,32 @@ public abstract class RefactorerTest {
 								    String myVar = null;
 								}
 								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									static String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").distributeToInstances(), //
+						"""
+								class MyClass {
+
+								    String myVar = null;
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+								    String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").factorFromInstances(), //
+						"""
+								class MyClass {
+
+								    static String myVar = null;
+								}
+								"""//
 				)//
 		);
 	}
@@ -420,7 +446,72 @@ public abstract class RefactorerTest {
 				new SuccessCase(//
 						"""
 								class MyClass {
-									String myVar = null;
+									public String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").decreaseScope(), //
+						"""
+								class MyClass {
+
+								    protected String myVar = null;
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									public String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").decreaseScope(), //
+						"""
+								class MyClass {
+
+								    protected String myVar = null;
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									protected String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").increaseScope(), //
+						"""
+								class MyClass {
+
+								    public String myVar = null;
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									protected String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").decreaseScope(), //
+						"""
+								class MyClass {
+
+								    private String myVar = null;
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									private String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").increaseScope(), //
+						"""
+								class MyClass {
+
+								    protected String myVar = null;
+								}
+								"""//
+				), new SuccessCase(//
+						"""
+								class MyClass {
+									private String myVar = null;
 									void myMethod() {
 										boolean b = true;
 										if (b) {
@@ -468,7 +559,7 @@ public abstract class RefactorerTest {
 								        }
 								    }
 
-								    String myVar = null;
+								    private String myVar = null;
 								}
 								"""//
 				), new SuccessCase(//
@@ -1437,8 +1528,165 @@ public abstract class RefactorerTest {
 				testCodeRefactoringFailure_Method(), //
 				testCodeRefactoringFailure_Parameter(), //
 				testCodeRefactoringFailure_Variable(), //
-				testCodeRefactoringFailure_SplitJoin()//
+				testCodeRefactoringFailure_SplitJoin(), //
+				testCodeRefactoringFailure_Scope(), //
+				testCodeRefactoringFailure_DistributeFactor()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_DistributeFactor() {
+		return Stream.of(//
+				new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										String myVar = null;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+										System.out.println(myVar);
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).distributePrevious(), //
+						new IllegalStateException("myVar is used out of the if")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											String myVar = null;
+											System.out.println(b);
+										} else if (true) {
+											String myOtherVar = null;
+											System.out.println("true");
+										} else {
+											String myVar = null;
+											System.out.println("else");
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).factorFirst(), //
+						new IllegalStateException("Some blocks do not start with: String myVar = null;")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+										} else if (true) {
+											System.out.println("true");
+										} else {
+											System.out.println("else");
+										}
+										String myVar = null;
+										System.out.println(myVar);
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).distributeNext(), //
+						new IllegalStateException("myVar is used out of the if")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										boolean b = true;
+										if (b) {
+											System.out.println(b);
+											String myVar = null;
+										} else if (true) {
+											System.out.println(true);
+											String myOtherVar = null;
+										} else {
+											System.out.println("else");
+											String myVar = null;
+										}
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.ifStatement(0).factorLast(), //
+						new IllegalStateException("Some blocks do not finish with: String myVar = null;")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									static String myVar = null;
+									void methodA() {
+									}
+									void methodB() {
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").distributeToMethods(), //
+						new IllegalStateException("myVar is static")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									void methodA() {
+										String myVar = null;
+									}
+									void methodB() {
+										String myOtherVar = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").factorFromMethods(), //
+						new IllegalStateException("Some methods do not start with: String myVar = null;")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").distributeToInstances(), //
+						new IllegalStateException("myVar is not static")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+								    static String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").factorFromInstances(), //
+						new IllegalStateException("myVar is static")//
+				)//
+		);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_Scope() {
+		return Stream.of(//
+				new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).decreaseScope(), //
+						new IllegalStateException("Minimum scope reached for myVar")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									public String myVar = null;
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").field("myVar").increaseScope(),
+						// TODO increase to static?
+						new IllegalStateException("Maximum scope reached for myVar")//
+				)//
+		);
 	}
 
 	private static Stream<FailureCase> testCodeRefactoringFailure_SplitJoin() {

@@ -152,7 +152,7 @@ public interface Consumable {
 		}
 
 		@Override
-		public void factor() {
+		public void factorFromMethods() {
 			consumer.consumeArgs();
 		}
 	}
@@ -381,12 +381,32 @@ public interface Consumable {
 		}
 
 		@Override
+		public void decreaseScope() {
+			consumer.consumeArgs();
+		}
+
+		@Override
 		public void decreaseScope(Method method) {
 			consumer.consumeArgs(method);
 		}
 
 		@Override
-		public void distribute() {
+		public void increaseScope() {
+			consumer.consumeArgs();
+		}
+
+		@Override
+		public void distributeToMethods() {
+			consumer.consumeArgs();
+		}
+
+		@Override
+		public void distributeToInstances() {
+			consumer.consumeArgs();
+		}
+
+		@Override
+		public void factorFromInstances() {
 			consumer.consumeArgs();
 		}
 	}
