@@ -315,7 +315,7 @@ public interface JavaParserRefactorer extends Refactorer {
 			}
 
 			@Override
-			public void removeIfUnused() {
+			public void removeUnused() {
 				Action action = Action.NO_OP;
 
 				{
@@ -336,12 +336,16 @@ public interface JavaParserRefactorer extends Refactorer {
 						if (parentNode instanceof MethodCallExpr //
 								|| parentNode instanceof VariableDeclarator //
 								|| parentNode instanceof BinaryExpr) {
-							// Used, don't remove
-							return;
+							while (!(parentNode instanceof ExpressionStmt)) {
+								parentNode = parentNode.getParentNode().orElseThrow();
+							}
+							throw new IllegalStateException(name() + " is used in: " + parentNode.toString());
 						} else if (parentNode instanceof AssignExpr expr) {
 							if (!expr.getTarget().equals(nameExpr)) {
-								// Used, don't remove
-								return;
+								while (!(parentNode instanceof ExpressionStmt)) {
+									parentNode = parentNode.getParentNode().orElseThrow();
+								}
+								throw new IllegalStateException(name() + " is used in: " + parentNode.toString());
 							}
 							ExpressionStmt stmt = (ExpressionStmt) expr.getParentNode().orElseThrow();
 							Node actualParent = stmt.getParentNode().orElseThrow();
@@ -527,7 +531,8 @@ public interface JavaParserRefactorer extends Refactorer {
 				}
 			}
 
-			private boolean isVariableUsedOutOfIf(MethodDeclaration methodDeclaration, IfStmt ifStmt, VariableDeclarator variable) {
+			private boolean isVariableUsedOutOfIf(MethodDeclaration methodDeclaration, IfStmt ifStmt,
+					VariableDeclarator variable) {
 				return _intern.retrieveVariableOtherOccurrences(methodDeclaration, variable)//
 						.filter(occurrence -> {
 							Node current = occurrence;

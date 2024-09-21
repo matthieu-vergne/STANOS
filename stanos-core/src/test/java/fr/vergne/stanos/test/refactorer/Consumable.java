@@ -352,7 +352,7 @@ public interface Consumable {
 		}
 
 		@Override
-		public void removeIfUnused() {
+		public void removeUnused() {
 			consumer.consumeArgs();
 		}
 	}

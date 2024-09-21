@@ -92,7 +92,7 @@ public abstract class RefactorerTest {
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).removeIfUnused(), //
+								.variable("myVar", 0).removeUnused(), //
 						"""
 								class MyClass {
 
@@ -110,108 +110,12 @@ public abstract class RefactorerTest {
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).removeIfUnused(), //
+								.variable("myVar", 0).removeUnused(), //
 						"""
 								class MyClass {
 
 								    void myMethod() {
 								    }
-								}
-								"""//
-				), new SuccessCase(//
-						"""
-								class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										String other = myVar;
-									}
-								}
-								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).removeIfUnused(), //
-						"""
-								class MyClass {
-
-								    void myMethod() {
-								        String myVar = null;
-								        myVar = "abc";
-								        String other = myVar;
-								    }
-								}
-								"""//
-				), new SuccessCase(//
-						"""
-								class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										String other;
-										other = myVar;
-									}
-								}
-								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).removeIfUnused(), //
-						"""
-								class MyClass {
-
-								    void myMethod() {
-								        String myVar = null;
-								        myVar = "abc";
-								        String other;
-								        other = myVar;
-								    }
-								}
-								"""//
-				), new SuccessCase(//
-						"""
-								class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										String other;
-										other = "" + myVar + "";
-									}
-								}
-								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).removeIfUnused(), //
-						"""
-								class MyClass {
-
-								    void myMethod() {
-								        String myVar = null;
-								        myVar = "abc";
-								        String other;
-								        other = "" + myVar + "";
-								    }
-								}
-								"""//
-				), new SuccessCase(//
-						"""
-								abstract class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										call(myVar);
-									}
-
-									abstract void call(String foo);
-								}
-								""", //
-						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
-								.variable("myVar", 0).removeIfUnused(), //
-						"""
-								abstract class MyClass {
-
-								    void myMethod() {
-								        String myVar = null;
-								        myVar = "abc";
-								        call(myVar);
-								    }
-
-								    abstract void call(String foo);
 								}
 								"""//
 				)//
@@ -1530,8 +1434,71 @@ public abstract class RefactorerTest {
 				testCodeRefactoringFailure_Variable(), //
 				testCodeRefactoringFailure_SplitJoin(), //
 				testCodeRefactoringFailure_Scope(), //
-				testCodeRefactoringFailure_DistributeFactor()//
+				testCodeRefactoringFailure_DistributeFactor(), //
+				testCodeRefactoringFailure_RemoveUnused()//
 		).flatMap(stream -> stream);
+	}
+
+	private static Stream<FailureCase> testCodeRefactoringFailure_RemoveUnused() {
+		return Stream.of(//
+				new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										String other = myVar;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeUnused(), //
+						new IllegalStateException("myVar is used in: String other = myVar;")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										String other;
+										other = myVar;
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeUnused(), //
+						new IllegalStateException("myVar is used in: other = myVar;")//
+				), new FailureCase(//
+						"""
+								class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										String other;
+										other = "" + myVar + "";
+									}
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeUnused(), //
+						new IllegalStateException("myVar is used in: other = \"\" + myVar + \"\";")//
+				), new FailureCase(//
+						"""
+								abstract class MyClass {
+									void myMethod() {
+										String myVar = null;
+										myVar = "abc";
+										call(myVar);
+									}
+
+									abstract void call(String foo);
+								}
+								""", //
+						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
+								.variable("myVar", 0).removeUnused(), //
+						new IllegalStateException("myVar is used in: call(myVar);")//
+				)//
+		);
 	}
 
 	private static Stream<FailureCase> testCodeRefactoringFailure_DistributeFactor() {

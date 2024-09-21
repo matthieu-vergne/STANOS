@@ -224,7 +224,7 @@ public interface Component {
 
 		void decreaseScope(int blockIndex);
 
-		void removeIfUnused();
+		void removeUnused();
 
 	}
 
