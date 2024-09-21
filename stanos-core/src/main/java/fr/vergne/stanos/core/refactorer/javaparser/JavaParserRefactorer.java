@@ -582,6 +582,8 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public void factorFirst() {
+				Action action = Action.NO_OP;
+
 				// TODO Fail if 1 first statement missing
 				ExpressionStmt ref = null;
 				Node currentNode = ifStmt;
@@ -594,23 +596,28 @@ public interface JavaParserRefactorer extends Refactorer {
 					} else if (!firstStmt.toString().equals(ref.toString())) {
 						throw new IllegalStateException("Some blocks do not start with: " + ref.toString());
 					}
-					blockStmt.remove(firstStmt);
+					action = action.then(() -> blockStmt.remove(firstStmt));
 					currentNode = currentIfStmt.getElseStmt().orElseThrow();
 				} while (currentNode instanceof IfStmt);
 				{
 					BlockStmt blockStmt = (BlockStmt) currentNode;
 					ExpressionStmt firstStmt = (ExpressionStmt) blockStmt.getChildNodes().get(0);
-					blockStmt.remove(firstStmt);
+					action = action.then(() -> blockStmt.remove(firstStmt));
 				}
 
 				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
-				blockStmt.addStatement(index, ref);
+				ExpressionStmt factored = ref;
+				action = action.then(() -> blockStmt.addStatement(index, factored));
+
+				action.act();
 			}
 
 			@Override
 			public void factorLast() {
+				Action action = Action.NO_OP;
+
 				// TODO Fail if 1 last statement missing
 				ExpressionStmt ref = null;
 				Node currentNode = ifStmt;
@@ -624,20 +631,23 @@ public interface JavaParserRefactorer extends Refactorer {
 					} else if (!lastStmt.toString().equals(ref.toString())) {
 						throw new IllegalStateException("Some blocks do not finish with: " + ref.toString());
 					}
-					blockStmt.remove(lastStmt);
+					action = action.then(() -> blockStmt.remove(lastStmt));
 					currentNode = currentIfStmt.getElseStmt().orElseThrow();
 				} while (currentNode instanceof IfStmt);
 				{
 					BlockStmt blockStmt = (BlockStmt) currentNode;
 					List<Node> childNodes = blockStmt.getChildNodes();
 					ExpressionStmt lastStmt = (ExpressionStmt) childNodes.get(childNodes.size() - 1);
-					blockStmt.remove(lastStmt);
+					action = action.then(() -> blockStmt.remove(lastStmt));
 				}
 
 				BlockStmt blockStmt = (BlockStmt) ifStmt.getParentNode().orElseThrow();
 				List<Node> childNodes = blockStmt.getChildNodes();
 				int index = childNodes.indexOf(ifStmt);
-				blockStmt.addStatement(index + 1, ref);
+				ExpressionStmt factored = ref;
+				action = action.then(() -> blockStmt.addStatement(index + 1, factored));
+
+				action.act();
 			}
 		};
 	}
@@ -793,6 +803,8 @@ public interface JavaParserRefactorer extends Refactorer {
 
 			@Override
 			public void factorFromMethods() {
+				Action action = Action.NO_OP;
+
 				ExpressionStmt ref = null;
 				VariableDeclarator declarator = null;
 				Iterator<MethodDeclaration> iterator = internalMethods().iterator();
@@ -807,13 +819,15 @@ public interface JavaParserRefactorer extends Refactorer {
 					} else if (!firstNode.toString().equals(ref.toString())) {
 						throw new IllegalStateException("Some methods do not start with: " + ref.toString());
 					}
-					body.remove(firstNode);
+					action = action.then(() -> body.remove(firstNode));
 				}
 
 				String type = declarator.getTypeAsString();
 				String name = declarator.getNameAsString();
 				Expression initializer = declarator.getInitializer().orElseThrow();
-				classDeclaration.addFieldWithInitializer(type, name, initializer);
+				action = action.then(() -> classDeclaration.addFieldWithInitializer(type, name, initializer));
+
+				action.act();
 			}
 		};
 	}

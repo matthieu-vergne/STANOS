@@ -1385,7 +1385,7 @@ public abstract class RefactorerTest {
 	record FailureCase(String code, Consumer<Code.Source> refactoring, Exception expectedException,
 			RuntimeException instanciationException) {
 		FailureCase(String code, Consumer<Code.Source> refactoring, Exception expectedException) {
-			this(code, refactoring, expectedException, new RuntimeException("Success case expectations"));
+			this(code, refactoring, expectedException, new RuntimeException("Failure case expectations"));
 		}
 
 		FailureCase {
@@ -1444,11 +1444,12 @@ public abstract class RefactorerTest {
 				new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										String other = myVar;
-									}
+
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        String other = myVar;
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1457,12 +1458,13 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										String other;
-										other = myVar;
-									}
+
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        String other;
+								        other = myVar;
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1471,12 +1473,13 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										String other;
-										other = "" + myVar + "";
-									}
+
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        String other;
+								        other = "" + myVar + "";
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1485,13 +1488,14 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								abstract class MyClass {
-									void myMethod() {
-										String myVar = null;
-										myVar = "abc";
-										call(myVar);
-									}
 
-									abstract void call(String foo);
+								    void myMethod() {
+								        String myVar = null;
+								        myVar = "abc";
+								        call(myVar);
+								    }
+
+								    abstract void call(String foo);
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1506,18 +1510,19 @@ public abstract class RefactorerTest {
 				new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										boolean b = true;
-										String myVar = null;
-										if (b) {
-											System.out.println(b);
-										} else if (true) {
-											System.out.println("true");
-										} else {
-											System.out.println("else");
-										}
-										System.out.println(myVar);
-									}
+
+								    void myMethod() {
+								        boolean b = true;
+								        String myVar = null;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								        System.out.println(myVar);
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1526,19 +1531,20 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										boolean b = true;
-										if (b) {
-											String myVar = null;
-											System.out.println(b);
-										} else if (true) {
-											String myOtherVar = null;
-											System.out.println("true");
-										} else {
-											String myVar = null;
-											System.out.println("else");
-										}
-									}
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            String myVar = null;
+								            System.out.println(b);
+								        } else if (true) {
+								            String myOtherVar = null;
+								            System.out.println("true");
+								        } else {
+								            String myVar = null;
+								            System.out.println("else");
+								        }
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1547,18 +1553,19 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										boolean b = true;
-										if (b) {
-											System.out.println(b);
-										} else if (true) {
-											System.out.println("true");
-										} else {
-											System.out.println("else");
-										}
-										String myVar = null;
-										System.out.println(myVar);
-									}
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								        } else if (true) {
+								            System.out.println("true");
+								        } else {
+								            System.out.println("else");
+								        }
+								        String myVar = null;
+								        System.out.println(myVar);
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1567,19 +1574,20 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										boolean b = true;
-										if (b) {
-											System.out.println(b);
-											String myVar = null;
-										} else if (true) {
-											System.out.println(true);
-											String myOtherVar = null;
-										} else {
-											System.out.println("else");
-											String myVar = null;
-										}
-									}
+
+								    void myMethod() {
+								        boolean b = true;
+								        if (b) {
+								            System.out.println(b);
+								            String myVar = null;
+								        } else if (true) {
+								            System.out.println(true);
+								            String myOtherVar = null;
+								        } else {
+								            System.out.println("else");
+								            String myVar = null;
+								        }
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1588,11 +1596,14 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									static String myVar = null;
-									void methodA() {
-									}
-									void methodB() {
-									}
+
+								    static String myVar = null;
+
+								    void methodA() {
+								    }
+
+								    void methodB() {
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").field("myVar").distributeToMethods(), //
@@ -1600,12 +1611,14 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									void methodA() {
-										String myVar = null;
-									}
-									void methodB() {
-										String myOtherVar = null;
-									}
+
+								    void methodA() {
+								        String myVar = null;
+								    }
+
+								    void methodB() {
+								        String myOtherVar = null;
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").factorFromMethods(), //
@@ -1613,7 +1626,8 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									String myVar = null;
+
+								    String myVar = null;
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").field("myVar").distributeToInstances(), //
@@ -1621,6 +1635,7 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
+
 								    static String myVar = null;
 								}
 								""", //
@@ -1635,9 +1650,10 @@ public abstract class RefactorerTest {
 				new FailureCase(//
 						"""
 								class MyClass {
-									void myMethod() {
-										String myVar = null;
-									}
+
+								    void myMethod() {
+								        String myVar = null;
+								    }
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
@@ -1646,7 +1662,8 @@ public abstract class RefactorerTest {
 				), new FailureCase(//
 						"""
 								class MyClass {
-									public String myVar = null;
+
+								    public String myVar = null;
 								}
 								""", //
 						source -> source.defaultPackage().clazz("MyClass").field("myVar").increaseScope(),
@@ -1659,25 +1676,58 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_SplitJoin() {
 		return Stream.of(//
 				new FailureCase(//
-						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myParam;
+								        myParam = null;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).splitDeclaration(), //
 						new IllegalStateException("No assignment to split on myParam declaration")//
 				), //
 				new FailureCase(//
-						"class MyClass{void myMethod(){String myParam = null;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myParam = null;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).joinDeclaration(), //
 						new IllegalStateException("myParam declaration already assigns a value")//
 				), //
 				new FailureCase(//
-						"class MyClass{void myMethod(){String myParam;String foo = null;myParam = null;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myParam;
+								        String foo = null;
+								        myParam = null;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).joinDeclaration(), //
 						new IllegalStateException("No myParam assignment just after its declaration")//
 				), //
 				new FailureCase(//
-						"class MyClass{void myMethod(String foo){String myParam;foo = null;myParam = null;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod(String foo) {
+								        String myParam;
+								        foo = null;
+								        myParam = null;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String"))
 								.variable("myParam", 0).joinDeclaration(), //
 						new IllegalStateException("No myParam assignment just after its declaration")//
@@ -1688,25 +1738,49 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Parameter() {
 		return Stream.of(//
 				new FailureCase(//
-						"interface MyInt{void myMethod();}", //
+						"""
+								interface MyInt {
+
+								    void myMethod();
+								}
+								""", //
 						source -> source.defaultPackage().interf("MyInt").method("myMethod", emptyList())
 								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				), //
 				new FailureCase(//
-						"interface MyInt{void myMethod(boolean myParam);}", //
+						"""
+								interface MyInt {
+
+								    void myMethod(boolean myParam);
+								}
+								""", //
 						source -> source.defaultPackage().interf("MyInt").method("myMethod", List.of("boolean"))
 								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				), //
 				new FailureCase(//
-						"class MyClass{void myMethod(){boolean myVar = true;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        boolean myVar = true;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
 				), //
 				new FailureCase(//
-						"class MyClass{void myMethod(boolean myParam){myParam = true;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod(boolean myParam) {
+								        myParam = true;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("boolean"))
 								.parameter("x"), //
 						new NoSuchElementException("No parameter x")//
@@ -1718,7 +1792,14 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Variable() {
 		return Stream.of(//
 				new FailureCase(//
-						"class MyClass{void myMethod(){String myVar = null;}}", //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								        String myVar = null;
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList()).variable("x",
 								0), //
 						new NoSuchElementException("No variable x #0")//
@@ -1729,7 +1810,13 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Method() {
 		return Stream.of(//
 				new FailureCase(//
-						"class MyClass{void myMethod(){}}", //
+						"""
+								class MyClass {
+
+								    void myMethod() {
+								    }
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").method("x", emptyList()), //
 						new NoSuchElementException("No method x()")//
 				) //
@@ -1739,7 +1826,12 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Field() {
 		return Stream.of(//
 				new FailureCase(//
-						"class MyClass{String myField;}", //
+						"""
+								class MyClass {
+
+								    String myField;
+								}
+								""", //
 						source -> source.defaultPackage().clazz("MyClass").field("x"), //
 						new NoSuchElementException("No field x")//
 				) //
@@ -1749,17 +1841,26 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Record() {
 		return Stream.of(//
 				new FailureCase(//
-						"class Foo{}", //
+						"""
+								class Foo {
+								}
+								""", //
 						source -> source.defaultPackage().record("Foo"), //
 						new NoSuchElementException("No record Foo")//
 				), //
 				new FailureCase(//
-						"interface Foo{}", //
+						"""
+								interface Foo {
+								}
+								""", //
 						source -> source.defaultPackage().record("Foo"), //
 						new NoSuchElementException("No record Foo")//
 				), //
 				new FailureCase(//
-						"record Foo(){}", //
+						"""
+								record Foo() {
+								}
+								""", //
 						source -> source.defaultPackage().record("X"), //
 						new NoSuchElementException("No record X")//
 				)//
@@ -1769,17 +1870,26 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Interface() {
 		return Stream.of(//
 				new FailureCase(//
-						"class Foo{}", //
+						"""
+								class Foo {
+								}
+								""", //
 						source -> source.defaultPackage().interf("Foo"), //
 						new NoSuchElementException("No interface Foo")//
 				), //
 				new FailureCase(//
-						"interface Foo{}", //
+						"""
+								interface Foo {
+								}
+								""", //
 						source -> source.defaultPackage().interf("X"), //
 						new NoSuchElementException("No interface X")//
 				), //
 				new FailureCase(//
-						"record Foo(){}", //
+						"""
+								record Foo() {
+								}
+								""", //
 						source -> source.defaultPackage().interf("Foo"), //
 						new NoSuchElementException("No interface Foo")//
 				)//
@@ -1789,21 +1899,72 @@ public abstract class RefactorerTest {
 	private static Stream<FailureCase> testCodeRefactoringFailure_Class() {
 		return Stream.of(//
 				new FailureCase(//
-						"class Foo{}", //
+						"""
+								class Foo {
+								}
+								""", //
 						source -> source.defaultPackage().clazz("X"), //
 						new NoSuchElementException("No class X")//
 				), //
 				new FailureCase(//
-						"interface Foo{}", //
+						"""
+								interface Foo {
+								}
+								""", //
 						source -> source.defaultPackage().clazz("Foo"), //
 						new NoSuchElementException("No class Foo")//
 				), //
 				new FailureCase(//
-						"record Foo(){}", //
+						"""
+								record Foo() {
+								}
+								""", //
 						source -> source.defaultPackage().clazz("Foo"), //
 						new NoSuchElementException("No class Foo")//
 				)//
 		);
+	}
+
+	record FailurePreservationCase(String code, Consumer<Code.Source> refactoring,
+			RuntimeException instanciationException) {
+		FailurePreservationCase(FailureCase failureCase) {
+			this(failureCase.code, failureCase.refactoring, failureCase.instanciationException);
+		}
+
+		@Override
+		public String toString() {
+			return reduce(code) + " > " + stringOf(refactoring);
+		}
+	}
+
+	@ParameterizedTest
+	@MethodSource
+	public void testCodeRefactoringFailurePreservesCode(FailurePreservationCase failurePreservationCase) {
+		try {
+			var code = failurePreservationCase.code();
+			var refactorerExecutor = failurePreservationCase.refactoring();
+
+			// GIVEN
+			Refactorer.ForCode refactorer = parseCode(code);
+
+			// WHEN
+			try {
+				refactorerExecutor.accept(refactorer.source());
+				throw new IllegalStateException("Nothing thrown");
+			} catch (Throwable cause) {
+				// Occur but ignore
+			}
+
+			// THEN
+			assertThat(refactorer.code(), is(code));
+		} catch (RuntimeException | AssertionError cause) {
+			cause.addSuppressed(failurePreservationCase.instanciationException());
+			throw cause;
+		}
+	}
+
+	public static Stream<FailurePreservationCase> testCodeRefactoringFailurePreservesCode() {
+		return testCodeRefactoringFailure().map(FailurePreservationCase::new);
 	}
 
 	private static String stringOf(Consumer<Code.Source> refactoring) {
