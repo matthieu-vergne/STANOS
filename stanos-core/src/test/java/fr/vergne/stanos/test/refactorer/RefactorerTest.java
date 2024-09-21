@@ -733,13 +733,13 @@ public abstract class RefactorerTest {
 						"class MyClass{void myMethod(){String myParam = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).splitDeclaration(), //
-						"class MyClass {\r\n\r\n    void myMethod() {\r\n        String myParam;\r\n        myParam = null;\r\n    }\r\n}\r\n"//
+						"class MyClass {\n\n    void myMethod() {\n        String myParam;\n        myParam = null;\n    }\n}\n"//
 				), //
 				new SuccessCase(//
 						"class MyClass{void myMethod(){String myParam;myParam = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myParam", 0).joinDeclaration(), //
-						"class MyClass {\r\n\r\n    void myMethod() {\r\n        String myParam = null;\r\n    }\r\n}\r\n"//
+						"class MyClass {\n\n    void myMethod() {\n        String myParam = null;\n    }\n}\n"//
 				), //
 				new SuccessCase(//
 						"""
@@ -790,7 +790,7 @@ public abstract class RefactorerTest {
 						"class MyClass{void myMethod(String myParam){myParam = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", List.of("String"))
 								.parameter("myParam").rename("foo"), //
-						"class MyClass {\r\n\r\n    void myMethod(String foo) {\r\n        foo = null;\r\n    }\r\n}\r\n"//
+						"class MyClass {\n\n    void myMethod(String foo) {\n        foo = null;\n    }\n}\n"//
 				), //
 				new SuccessCase(//
 						"""
@@ -989,7 +989,7 @@ public abstract class RefactorerTest {
 						"class MyClass{void myMethod(){String myVar = null;}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.variable("myVar", 0).rename("foo"), //
-						"class MyClass {\r\n\r\n    void myMethod() {\r\n        String foo = null;\r\n    }\r\n}\r\n"//
+						"class MyClass {\n\n    void myMethod() {\n        String foo = null;\n    }\n}\n"//
 				), //
 				new SuccessCase(//
 						"""
@@ -1337,7 +1337,7 @@ public abstract class RefactorerTest {
 						"class MyClass{void myMethod(){}}", //
 						source -> source.defaultPackage().clazz("MyClass").method("myMethod", emptyList())
 								.rename("foo"), //
-						"class MyClass {\r\n\r\n    void foo() {\r\n    }\r\n}\r\n"//
+						"class MyClass {\n\n    void foo() {\n    }\n}\n"//
 				)//
 		);
 	}
@@ -1347,7 +1347,7 @@ public abstract class RefactorerTest {
 				new SuccessCase(//
 						"class MyClass{String myField;}", //
 						source -> source.defaultPackage().clazz("MyClass").field("myField").rename("foo"), //
-						"class MyClass {\r\n\r\n    String foo;\r\n}\r\n"//
+						"class MyClass {\n\n    String foo;\n}\n"//
 				)//
 		);
 	}
@@ -1357,7 +1357,7 @@ public abstract class RefactorerTest {
 				new SuccessCase(//
 						"record MyRecord(){}", //
 						source -> source.defaultPackage().record("MyRecord").rename("Foo"), //
-						"record Foo() {\r\n}\r\n"//
+						"record Foo() {\n}\n"//
 				)//
 		);
 	}
@@ -1367,7 +1367,7 @@ public abstract class RefactorerTest {
 				new SuccessCase(//
 						"interface MyInt{}", //
 						source -> source.defaultPackage().interf("MyInt").rename("Foo"), //
-						"interface Foo {\r\n}\r\n"//
+						"interface Foo {\n}\n"//
 				)//
 		);
 	}
@@ -1377,7 +1377,7 @@ public abstract class RefactorerTest {
 				new SuccessCase(//
 						"class MyClass{}", //
 						source -> source.defaultPackage().clazz("MyClass").rename("Foo"), //
-						"class Foo {\r\n}\r\n"//
+						"class Foo {\n}\n"//
 				)//
 		);
 	}
