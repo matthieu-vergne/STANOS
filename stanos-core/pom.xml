@@ -17,7 +17,7 @@
 	<properties>
 		<junit-jupiter.version>5.6.0</junit-jupiter.version>
 		<hamcrest.version>2.2</hamcrest.version>
-		<javaparser.version>3.25.11-SNAPSHOT</javaparser.version>
+		<javaparser.version>3.28.2</javaparser.version>
 		<spoon.version>11.0.1-beta-4</spoon.version>
 		<surefire.version>3.2.5</surefire.version>
 	</properties>
