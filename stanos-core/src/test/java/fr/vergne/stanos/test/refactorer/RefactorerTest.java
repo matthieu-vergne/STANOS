@@ -21,7 +21,9 @@ import fr.vergne.stanos.core.refactorer.Code;
 import fr.vergne.stanos.core.refactorer.Component;
 import fr.vergne.stanos.core.refactorer.Refactorer;
 
-// TODO Fix formatting of expected codes in success cases
+// TODO Remove forced formatting: test cases with \n in result should see them removed
+// TODO Check compilable initial code leads to compilable resulting code after success
+// TODO Extract/inline method
 public abstract class RefactorerTest {
 	protected abstract Refactorer.ForCode parseCode(String code);
 
